@@ -21,6 +21,7 @@ import { initSync, onSyncStatusChange, syncNow, cloudSignIn, cloudSignUp, cloudS
 import { estimateMeal, saveMeal, renderMealTracking, syncMealsToDailyNutrition, setupMealEventDelegation } from "./render-meals.js";
 import { setupNavDrawer, updateMobilePageTitle } from "./nav-drawer.js";
 import { renderAllVisuals, setupVisualsEventDelegation } from "./render-visuals.js";
+import { setupMetricInfoDelegation } from "./metric-info.js";
 
 export function refreshAll() {
   const data = getData();
@@ -148,6 +149,7 @@ setupDeleteDelegation();
 setupMealEventDelegation();
 setupTrainEventDelegation();
 setupVisualsEventDelegation();
+setupMetricInfoDelegation();
 refreshAll();
 renderHistoricalImport();
 

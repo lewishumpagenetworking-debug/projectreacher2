@@ -1,6 +1,7 @@
 import { $, esc } from "./dom.js";
 import { recommendProgression, getExerciseHistory, localExerciseAdvice } from "./calculations.js";
 import { getData, saveData, uid } from "./data.js";
+import { metricLabel } from "./metric-info.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -62,9 +63,9 @@ function renderGuideContent(def) {
     </div>
 
     <div class="form-grid">
-      <label>Range of Motion 1-5<input class="romq" type="number" min="1" max="5"></label>
-      <label>Tempo Control 1-5<input class="tempoq" type="number" min="1" max="5"></label>
-      <label>Pain/Discomfort<input class="painflag" type="checkbox"></label>
+      ${metricLabel("rom", "ROM 1-5", `<input class="romq" type="number" min="1" max="5">`)}
+      ${metricLabel("tempo", "Tempo 1-5", `<input class="tempoq" type="number" min="1" max="5">`)}
+      ${metricLabel("pain", "Pain / Discomfort", `<input class="painflag" type="checkbox">`)}
       <label>Form Note<input class="formnote" placeholder="quick note"></label>
     </div>
 
@@ -100,19 +101,19 @@ export function renderWorkoutForm(data) {
       </div>
       <div class="set-row">
         <label>Warm-up<input class="warmup" placeholder="Optional"></label>
-        <label>Set 1 Weight<input class="set1w" type="number" step="0.5" placeholder="kg"></label>
-        <label>Set 1 Reps<input class="set1r" type="number" placeholder="reps"></label>
-        <label>Set 1 RIR<input class="set1rir" type="number" min="0" max="5" placeholder="~1 for compounds"></label>
-        <label>Set 2 Weight<input class="set2w" type="number" step="0.5" placeholder="kg"></label>
-        <label>Set 2 Reps<input class="set2r" type="number" placeholder="reps"></label>
-        <label>Set 2 RIR<input class="set2rir" type="number" min="0" max="5" placeholder="0 = failure"></label>
-        <label>Optional Set 3 Weight<input class="set3w" type="number" step="0.5" placeholder="kg"></label>
-        <label>Optional Set 3 Reps<input class="set3r" type="number" placeholder="reps"></label>
-        <label>RPE<input class="rpe" type="number" min="1" max="10"></label>
+        ${metricLabel("weight", "Set 1 Weight", `<input class="set1w" type="number" step="0.5" placeholder="kg">`)}
+        ${metricLabel("reps", "Set 1 Reps", `<input class="set1r" type="number" placeholder="reps">`)}
+        ${metricLabel("rir", "Set 1 RIR", `<input class="set1rir" type="number" min="0" max="5" placeholder="~1 for compounds">`)}
+        ${metricLabel("weight", "Set 2 Weight", `<input class="set2w" type="number" step="0.5" placeholder="kg">`)}
+        ${metricLabel("reps", "Set 2 Reps", `<input class="set2r" type="number" placeholder="reps">`)}
+        ${metricLabel("rir", "Set 2 RIR", `<input class="set2rir" type="number" min="0" max="5" placeholder="0 = failure">`)}
+        ${metricLabel("weight", "Optional Set 3 Weight", `<input class="set3w" type="number" step="0.5" placeholder="kg">`)}
+        ${metricLabel("reps", "Optional Set 3 Reps", `<input class="set3r" type="number" placeholder="reps">`)}
+        ${metricLabel("rpe", "RPE", `<input class="rpe" type="number" min="1" max="10">`)}
         <label>Technical Failure Reached<input class="techfail" type="checkbox"></label>
-        <label>Form Quality 1-5<input class="formq" type="number" min="1" max="5"></label>
-        <label>Target Muscle Connection 1-5<input class="mmc" type="number" min="1" max="5"></label>
-        <label>Notes<input class="exnotes" placeholder="form / machine / pain"></label>
+        ${metricLabel("formQuality", "Form Quality 1-5", `<input class="formq" type="number" min="1" max="5">`)}
+        ${metricLabel("targetMuscle", "Target Muscle Connection 1-5", `<input class="mmc" type="number" min="1" max="5">`)}
+        ${metricLabel("notes", "Notes", `<input class="exnotes" placeholder="form / machine / pain">`)}
       </div>
       <div class="form-guide" ${isExpanded ? "" : "hidden"}>
         ${renderGuideContent(exerciseDef)}

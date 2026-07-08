@@ -420,3 +420,33 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 }
 .visual-caption { font-style: italic; color: var(--text); font-size: 14px; margin: 0 0 10px; }
 .visual-controls .visual-url-input { margin-bottom: 8px; }
+
+/* ---- Expandable metric field explanations ---- */
+.metric-label-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  min-height: 32px;
+  padding: 4px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.metric-label-text { color: var(--muted); font-size: 13px; }
+.metric-chevron {
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.metric-explanation {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  background: #0a101a;
+  border-left: 2px solid var(--accent);
+  padding: 6px 8px;
+  margin: 4px 0 6px;
+  border-radius: 0 6px 6px 0;
+}
+.metric-explanation[hidden] { display: none; }
