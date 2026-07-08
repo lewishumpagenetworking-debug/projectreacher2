@@ -58,7 +58,9 @@ function emptyData() {
     prs: structuredClone(DEFAULT_PRS),
     monthlyReviews: [],
     motivationalVisuals: [],
-    historical: legacyHistoricalData
+    historical: legacyHistoricalData,
+    libraryFavorites: [],
+    libraryRecentlyViewed: []
   };
 }
 
@@ -170,6 +172,9 @@ export function migrateData() {
 
   if (!data.supplements || !data.supplements.length) { data.supplements = structuredClone(DEFAULT_SUPPLEMENTS); changed = true; }
   if (!data.prs || !data.prs.length) { data.prs = structuredClone(DEFAULT_PRS); changed = true; }
+
+  if (!Array.isArray(data.libraryFavorites)) { data.libraryFavorites = []; changed = true; }
+  if (!Array.isArray(data.libraryRecentlyViewed)) { data.libraryRecentlyViewed = []; changed = true; }
 
   if (data.schemaVersion !== SCHEMA_VERSION) {
     data.schemaVersion = SCHEMA_VERSION;
