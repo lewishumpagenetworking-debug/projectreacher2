@@ -87,13 +87,16 @@ export function renderWorkoutForm(data) {
 
     return `
     <div class="exercise" data-exercise="${esc(x.name)}">
-      <div class="exercise-header" data-toggle-guide="${esc(x.name)}">
-        <div>
+      <div class="exercise-header">
+        <div class="exercise-header-info" data-toggle-guide="${esc(x.name)}">
           <h3>${i + 1}. ${esc(x.name)}</h3>
           <div class="small">Target: ${esc(x.repRange)} · Last: ${formatSet(history.lastSession)} · Best: ${formatSet(history.previousBest)}</div>
           ${recBadge ? `<div class="badge-row">${recBadge}</div>` : ""}
         </div>
-        <button type="button" class="chevron-btn">${isExpanded ? "▴ Form" : "▾ Form"}</button>
+        <button type="button" class="technique-btn" data-toggle-guide="${esc(x.name)}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? "Hide" : "See"} technique guide for ${esc(x.name)}">
+          <span class="technique-btn-icon">${isExpanded ? "▴" : "🎯"}</span>
+          <span class="technique-btn-label">${isExpanded ? "Hide Technique" : "See Technique"}</span>
+        </button>
       </div>
       <div class="set-row">
         <label>Warm-up<input class="warmup" placeholder="Optional"></label>
@@ -174,12 +177,18 @@ export function saveWorkout() {
 function handleToggleGuide(toggle) {
   const card = toggle.closest(".exercise");
   const guide = card?.querySelector(".form-guide");
-  const chevronBtn = card?.querySelector(".chevron-btn");
+  const btn = card?.querySelector(".technique-btn");
   if (!guide) return;
   guide.hidden = !guide.hidden;
   const name = toggle.dataset.toggleGuide;
-  if (guide.hidden) expandedExercises.delete(name); else expandedExercises.add(name);
-  if (chevronBtn) chevronBtn.textContent = guide.hidden ? "▾ Form" : "▴ Form";
+  const isExpanded = !guide.hidden;
+  if (isExpanded) expandedExercises.add(name); else expandedExercises.delete(name);
+  if (btn) {
+    btn.setAttribute("aria-expanded", String(isExpanded));
+    btn.setAttribute("aria-label", `${isExpanded ? "Hide" : "See"} technique guide for ${name}`);
+    btn.querySelector(".technique-btn-icon").textContent = isExpanded ? "▴" : "🎯";
+    btn.querySelector(".technique-btn-label").textContent = isExpanded ? "Hide Technique" : "See Technique";
+  }
 }
 
 function handleAskAI(btn) {
