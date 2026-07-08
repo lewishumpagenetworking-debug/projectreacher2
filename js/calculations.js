@@ -1,5 +1,6 @@
 // Pure calculation utilities. No DOM access, no storage access — easy to reason about and reuse.
 import { MUSCLE_GROUP_MAP, PRIORITY_MUSCLES } from "./program.js";
+import { parseLogDate, isSameWeek } from "./dates.js";
 
 export function average(nums) {
   const valid = nums.filter(n => typeof n === "number" && !Number.isNaN(n));
@@ -9,25 +10,27 @@ export function average(nums) {
 
 /** Rolling 7-day average of {date, value} entries, evaluated as of the newest entry's date. */
 export function sevenDayAverage(entries, valueKey = "value") {
-  if (!entries.length) return null;
-  const sorted = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
-  const last = new Date(sorted[sorted.length - 1].date);
+  const dated = entries.map(e => ({ e, d: parseLogDate(e.date) })).filter(x => x.d);
+  if (!dated.length) return null;
+  const sorted = dated.sort((a, b) => a.d - b.d);
+  const last = sorted[sorted.length - 1].d;
   const windowStart = new Date(last);
   windowStart.setDate(windowStart.getDate() - 6);
-  const inWindow = sorted.filter(e => new Date(e.date) >= windowStart && new Date(e.date) <= last);
-  return average(inWindow.map(e => Number(e[valueKey])));
+  const inWindow = sorted.filter(x => x.d >= windowStart && x.d <= last);
+  return average(inWindow.map(x => Number(x.e[valueKey])));
 }
 
 /** kg/week rate of gain, comparing 7-day average now vs. 7-day average ~7 days ago. */
 export function weeklyRateOfGain(bodyweightLogs) {
-  if (bodyweightLogs.length < 2) return null;
-  const sorted = [...bodyweightLogs].sort((a, b) => new Date(a.date) - new Date(b.date));
-  const last = new Date(sorted[sorted.length - 1].date);
+  const dated = bodyweightLogs.map(e => ({ e, d: parseLogDate(e.date) })).filter(x => x.d);
+  if (dated.length < 2) return null;
+  const sorted = dated.sort((a, b) => a.d - b.d);
+  const last = sorted[sorted.length - 1].d;
   const prevWindowEnd = new Date(last);
   prevWindowEnd.setDate(prevWindowEnd.getDate() - 7);
 
-  const nowAvg = sevenDayAverage(sorted, "morningBodyweight");
-  const priorEntries = sorted.filter(e => new Date(e.date) <= prevWindowEnd);
+  const nowAvg = sevenDayAverage(sorted.map(x => x.e), "morningBodyweight");
+  const priorEntries = sorted.filter(x => x.d <= prevWindowEnd).map(x => x.e);
   const priorAvg = priorEntries.length ? sevenDayAverage(priorEntries, "morningBodyweight") : null;
   if (nowAvg == null || priorAvg == null) return null;
   return nowAvg - priorAvg;
@@ -131,18 +134,15 @@ export function detectFatigueFlag(sessionsForExercise, exerciseDef, lookback = 3
   return belowRange.length >= 2;
 }
 
-/** Weekly hard-set volume by muscle group, from workouts logged in the last 7 days. */
-export function weeklyVolumeByMuscleGroup(workouts, exercises) {
+/** Weekly hard-set volume by muscle group, from workouts logged in the current Monday-Sunday week. */
+export function weeklyVolumeByMuscleGroup(workouts, exercises, referenceDate = new Date()) {
   const byName = Object.fromEntries(exercises.map(e => [e.name, e]));
-  const now = new Date();
-  const weekAgo = new Date(now);
-  weekAgo.setDate(weekAgo.getDate() - 7);
 
   const totals = {};
   workouts
     .filter(w => {
-      const d = new Date(w.date);
-      return !Number.isNaN(d.getTime()) && d >= weekAgo && d <= now;
+      const d = parseLogDate(w.date);
+      return d && isSameWeek(d, referenceDate);
     })
     .forEach(w => {
       (w.exercises || []).forEach(e => {
@@ -158,6 +158,14 @@ export function weeklyVolumeByMuscleGroup(workouts, exercises) {
       });
     });
   return totals;
+}
+
+/** Workouts whose (correctly-parsed) date falls in the same Monday-Sunday week as referenceDate. */
+export function workoutsInWeek(workouts, referenceDate = new Date()) {
+  return workouts.filter(w => {
+    const d = parseLogDate(w.date);
+    return d && isSameWeek(d, referenceDate);
+  });
 }
 
 export function volumeStatus(group, sets) {

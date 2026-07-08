@@ -1,7 +1,8 @@
 import { $, esc, fmt } from "./dom.js";
 import {
   sevenDayAverage, weeklyRateOfGain, gainRateStatus, macroTargets, perKg,
-  suggestedCalorieAdjustment, ratios, weeklyVolumeByMuscleGroup, volumeStatus, recoveryWarnings
+  suggestedCalorieAdjustment, ratios, weeklyVolumeByMuscleGroup, volumeStatus, recoveryWarnings,
+  workoutsInWeek
 } from "./calculations.js";
 import { DEFAULT_TRAINING_PROGRAM, MUSCLE_GROUPS } from "./program.js";
 
@@ -29,6 +30,7 @@ export function renderDashboard(data) {
   renderNutritionCards(data, currentWeight);
   renderRecoveryCards(data);
   renderScore(data, currentWeight);
+  renderWeekSessions(data);
   renderNextWorkout(data);
   renderLastWorkout(data);
   renderIncreaseNextWeek(data);
@@ -84,8 +86,7 @@ function renderRecoveryCards(data) {
 function renderScore(data, currentWeight) {
   const latestNutrition = data.nutritionLogs.at(-1);
   const latestRecovery = data.recoveryLogs.at(-1);
-  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-  const sessionsThisWeek = data.workouts.filter(w => new Date(w.date) >= weekAgo).length;
+  const sessionsThisWeek = workoutsInWeek(data.workouts).length;
   if (!latestNutrition && !latestRecovery && !sessionsThisWeek) {
     $("score").textContent = "--/100";
     return;
@@ -97,6 +98,21 @@ function renderScore(data, currentWeight) {
   score += Math.min(25, ((latestRecovery?.recoveryScore || 0) / 5) * 25);
   score += Math.min(25, ((latestRecovery?.energyScore || 0) / 5) * 25);
   $("score").textContent = `${Math.round(score)}/100`;
+}
+
+function renderWeekSessions(data) {
+  const el = $("weekSessions");
+  if (!el) return;
+  const days = Object.keys(data.trainingProgram || DEFAULT_TRAINING_PROGRAM);
+  const loggedThisWeek = workoutsInWeek(data.workouts);
+  el.innerHTML = days.map(day => {
+    const session = loggedThisWeek.find(w => (w.day || w.programDay) === day);
+    return `<div class="checklist-row">
+      <span>${session ? "✅" : "⬜"}</span>
+      <span>${esc(day)}</span>
+      <span class="badge ${session ? 'status-on-target' : ''}">${session ? esc(session.date) : "Not logged"}</span>
+    </div>`;
+  }).join("");
 }
 
 function renderNextWorkout(data) {
