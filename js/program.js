@@ -61,6 +61,330 @@ export const EXERCISE_DATABASE = [
   exercise({ name: "Seated Calf Raise", category: "isolation", primaryMuscle: "calves", movementPattern: "plantarflexion", equipment: "machine", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true })
 ];
 
+// Form guidance content, keyed by exercise id. Merged onto EXERCISE_DATABASE entries
+// below — additive only, never replaces an existing field on an exercise object.
+const EXERCISE_GUIDES = {
+  hack_squat: {
+    targetMuscleCue: "Quads, glutes secondary",
+    setupCues: ["Back fixed against the pad", "Feet in the same position every session"],
+    executionCues: ["Descend to the deepest safe range without hips lifting off the pad", "Drive through the midfoot"],
+    tempoDescription: "3 second descent, controlled drive up",
+    eccentricSeconds: 3, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Deepest safe range without hips lifting off the pad",
+    validRepCriteria: ["Depth matches previous sessions", "No bounce out of the bottom", "No aggressive lockout"],
+    commonMistakes: ["Cutting depth", "Bouncing out of the bottom", "Knees collapsing inward", "Changing foot position to fake progression"],
+    safetyNotes: ["Keep knees tracking with toes", "Stop if depth causes lower-back rounding"],
+    progressionCriteria: ["Both sets hit top of rep range", "Same depth as last session", "Form quality 4+"],
+    todayFocusCue: "Same depth as last session"
+  },
+  romanian_deadlift: {
+    targetMuscleCue: "Hamstrings and glutes",
+    setupCues: ["Soft knees", "Lats tight", "Bar/weights close to the body"],
+    executionCues: ["Hinge hips back until hamstrings are fully stretched", "Keep spine neutral, no rounding"],
+    tempoDescription: "3-4 second lowering, controlled hip drive up",
+    eccentricSeconds: 4, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Hamstrings fully stretched without spinal rounding",
+    validRepCriteria: ["Neutral spine throughout", "Hamstrings loaded, not a squat pattern"],
+    commonMistakes: ["Bending the knees too much", "Rounding the back", "Letting the weight drift forward"],
+    safetyNotes: ["Stop the descent the moment the lower back wants to round"],
+    progressionCriteria: ["Both sets hit top of rep range", "Neutral spine maintained", "Form quality 4+"],
+    todayFocusCue: "Hamstring stretch, not lower-back fatigue"
+  },
+  incline_db_press: {
+    targetMuscleCue: "Upper chest",
+    setupCues: ["Shoulder blades retracted", "Slight arch", "Consistent bench angle"],
+    executionCues: ["Lower dumbbells under control", "Elbows 30-60 degrees from torso", "Press up and slightly in"],
+    tempoDescription: "2-3 second descent, controlled press",
+    eccentricSeconds: 3, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Same depth every rep, no shoulder takeover",
+    validRepCriteria: ["Same depth as previous reps", "Stable scapula throughout"],
+    commonMistakes: ["Turning it into a shoulder press", "Cutting the depth short", "Bouncing at the bottom"],
+    safetyNotes: ["Stop if front-of-shoulder pain appears at the bottom position"],
+    progressionCriteria: ["Both sets hit top of rep range", "Stable scapula", "Form quality 4+"],
+    todayFocusCue: "Upper chest stretch and press path"
+  },
+  smith_incline_press: {
+    targetMuscleCue: "Upper chest",
+    setupCues: ["Consistent bench angle", "Bar path to the upper chest"],
+    executionCues: ["Lower under control", "Press without shrugging"],
+    tempoDescription: "Controlled 2-3 second descent",
+    eccentricSeconds: 3, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Consistent depth, chest stays the prime mover",
+    validRepCriteria: ["Chest remains the prime mover", "No shoulder pain", "Consistent depth"],
+    commonMistakes: ["Bench angle too steep", "Shoulders dominating the press", "Unstable setup"],
+    safetyNotes: ["Reset the bench angle if it drifted from last session"],
+    progressionCriteria: ["Both sets hit top of rep range", "Consistent depth", "Form quality 4+"],
+    todayFocusCue: "Same bench angle and bar path"
+  },
+  seated_db_shoulder_press: {
+    targetMuscleCue: "Front/side delts",
+    setupCues: ["Torso stable", "Elbows slightly forward"],
+    executionCues: ["Controlled lower", "Strong press overhead without excessive back arch"],
+    tempoDescription: "Controlled lower, strong press",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Consistent bottom position, no excessive lumbar extension",
+    validRepCriteria: ["No bouncing", "No excessive lumbar extension"],
+    commonMistakes: ["Flaring too wide", "Arching hard through the lower back", "Inconsistent lowering depth"],
+    safetyNotes: ["Stop if lower-back discomfort appears from arching"],
+    progressionCriteria: ["Both sets hit top of rep range", "Controlled bottom position", "Form quality 4+"],
+    todayFocusCue: "Controlled bottom position"
+  },
+  machine_chest_press: {
+    targetMuscleCue: "Chest, triceps",
+    setupCues: ["Seat height consistent", "Scapula stable"],
+    executionCues: ["Press through the chest without shoulders rolling forward"],
+    tempoDescription: "Controlled eccentric, strong press",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Controlled bottom position, no partial reps",
+    validRepCriteria: ["Controlled bottom", "No shoulder roll"],
+    commonMistakes: ["Seat too high or too low", "Shoulders rolling forward", "Partial reps"],
+    safetyNotes: ["Recheck seat height matches last session before loading up"],
+    progressionCriteria: ["Both sets hit top of rep range", "Stable chest pressure", "Form quality 4+"],
+    todayFocusCue: "Stable chest pressure"
+  },
+  cable_lateral_raise: {
+    targetMuscleCue: "Lateral delts",
+    setupCues: ["Slight lean if needed", "Cable positioned behind or beside the body"],
+    executionCues: ["Lead with the elbow", "Raise in the scapular plane"],
+    tempoDescription: "Controlled raise, 2-3 second lowering",
+    eccentricSeconds: 3, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Raise in the scapular plane, delt drives the movement",
+    validRepCriteria: ["Delt drives the movement", "No swinging", "Traps controlled"],
+    commonMistakes: ["Using traps to muscle the weight up", "Swinging the torso", "Going too heavy to keep form"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure with control", "Form quality 4+"],
+    todayFocusCue: "Delt tension over load"
+  },
+  neutral_grip_lat_pulldown: {
+    targetMuscleCue: "Lats",
+    setupCues: ["Chest up", "Stable torso"],
+    executionCues: ["Pull elbows down toward the ribs"],
+    tempoDescription: "Controlled pull, slow return",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Full stretch at the top, no row-like swing",
+    validRepCriteria: ["Lats initiate the pull", "Full stretch at the top", "No row-like swing"],
+    commonMistakes: ["Leaning too far back", "Pulling with the biceps", "Cutting the stretch short"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets hit top of rep range", "Full stretch maintained", "Form quality 4+"],
+    todayFocusCue: "Elbows to ribs"
+  },
+  wide_grip_lat_pulldown: {
+    targetMuscleCue: "Upper lats, back width",
+    setupCues: ["Wide but comfortable grip", "Chest tall"],
+    executionCues: ["Depress the scapula first", "Pull to the upper chest"],
+    tempoDescription: "Controlled pull and return",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Controlled, no excessive torso swing",
+    validRepCriteria: ["Controlled throughout", "No excessive torso swing"],
+    commonMistakes: ["Pulling behind the neck", "Jerking the weight down", "Using momentum"],
+    safetyNotes: ["Never pull the bar behind the neck"],
+    progressionCriteria: ["Both sets hit top of rep range", "Form quality 4+"],
+    todayFocusCue: "Stretch at the top"
+  },
+  single_arm_lat_pulldown: {
+    targetMuscleCue: "Lats",
+    setupCues: ["Reach high for a full lat stretch"],
+    executionCues: ["Pull the elbow toward the hip", "Slight controlled torso rotation is fine"],
+    tempoDescription: "Controlled stretch and pull",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Clear lat stretch and contraction",
+    validRepCriteria: ["Lat stretch and contraction both clear"],
+    commonMistakes: ["Turning it into a bicep curl", "Rushing the return"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Elbow to hip"
+  },
+  chest_supported_row: {
+    targetMuscleCue: "Mid-back, lats secondary",
+    setupCues: ["Chest fixed on the pad"],
+    executionCues: ["Pull elbows back", "Squeeze the mid-back"],
+    tempoDescription: "Controlled pull, controlled eccentric",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Chest stays on the pad the entire set",
+    validRepCriteria: ["Chest stays on the pad", "No bouncing"],
+    commonMistakes: ["Shrugging", "Lifting the chest off the pad", "Using momentum"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets hit top of rep range", "Chest stayed on pad", "Form quality 4+"],
+    todayFocusCue: "Chest glued to the pad"
+  },
+  seated_cable_row: {
+    targetMuscleCue: "Back thickness",
+    setupCues: ["Neutral spine", "Chest tall"],
+    executionCues: ["Pull elbows back without excessive torso rocking"],
+    tempoDescription: "Controlled row and stretch",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Full controlled stretch forward, minimal torso movement",
+    validRepCriteria: ["Minimal torso movement", "Full controlled stretch"],
+    commonMistakes: ["Rocking back heavily", "Shrugging", "Short reps"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets hit top of rep range", "Form quality 4+"],
+    todayFocusCue: "Controlled stretch forward"
+  },
+  face_pull: {
+    targetMuscleCue: "Rear delts, upper back",
+    setupCues: ["Cable set around face height"],
+    executionCues: ["Pull toward the upper face", "Elbows high", "Rotate slightly outward"],
+    tempoDescription: "Controlled pull and return",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Rear delts/upper back doing the work, no lower-back lean",
+    validRepCriteria: ["Rear delts/upper back working", "No lower-back lean"],
+    commonMistakes: ["Pulling too low", "Leaning back", "Turning it into a row"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Elbows high"
+  },
+  rear_delt_fly: {
+    targetMuscleCue: "Rear delts",
+    setupCues: ["Slight elbow bend"],
+    executionCues: ["Move from the rear delts, not the traps"],
+    tempoDescription: "Controlled both ways",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Rear delt tension throughout, no swinging",
+    validRepCriteria: ["No swinging", "Rear delt tension"],
+    commonMistakes: ["Too much weight", "Shrugging", "Using momentum"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Rear delt isolation"
+  },
+  shrugs: {
+    targetMuscleCue: "Traps",
+    setupCues: ["Weights stable", "Torso upright"],
+    executionCues: ["Elevate shoulders straight up", "Pause", "Lower under control"],
+    tempoDescription: "Raise, pause, slow lower",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 1,
+    rangeOfMotionStandard: "Straight up elevation, pause at the top",
+    validRepCriteria: ["No leg drive", "No shoulder rolling"],
+    commonMistakes: ["Rolling the shoulders", "Bouncing", "Using the legs to help"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Pause at the top"
+  },
+  hammer_curl: {
+    targetMuscleCue: "Brachialis, biceps",
+    setupCues: ["Elbows tucked", "Wrists neutral", "Chest tall"],
+    executionCues: ["Curl without swinging", "Lower slowly"],
+    tempoDescription: "2 second curl, brief squeeze, 4 second lowering",
+    eccentricSeconds: 4, pauseBottomSeconds: 0, concentricSeconds: 2, pauseTopSeconds: 1,
+    rangeOfMotionStandard: "Full controlled lowering every rep",
+    validRepCriteria: ["No hip swing", "No torso lean-back", "Full controlled lowering"],
+    commonMistakes: ["Swinging", "Elbows drifting forward", "Dropping the eccentric"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Slow 4 second lowering"
+  },
+  ez_curl: {
+    targetMuscleCue: "Biceps",
+    setupCues: ["Elbows tucked", "Shoulders down", "Wrists comfortable on the bar"],
+    executionCues: ["Curl by bending the elbows", "Squeeze at the top", "Lower slowly"],
+    tempoDescription: "2 second curl, brief squeeze, 4 second lowering",
+    eccentricSeconds: 4, pauseBottomSeconds: 0, concentricSeconds: 2, pauseTopSeconds: 1,
+    rangeOfMotionStandard: "Full lowering every rep",
+    validRepCriteria: ["No torso swing", "Elbows controlled", "Full lowering"],
+    commonMistakes: ["Ego loading", "Leaning back", "Cutting the eccentric short"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Biceps squeeze and slow negative"
+  },
+  overhead_triceps_extension: {
+    targetMuscleCue: "Triceps, long head",
+    setupCues: ["Elbows forward/up", "Upper arms stable"],
+    executionCues: ["Lower behind the head for a deep stretch", "Extend without flaring wildly"],
+    tempoDescription: "Controlled lowering into a deep stretch, strong extension",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Deep stretch behind the head every rep",
+    validRepCriteria: ["Stretch achieved", "Upper arms stable", "No press-like movement"],
+    commonMistakes: ["Elbows flaring out", "Cutting the stretch short", "Turning it into a press"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Deep stretch maintained", "Form quality 4+"],
+    todayFocusCue: "Deep long-head stretch"
+  },
+  reverse_grip_bar_extension: {
+    targetMuscleCue: "Triceps",
+    setupCues: ["Elbows pinned", "Wrists controlled"],
+    executionCues: ["Extend down smoothly", "Squeeze triceps at the bottom"],
+    tempoDescription: "Controlled extension, slow return",
+    eccentricSeconds: null, pauseBottomSeconds: 1, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Full contraction at the bottom",
+    validRepCriteria: ["Full contraction", "No shoulder movement"],
+    commonMistakes: ["Elbows drifting", "Shoulders moving", "Wrists collapsing"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Elbow pin and contraction"
+  },
+  close_grip_chest_press: {
+    targetMuscleCue: "Chest, triceps",
+    setupCues: ["Grip/seat consistent with last session"],
+    executionCues: ["Press with elbows controlled", "Avoid shoulder roll"],
+    tempoDescription: "Controlled descent and press",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Controlled full range, no partial reps",
+    validRepCriteria: ["Controlled full range", "No shoulder discomfort"],
+    commonMistakes: ["Grip too narrow", "Shoulder dominance", "Partial reps"],
+    safetyNotes: ["Stop if shoulder discomfort appears"],
+    progressionCriteria: ["Both sets hit top of rep range", "Form quality 4+"],
+    todayFocusCue: "Triceps/chest lockout control"
+  },
+  leg_press: {
+    targetMuscleCue: "Quads, glutes",
+    setupCues: ["Feet in the same position every session"],
+    executionCues: ["Knees track with the toes", "Lower under control"],
+    tempoDescription: "Controlled descent, strong press",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Consistent depth, no hard knee lockout",
+    validRepCriteria: ["No hip tuck", "No bouncing", "No hard knee lockout"],
+    commonMistakes: ["Shallow reps", "Bouncing out of the bottom", "Knees caving in"],
+    safetyNotes: ["Never fully lock out and relax the knees under load"],
+    progressionCriteria: ["Both sets hit top of rep range", "Consistent depth", "Form quality 4+"],
+    todayFocusCue: "Consistent depth"
+  },
+  leg_curl: {
+    targetMuscleCue: "Hamstrings",
+    setupCues: ["Hips pinned to the pad"],
+    executionCues: ["Curl fully", "Squeeze the hamstrings"],
+    tempoDescription: "Curl smoothly, slow eccentric",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Hips stay down, controlled return",
+    validRepCriteria: ["Hips stay down", "Controlled return"],
+    commonMistakes: ["Hips lifting off the pad", "Jerking the weight", "Short range of motion"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Hamstring squeeze"
+  },
+  standing_calf_raise: {
+    targetMuscleCue: "Calves",
+    setupCues: ["Feet stable"],
+    executionCues: ["Full stretch at the bottom", "Full raise at the top"],
+    tempoDescription: "Pause stretched at the bottom, raise, pause at the top, controlled lower",
+    eccentricSeconds: null, pauseBottomSeconds: 1, concentricSeconds: null, pauseTopSeconds: 1,
+    rangeOfMotionStandard: "Full stretch and full raise every rep",
+    validRepCriteria: ["No bouncing", "Full range of motion"],
+    commonMistakes: ["Partial reps", "Bouncing", "Rushing the tempo"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Full range maintained", "Form quality 4+"],
+    todayFocusCue: "Pause at the stretch and the top"
+  },
+  manual_neck_isometrics: {
+    targetMuscleCue: "Neck",
+    setupCues: ["Neutral spine", "Apply gentle, even pressure"],
+    executionCues: ["Resist the pressure without jerking"],
+    tempoDescription: "20-30 second controlled holds",
+    eccentricSeconds: null, pauseBottomSeconds: null, concentricSeconds: null, pauseTopSeconds: null,
+    rangeOfMotionStandard: "Isometric — no movement, just controlled resistance",
+    validRepCriteria: ["No pain, dizziness, nerve symptoms, or headache during or after"],
+    commonMistakes: ["Applying too much pressure", "Jerking into position", "Poor neck alignment"],
+    safetyNotes: ["Stop immediately if pain, dizziness, nerve symptoms, or headache occur"],
+    progressionCriteria: ["Hold duration maintained with no symptoms"],
+    todayFocusCue: "Controlled tension only"
+  }
+};
+
+// Merge guidance onto the matching database entries — additive only, never overwrites
+// a field the exercise() factory already set (e.g. name, category, repRangeMin).
+EXERCISE_DATABASE.forEach(ex => {
+  const guide = EXERCISE_GUIDES[ex.id.replace(/^ex_/, "")];
+  if (guide) Object.assign(ex, guide);
+});
+
 function progExercise(name, reps, note) {
   return { id: eid(name), name, repRange: reps, note };
 }

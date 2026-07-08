@@ -258,3 +258,38 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .meal-filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 .meal-filter-row button { padding: 6px 10px; font-size: 12px; }
 .meal-filter-row button.active { background: var(--good); }
+
+/* ---- Expandable exercise cards (Train tab) ---- */
+.exercise-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  padding: 2px 0 8px;
+}
+.exercise-header .chevron-btn {
+  background: #202838;
+  color: var(--text);
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  font-size: 11px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.form-guide {
+  border-top: 1px dashed var(--line);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.form-guide p { margin: 6px 0; }
+.valid-rep-checklist { margin: 8px 0; }
+.valid-rep-checklist .checklist-row { grid-template-columns: auto 1fr; }
+.ai-answer {
+  background: #0a101a;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 10px;
+}
+.ai-answer p { margin: 4px 0; }

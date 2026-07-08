@@ -3,7 +3,7 @@ import { getData, migrateData, exportData, importData, deleteItem } from "./data
 import { renderDashboard } from "./render-dashboard.js";
 import {
   renderDaySelect, renderWorkoutForm, saveWorkout, renderWorkoutHistory,
-  renderMiniVolumeChart, renderHistoricalSummary, renderPrTracker
+  renderMiniVolumeChart, renderHistoricalSummary, renderPrTracker, setupTrainEventDelegation
 } from "./render-train.js";
 import {
   saveBodyweight, renderBodyweight, saveCheckin, renderCheckinHistory,
@@ -138,6 +138,7 @@ setupNav();
 setupEventListeners();
 setupDeleteDelegation();
 setupMealEventDelegation();
+setupTrainEventDelegation();
 refreshAll();
 renderHistoricalImport();
 

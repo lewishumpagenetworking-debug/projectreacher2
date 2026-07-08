@@ -148,7 +148,23 @@ export function migrateData() {
   else { data.profile = withDefaults(data.profile, DEFAULT_PROFILE); }
 
   if (!data.trainingProgram) { data.trainingProgram = structuredClone(DEFAULT_TRAINING_PROGRAM); changed = true; }
-  if (!data.exercises || !data.exercises.length) { data.exercises = structuredClone(EXERCISE_DATABASE); changed = true; }
+
+  if (!data.exercises || !data.exercises.length) {
+    data.exercises = structuredClone(EXERCISE_DATABASE);
+    changed = true;
+  } else {
+    // Backfill newly-added guide fields (form cues, tempo, etc.) onto exercises the
+    // user already has stored, without touching anything already on their record.
+    const byId = Object.fromEntries(EXERCISE_DATABASE.map(e => [e.id, e]));
+    data.exercises = data.exercises.map(ex => {
+      const dbMatch = ex.id && byId[ex.id];
+      if (!dbMatch) return ex;
+      const merged = withDefaults(ex, dbMatch);
+      if (Object.keys(merged).length !== Object.keys(ex).length) changed = true;
+      return merged;
+    });
+  }
+
   if (!data.supplements || !data.supplements.length) { data.supplements = structuredClone(DEFAULT_SUPPLEMENTS); changed = true; }
   if (!data.prs || !data.prs.length) { data.prs = structuredClone(DEFAULT_PRS); changed = true; }
 
