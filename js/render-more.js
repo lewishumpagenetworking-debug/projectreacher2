@@ -1,6 +1,7 @@
 import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
-import { average, weeklyRateOfGain, sevenDayAverage, ratios, weeklyVolumeByMuscleGroup } from "./calculations.js";
+import { average, weeklyRateOfGain, sevenDayAverage, ratios, weeklyVolumeByMuscleGroup, workoutsInWeek } from "./calculations.js";
+import { parseLogDate, isSameWeek, startOfWeek, isLegacySlashDate } from "./dates.js";
 
 export function renderProfileForm(data) {
   const p = data.profile;
@@ -40,13 +41,14 @@ export function saveProfile() {
 export function generateWeeklyCheckin() {
   const data = getData();
   const now = new Date();
-  const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
-  const inWeek = (d) => new Date(d) >= weekAgo && new Date(d) <= now;
+  const weekStart = startOfWeek(now);
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+  const inWeek = (d) => { const parsed = parseLogDate(d); return parsed && isSameWeek(parsed, now); };
 
   const bw = data.bodyweightLogs.filter(b => inWeek(b.date));
   const nut = data.nutritionLogs.filter(n => inWeek(n.date));
   const rec = data.recoveryLogs.filter(r => inWeek(r.date));
-  const sessions = data.workouts.filter(w => inWeek(w.date));
+  const sessions = workoutsInWeek(data.workouts, now);
   const increases = sessions.flatMap(w => (w.exercises || []).filter(e => e.increaseNextWeek));
 
   const weekNumber = data.checkins.filter(c => c.weekNumber != null).length + 1;
@@ -54,8 +56,8 @@ export function generateWeeklyCheckin() {
     id: uid(),
     date: now.toLocaleDateString("en-CA"),
     weekNumber,
-    startDate: weekAgo.toLocaleDateString("en-CA"),
-    endDate: now.toLocaleDateString("en-CA"),
+    startDate: weekStart.toLocaleDateString("en-CA"),
+    endDate: weekEnd.toLocaleDateString("en-CA"),
     weight: bw.at(-1)?.morningBodyweight ?? null,
     morningBodyweightAverage: average(bw.map(b => b.morningBodyweight)),
     sevenDayAverage: sevenDayAverage(bw, "morningBodyweight"),
@@ -102,7 +104,7 @@ export function generateMonthlyReview() {
   const decision = $("monthlyReviewDecision")?.value || "keep plan";
   const now = new Date();
   const monthAgo = new Date(now); monthAgo.setDate(monthAgo.getDate() - 28);
-  const inMonth = (d) => new Date(d) >= monthAgo && new Date(d) <= now;
+  const inMonth = (d) => { const parsed = parseLogDate(d); return parsed && parsed >= monthAgo && parsed <= now; };
 
   const bw = data.bodyweightLogs.filter(b => inMonth(b.date));
   const measurementsInMonth = data.measurements.filter(m => inMonth(m.date));
@@ -198,8 +200,13 @@ export function renderDataHealth(data) {
   const bytes = new Blob([JSON.stringify(data)]).size;
   const kb = (bytes / 1024).toFixed(1);
   const backups = Object.keys(localStorage).filter(k => k.startsWith("projectReacher_backup_"));
+
+  const legacyDateCollections = ["workouts", "checkins", "measurements", "bodyweightLogs", "nutritionLogs", "recoveryLogs", "stimulantLogs"];
+  const legacyDateCount = legacyDateCollections.reduce((sum, key) => sum + (data[key] || []).filter(item => isLegacySlashDate(item.date)).length, 0);
+
   el.innerHTML = `
     <p class="small">Schema version: ${data.schemaVersion} · Storage used: ~${kb}KB</p>
     <p class="small">Logged: ${data.workouts.length} workouts · ${data.bodyweightLogs.length} bodyweight entries · ${data.checkins.length} check-ins · ${data.measurements.length} measurements</p>
-    ${backups.length ? `<p class="small">${backups.length} automatic pre-migration backup(s) stored locally.</p>` : ""}`;
+    ${backups.length ? `<p class="small">${backups.length} automatic pre-migration backup(s) stored locally.</p>` : ""}
+    ${legacyDateCount ? `<p class="small">${legacyDateCount} entries use the older DD/MM/YYYY date format — these are parsed correctly by this version of the app, no action needed.</p>` : ""}`;
 }

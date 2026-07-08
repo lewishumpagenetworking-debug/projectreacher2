@@ -2,6 +2,7 @@ import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
 import { sevenDayAverage, weeklyRateOfGain, ratios } from "./calculations.js";
 import { lineChart } from "./charts.js";
+import { parseLogDate } from "./dates.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -184,7 +185,7 @@ export function renderPhotos(data) {
   const reminder = $("photoReminder");
   const last = data.progressPhotos.at(-1);
   if (reminder) {
-    const daysSince = last ? (Date.now() - new Date(last.date).getTime()) / 86400000 : Infinity;
+    const daysSince = last ? (Date.now() - (parseLogDate(last.date)?.getTime() ?? Date.now())) / 86400000 : Infinity;
     reminder.textContent = daysSince >= 28
       ? "It's been 4+ weeks since your last progress photos — time for a new set."
       : last ? `Last photo check-in ${Math.round(daysSince)} days ago.` : "No progress photos yet.";
