@@ -14,11 +14,13 @@ import { saveRecovery, renderRecoveryHistory, saveStimulants, renderStimulantHis
 import {
   renderProfileForm, saveProfile, generateWeeklyCheckin, renderWeeklyCheckinSummary,
   generateMonthlyReview, renderMonthlyReview, renderProgramEditor, renderDataHealth,
-  renderCloudStatus
+  renderCloudStatus, renderVisualModeToggle, toggleVisualMode
 } from "./render-more.js";
 import { renderHistoricalImport } from "./historical.js";
 import { initSync, onSyncStatusChange, syncNow, cloudSignIn, cloudSignUp, cloudSignOut } from "./sync.js";
 import { estimateMeal, saveMeal, renderMealTracking, syncMealsToDailyNutrition, setupMealEventDelegation } from "./render-meals.js";
+import { setupNavDrawer, updateMobilePageTitle } from "./nav-drawer.js";
+import { renderAllVisuals, setupVisualsEventDelegation } from "./render-visuals.js";
 
 export function refreshAll() {
   const data = getData();
@@ -43,6 +45,8 @@ export function refreshAll() {
   renderProgramEditor(data);
   renderDataHealth(data);
   renderMealTracking(data);
+  renderVisualModeToggle(data);
+  renderAllVisuals(data);
 }
 
 function setupNav() {
@@ -54,6 +58,7 @@ function setupNav() {
       tabs.forEach(t => t.hidden = t.dataset.tab !== target);
       document.querySelectorAll(`.nav-btn[data-tab="${target}"]`).forEach(b => b.classList.add("active"));
       document.querySelectorAll(`.nav-btn:not([data-tab="${target}"])`).forEach(b => b.classList.remove("active"));
+      updateMobilePageTitle(target);
       window.scrollTo({ top: 0, behavior: "instant" });
     });
   });
@@ -88,6 +93,7 @@ function setupEventListeners() {
   $("saveProfile").addEventListener("click", saveProfile);
   $("generateWeeklyCheckin").addEventListener("click", generateWeeklyCheckin);
   $("generateMonthlyReview").addEventListener("click", generateMonthlyReview);
+  $("visualModeToggle").addEventListener("change", toggleVisualMode);
 
   $("cloudSignIn").addEventListener("click", async () => {
     try {
@@ -109,6 +115,7 @@ function setupEventListeners() {
   $("cloudSyncNow").addEventListener("click", () => syncNow());
 
   $("exportBtn").addEventListener("click", exportData);
+  $("exportBtnDrawer").addEventListener("click", exportData);
   $("importBackup").addEventListener("change", (evt) => {
     const file = evt.target.files[0];
     if (!file) return;
@@ -135,10 +142,12 @@ function setupEventListeners() {
 
 migrateData();
 setupNav();
+setupNavDrawer();
 setupEventListeners();
 setupDeleteDelegation();
 setupMealEventDelegation();
 setupTrainEventDelegation();
+setupVisualsEventDelegation();
 refreshAll();
 renderHistoricalImport();
 

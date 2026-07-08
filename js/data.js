@@ -28,7 +28,8 @@ export const DEFAULT_PROFILE = {
   targetWeeklyGain: 0.25,
   trainingStyle: "2 hard working sets per exercise",
   sleepConstraint: "Fixed 5-6 hours/night (non-negotiable)",
-  notes: ""
+  notes: "",
+  visualModeEnabled: false
 };
 
 // Merge defaults under an existing record without ever discarding a field the user already has,
@@ -56,6 +57,7 @@ function emptyData() {
     progressPhotos: [],
     prs: structuredClone(DEFAULT_PRS),
     monthlyReviews: [],
+    motivationalVisuals: [],
     historical: legacyHistoricalData
   };
 }
@@ -106,7 +108,8 @@ export function migrateData() {
   // v1 -> v2: legacy collections got ids already; ensure every record across every
   // collection still has an id, then layer on the new optional fields additively.
   ["checkins", "measurements", "workouts", "bodyweightLogs", "nutritionLogs", "recoveryLogs",
-   "stimulantLogs", "supplementLogs", "mealLogs", "progressPhotos", "prs", "monthlyReviews"].forEach(key => {
+   "stimulantLogs", "supplementLogs", "mealLogs", "progressPhotos", "prs", "monthlyReviews",
+   "motivationalVisuals"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
