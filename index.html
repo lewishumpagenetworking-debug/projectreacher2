@@ -62,6 +62,14 @@
         <div id="nutritionRecommendation"></div>
       </section>
 
+      <section class="card">
+        <div class="section-title"><h2>Meals Today</h2><span id="dashMealStatus" class="badge"></span></div>
+        <div id="dashMealSummary"></div>
+        <div class="actions">
+          <button class="secondary" data-goto-tab="nutrition">Add Meal</button>
+        </div>
+      </section>
+
       <section class="grid stats">
         <div class="card"><span>Sleep Duration</span><strong id="dashSleep">--</strong></div>
         <div class="card"><span>Recovery Score</span><strong id="dashRecovery">--</strong></div>
@@ -260,6 +268,76 @@
 
     <!-- ================= NUTRITION ================= -->
     <section class="tab-panel" data-tab="nutrition" hidden>
+      <section class="card">
+        <h2>Log a Meal</h2>
+        <label>What did you eat? <textarea id="mealDescription" placeholder="e.g. 2 chicken breasts, rice, olive oil and Greek yogurt"></textarea></label>
+        <div class="form-grid">
+          <label>Meal Name <input id="mealName" placeholder="e.g. Lunch"></label>
+          <label>Time <input id="mealTime" type="time"></label>
+        </div>
+        <button id="estimateMealBtn">Estimate Macros</button>
+        <p class="small">Estimates come from a local food-keyword lookup built into this app, not an AI model — always check and edit before saving. See More &gt; Data Health for details.</p>
+
+        <div id="mealEstimateResult" hidden>
+          <div class="section-title"><h3>Estimated Macros</h3><span id="mealConfidencePill" class="confidence-pill"></span></div>
+          <div id="mealAssumptions" class="small"></div>
+        </div>
+
+        <div class="form-grid">
+          <label>Calories <input id="mealCalories" type="number"></label>
+          <label>Protein (g) <input id="mealProtein" type="number"></label>
+          <label>Carbs (g) <input id="mealCarbs" type="number"></label>
+          <label>Fat (g) <input id="mealFat" type="number"></label>
+          <label>Fibre (g) <input id="mealFibre" type="number"></label>
+        </div>
+        <button id="saveMealBtn">Save Meal</button>
+      </section>
+
+      <section class="card">
+        <div class="section-title"><h2>Today's Meals</h2><span id="mealDailyBadge" class="badge"></span></div>
+        <div id="mealDailyTotals"></div>
+        <div id="mealRemaining"></div>
+        <div id="todayMealLog"></div>
+      </section>
+
+      <section class="card">
+        <h2>Today's Macro Breakdown</h2>
+        <div class="macro-legend">
+          <span><i class="swatch macro-protein"></i>Protein</span>
+          <span><i class="swatch macro-carbs"></i>Carbs</span>
+          <span><i class="swatch macro-fat"></i>Fat</span>
+        </div>
+        <div id="mealDailyChart"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-title">
+          <h2>Monthly Overview</h2>
+          <select id="mealMonthSelect"></select>
+        </div>
+        <div id="monthlySummaryCards"></div>
+        <div id="monthlyCalorieChart" class="chart-box"></div>
+      </section>
+
+      <section class="card">
+        <h2>Meal History</h2>
+        <div class="meal-filter-row" id="mealFilterRow">
+          <button data-filter="all" class="active">All</button>
+          <button data-filter="week">This Week</button>
+          <button data-filter="highProtein">High Protein</button>
+          <button data-filter="lowConfidence">Low Confidence</button>
+          <button data-filter="corrected">Manually Corrected</button>
+        </div>
+        <input id="mealSearch" placeholder="Search meal history...">
+        <div id="mealHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Sync to Daily Nutrition Total</h2>
+        <p class="small">Your existing daily nutrition log below is untouched by meal tracking unless you choose to sync it. This replaces today's manual nutrition entry with the sum of today's logged meals.</p>
+        <button id="syncMealsToDailyBtn" class="secondary">Use meal totals as today's nutrition total</button>
+      </section>
+
       <section class="card">
         <h2>Daily Nutrition</h2>
         <div class="form-grid">

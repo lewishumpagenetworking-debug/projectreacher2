@@ -18,6 +18,7 @@ import {
 } from "./render-more.js";
 import { renderHistoricalImport } from "./historical.js";
 import { initSync, onSyncStatusChange, syncNow, cloudSignIn, cloudSignUp, cloudSignOut } from "./sync.js";
+import { estimateMeal, saveMeal, renderMealTracking, syncMealsToDailyNutrition, setupMealEventDelegation } from "./render-meals.js";
 
 export function refreshAll() {
   const data = getData();
@@ -41,6 +42,7 @@ export function refreshAll() {
   renderMonthlyReview(data);
   renderProgramEditor(data);
   renderDataHealth(data);
+  renderMealTracking(data);
 }
 
 function setupNav() {
@@ -77,6 +79,9 @@ function setupEventListeners() {
   $("savePhotos").addEventListener("click", savePhotoCheckin);
 
   $("saveNutrition").addEventListener("click", saveNutrition);
+  $("estimateMealBtn").addEventListener("click", estimateMeal);
+  $("saveMealBtn").addEventListener("click", saveMeal);
+  $("syncMealsToDailyBtn").addEventListener("click", syncMealsToDailyNutrition);
   $("saveRecovery").addEventListener("click", saveRecovery);
   $("saveStimulants").addEventListener("click", saveStimulants);
 
@@ -132,6 +137,7 @@ migrateData();
 setupNav();
 setupEventListeners();
 setupDeleteDelegation();
+setupMealEventDelegation();
 refreshAll();
 renderHistoricalImport();
 
