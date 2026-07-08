@@ -13,6 +13,7 @@
       <div>
         <p class="eyebrow">PROJECT REACHER</p>
         <h1>Physique OS</h1>
+        <span id="cloudBadge" class="sync-badge"></span>
       </div>
       <button id="exportBtn">Export</button>
     </header>
@@ -373,6 +374,27 @@
       <section class="card">
         <h2>Training Program Editor</h2>
         <div id="programEditor"></div>
+      </section>
+
+      <section class="card">
+        <h2>Cloud Account</h2>
+        <div id="cloudStatus"></div>
+        <div id="cloudAuthForm">
+          <div class="form-grid">
+            <label>Email <input id="cloudEmail" type="email" autocomplete="email"></label>
+            <label>Password <input id="cloudPassword" type="password" autocomplete="current-password"></label>
+          </div>
+          <div class="actions">
+            <button id="cloudSignIn">Sign In</button>
+            <button class="secondary" id="cloudSignUp">Create Account</button>
+          </div>
+        </div>
+        <div id="cloudSignedInPanel" hidden>
+          <div class="actions">
+            <button id="cloudSyncNow">Sync Now</button>
+            <button class="secondary" id="cloudSignOut">Sign Out</button>
+          </div>
+        </div>
       </section>
 
       <section class="card">

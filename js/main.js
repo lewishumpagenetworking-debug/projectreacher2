@@ -13,9 +13,11 @@ import { saveNutrition, renderNutrition, renderSupplements } from "./render-nutr
 import { saveRecovery, renderRecoveryHistory, saveStimulants, renderStimulantHistory } from "./render-recovery.js";
 import {
   renderProfileForm, saveProfile, generateWeeklyCheckin, renderWeeklyCheckinSummary,
-  generateMonthlyReview, renderMonthlyReview, renderProgramEditor, renderDataHealth
+  generateMonthlyReview, renderMonthlyReview, renderProgramEditor, renderDataHealth,
+  renderCloudStatus
 } from "./render-more.js";
 import { renderHistoricalImport } from "./historical.js";
+import { initSync, onSyncStatusChange, syncNow, cloudSignIn, cloudSignUp, cloudSignOut } from "./sync.js";
 
 export function refreshAll() {
   const data = getData();
@@ -82,6 +84,25 @@ function setupEventListeners() {
   $("generateWeeklyCheckin").addEventListener("click", generateWeeklyCheckin);
   $("generateMonthlyReview").addEventListener("click", generateMonthlyReview);
 
+  $("cloudSignIn").addEventListener("click", async () => {
+    try {
+      await cloudSignIn($("cloudEmail").value, $("cloudPassword").value);
+      $("cloudPassword").value = "";
+    } catch (err) {
+      alert("Sign in failed: " + err.message);
+    }
+  });
+  $("cloudSignUp").addEventListener("click", async () => {
+    try {
+      await cloudSignUp($("cloudEmail").value, $("cloudPassword").value);
+      alert("Account created. Check your email if confirmation is required, then sign in.");
+    } catch (err) {
+      alert("Account creation failed: " + err.message);
+    }
+  });
+  $("cloudSignOut").addEventListener("click", () => cloudSignOut());
+  $("cloudSyncNow").addEventListener("click", () => syncNow());
+
   $("exportBtn").addEventListener("click", exportData);
   $("importBackup").addEventListener("change", (evt) => {
     const file = evt.target.files[0];
@@ -113,3 +134,6 @@ setupEventListeners();
 setupDeleteDelegation();
 refreshAll();
 renderHistoricalImport();
+
+onSyncStatusChange(renderCloudStatus);
+initSync().catch(err => console.warn("[Project Reacher] Cloud sync init failed", err));
