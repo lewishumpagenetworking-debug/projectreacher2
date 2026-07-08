@@ -22,6 +22,7 @@ import { estimateMeal, saveMeal, renderMealTracking, syncMealsToDailyNutrition, 
 import { setupNavDrawer, updateMobilePageTitle } from "./nav-drawer.js";
 import { renderAllVisuals, setupVisualsEventDelegation } from "./render-visuals.js";
 import { setupMetricInfoDelegation } from "./metric-info.js";
+import { renderLibrary, setupLibraryEventDelegation } from "./render-library.js";
 
 export function refreshAll() {
   const data = getData();
@@ -48,6 +49,7 @@ export function refreshAll() {
   renderMealTracking(data);
   renderVisualModeToggle(data);
   renderAllVisuals(data);
+  renderLibrary(data);
 }
 
 function setupNav() {
@@ -150,6 +152,7 @@ setupMealEventDelegation();
 setupTrainEventDelegation();
 setupVisualsEventDelegation();
 setupMetricInfoDelegation();
+setupLibraryEventDelegation();
 refreshAll();
 renderHistoricalImport();
 

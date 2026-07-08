@@ -37,6 +37,7 @@
         <button class="nav-btn" data-tab="body"><span class="drawer-icon">⚖️</span> Body</button>
         <button class="nav-btn" data-tab="nutrition"><span class="drawer-icon">🍽️</span> Nutrition</button>
         <button class="nav-btn" data-tab="recovery"><span class="drawer-icon">😴</span> Recovery</button>
+        <button class="nav-btn" data-tab="library"><span class="drawer-icon">📚</span> Library</button>
         <button class="nav-btn" data-tab="more"><span class="drawer-icon">⚙️</span> More</button>
       </div>
       <div class="nav-drawer-footer">
@@ -51,6 +52,7 @@
       <button class="nav-btn" data-tab="body">Body</button>
       <button class="nav-btn" data-tab="nutrition">Nutrition</button>
       <button class="nav-btn" data-tab="recovery">Recovery</button>
+      <button class="nav-btn" data-tab="library">Library</button>
       <button class="nav-btn" data-tab="more">More</button>
     </nav>
 
@@ -526,7 +528,41 @@
         <input id="importBackup" type="file" accept="application/json">
       </section>
     </section>
+
+    <!-- ================= LIBRARY ================= -->
+    <section class="tab-panel" data-tab="library" hidden>
+      <section class="card library-search-card">
+        <h2>Knowledge Library</h2>
+        <p class="small">A searchable, beginner-friendly sports-science glossary for Project Reacher — tap any term to expand it.</p>
+        <input id="librarySearch" type="search" class="library-search-input" placeholder="Search RPE, protein, hypertrophy, creatine...">
+        <div id="libraryCategoryChips" class="library-chip-row" role="tablist" aria-label="Filter by category"></div>
+        <div id="libraryDifficultyChips" class="library-chip-row" role="tablist" aria-label="Filter by difficulty"></div>
+        <div class="library-mode-row">
+          <button id="libraryQuickExplainToggle" type="button" class="secondary" aria-pressed="false">Quick Explain Mode</button>
+          <span id="libraryResultCount" class="small"></span>
+        </div>
+      </section>
+
+      <section class="card" id="libraryLearningPathsCard">
+        <h2>Learning Paths</h2>
+        <div id="libraryLearningPaths"></div>
+      </section>
+
+      <section class="card" id="libraryRecentlyViewedCard" hidden>
+        <h2>Recently Viewed</h2>
+        <div id="libraryRecentlyViewed" class="library-chip-row"></div>
+      </section>
+
+      <section class="card">
+        <div id="libraryResults" class="library-card-grid"></div>
+      </section>
+    </section>
     </main>
+
+    <div id="libraryDetailBackdrop" class="nav-backdrop library-detail-backdrop" hidden></div>
+    <div id="libraryDetailModal" class="library-detail-modal" hidden role="dialog" aria-modal="true" aria-labelledby="libraryDetailTitle">
+      <div class="library-detail-content" id="libraryDetailContent"></div>
+    </div>
   </div>
 
   <script type="module" src="js/main.js"></script>
