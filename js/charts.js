@@ -30,6 +30,22 @@ export function lineChart(points, { width = 600, height = 200, pad = 28, labelEv
     </svg>`;
 }
 
+// One row per label with a horizontal stacked bar (e.g. protein/carbs/fat segments).
+// row: { label, segments: [{ value, className, title }], total }
+export function stackedBarRows(rows, { max = null } = {}) {
+  if (!rows.length) return "<p class='small'>Not enough data yet.</p>";
+  const peak = max ?? Math.max(...rows.map(r => r.total), 1);
+  return rows.map(r => `
+    <div class="bar-row">
+      <span>${r.label}</span>
+      <div class="bar-bg stacked">
+        ${r.segments.map(s => `<div class="stack-seg ${s.className}" style="width:${Math.max(0, (s.value / peak) * 100)}%" title="${s.title}"></div>`).join("")}
+      </div>
+      <b>${Math.round(r.total)}</b>
+    </div>
+  `).join("");
+}
+
 export function barRows(rows, { max = null, formatValue = (v) => v } = {}) {
   if (!rows.length) return "<p class='small'>Not enough data yet.</p>";
   const peak = max ?? Math.max(...rows.map(r => r.value), 1);

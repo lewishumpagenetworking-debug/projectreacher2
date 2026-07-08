@@ -241,3 +241,20 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .sync-badge.status-syncing::before { background: var(--accent); }
 .sync-badge.status-error::before, .sync-badge.status-offline::before { background: #ff5b6e; }
 .sync-badge.status-signed_out::before, .sync-badge.status-not_configured::before { background: var(--muted); }
+
+/* ---- Meal tracking ---- */
+.bar-bg.stacked { display: flex; overflow: hidden; }
+.stack-seg { height: 100%; }
+.macro-protein { background: var(--accent); }
+.macro-carbs { background: var(--good); }
+.macro-fat { background: #ffcf5c; }
+.macro-legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0; font-size: 12px; color: var(--muted); }
+.macro-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.macro-legend .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.confidence-pill { border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700; border: 1px solid var(--line); }
+.confidence-pill.confidence-high { color: var(--good); border-color: var(--good); }
+.confidence-pill.confidence-medium { color: #ffcf5c; border-color: #ffcf5c; }
+.confidence-pill.confidence-low { color: #ff5b6e; border-color: #ff5b6e; }
+.meal-filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.meal-filter-row button { padding: 6px 10px; font-size: 12px; }
+.meal-filter-row button.active { background: var(--good); }

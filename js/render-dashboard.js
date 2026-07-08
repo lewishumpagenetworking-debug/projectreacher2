@@ -2,7 +2,7 @@ import { $, esc, fmt } from "./dom.js";
 import {
   sevenDayAverage, weeklyRateOfGain, gainRateStatus, macroTargets, perKg,
   suggestedCalorieAdjustment, ratios, weeklyVolumeByMuscleGroup, volumeStatus, recoveryWarnings,
-  workoutsInWeek
+  workoutsInWeek, dailyMealTotals, remainingMacros, macroAdherence
 } from "./calculations.js";
 import { DEFAULT_TRAINING_PROGRAM, MUSCLE_GROUPS } from "./program.js";
 
@@ -28,6 +28,7 @@ export function renderDashboard(data) {
   $("progressSubtext").textContent = `${fmt(currentWeight)}kg toward ambitious ${profile.ambitiousTargetWeight}kg (realistic target ${profile.realisticTargetWeightMin}-${profile.realisticTargetWeightMax}kg)`;
 
   renderNutritionCards(data, currentWeight);
+  renderMealsToday(data, currentWeight);
   renderRecoveryCards(data);
   renderScore(data, currentWeight);
   renderWeekSessions(data);
@@ -64,6 +65,25 @@ function renderNutritionCards(data, currentWeight) {
     <p class="small">Protein target: ${targets.proteinMin}-${targets.proteinMax}g/day at ${fmt(currentWeight)}kg. ${proteinOk ? "On target." : "Below target range."}</p>
     <p class="small">Carb target: ${targets.carbsMin}-${targets.carbsMax}g/day · Fat target: ${targets.fatMin}-${targets.fatMax}g/day.</p>
     <p class="small">Suggested calorie adjustment: <strong>${esc(adj)}</strong></p>`;
+}
+
+function renderMealsToday(data, currentWeight) {
+  const statusEl = $("dashMealStatus");
+  const summaryEl = $("dashMealSummary");
+  if (!statusEl || !summaryEl) return;
+
+  const today = new Date().toLocaleDateString("en-CA");
+  const totals = dailyMealTotals(data.mealLogs, today);
+  const targets = macroTargets(currentWeight);
+  const calorieTarget = data.nutritionLogs.at(-1)?.calories || 2800;
+  const remaining = remainingMacros(totals, { calories: calorieTarget, proteinMax: targets.proteinMax, proteinMin: targets.proteinMin });
+  const adherence = macroAdherence(totals, { calories: calorieTarget, proteinMin: targets.proteinMin, fibre: 14 * (calorieTarget / 1000) });
+
+  statusEl.textContent = adherence.macroStatus;
+  statusEl.className = `badge status-${adherence.macroStatus === "On target" ? "on-target" : "under"}`;
+  summaryEl.innerHTML = totals.mealCount
+    ? `<p class="small">${totals.calories}kcal · ${totals.protein}g protein consumed (${remaining.caloriesRemaining} kcal / ${remaining.proteinRemaining}g protein remaining) across ${totals.mealCount} meal${totals.mealCount === 1 ? "" : "s"}.</p>`
+    : "<p class='small'>No meals logged yet today.</p>";
 }
 
 function renderRecoveryCards(data) {

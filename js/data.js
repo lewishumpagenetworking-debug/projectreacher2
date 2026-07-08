@@ -52,6 +52,7 @@ function emptyData() {
     stimulantLogs: [],
     supplements: structuredClone(DEFAULT_SUPPLEMENTS),
     supplementLogs: [],
+    mealLogs: [],
     progressPhotos: [],
     prs: structuredClone(DEFAULT_PRS),
     monthlyReviews: [],
@@ -105,7 +106,8 @@ export function migrateData() {
   // v1 -> v2: legacy collections got ids already; ensure every record across every
   // collection still has an id, then layer on the new optional fields additively.
   ["checkins", "measurements", "workouts", "bodyweightLogs", "nutritionLogs", "recoveryLogs",
-   "stimulantLogs", "supplementLogs", "progressPhotos", "prs", "monthlyReviews"].forEach(key => {
+   "stimulantLogs", "supplementLogs", "mealLogs", "progressPhotos", "prs", "monthlyReviews"].forEach(key => {
+    if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
         changed = true;

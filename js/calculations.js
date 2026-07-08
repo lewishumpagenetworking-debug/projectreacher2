@@ -176,6 +176,81 @@ export function volumeStatus(group, sets) {
   return { status: "on-target", target, isPriority };
 }
 
+/** Sums calories/protein/carbs/fat/fibre for all meals logged on a given ISO date. */
+export function dailyMealTotals(mealLogs, dateStr) {
+  const meals = mealLogs.filter(m => m.date === dateStr);
+  const sum = (key) => meals.reduce((total, m) => total + (Number(m[key]) || 0), 0);
+  return {
+    mealCount: meals.length,
+    calories: round1(sum("calories")),
+    protein: round1(sum("protein")),
+    carbs: round1(sum("carbs")),
+    fat: round1(sum("fat")),
+    fibre: round1(sum("fibre"))
+  };
+}
+
+export function remainingMacros(totals, targets) {
+  return {
+    caloriesRemaining: round1((targets.calories ?? 0) - totals.calories),
+    proteinRemaining: round1((targets.proteinMax ?? targets.protein ?? 0) - totals.protein),
+    carbsRemaining: round1((targets.carbsMax ?? targets.carbs ?? 0) - totals.carbs),
+    fatRemaining: round1((targets.fatMax ?? targets.fat ?? 0) - totals.fat),
+    fibreRemaining: round1((targets.fibre ?? 0) - totals.fibre)
+  };
+}
+
+/** Adherence percentages + a short status label for a single day's totals against targets. */
+export function macroAdherence(totals, targets) {
+  const calorieAdherencePercentage = targets.calories ? round1((totals.calories / targets.calories) * 100) : null;
+  const proteinAdherencePercentage = targets.proteinMin ? round1((totals.protein / targets.proteinMin) * 100) : null;
+
+  let macroStatus = "Insufficient data";
+  if (totals.mealCount === 0) {
+    macroStatus = "No meals logged";
+  } else if (targets.proteinMin && totals.protein < targets.proteinMin * 0.85) {
+    macroStatus = "Under protein";
+  } else if (targets.calories && totals.calories < targets.calories * 0.85) {
+    macroStatus = "Under calories";
+  } else if (targets.calories && totals.calories > targets.calories * 1.15) {
+    macroStatus = "Over calories";
+  } else if (targets.fibre && totals.fibre < targets.fibre * 0.6) {
+    macroStatus = "Low fibre";
+  } else {
+    macroStatus = "On target";
+  }
+
+  return { calorieAdherencePercentage, proteinAdherencePercentage, macroStatus };
+}
+
+/** Aggregates a month ("YYYY-MM") of meal logs into daily totals + summary stats. */
+export function monthlyMealSummary(mealLogs, yearMonth) {
+  const inMonth = mealLogs.filter(m => (m.date || "").startsWith(yearMonth));
+  const days = [...new Set(inMonth.map(m => m.date))].sort();
+  const byDay = days.map(date => ({ date, ...dailyMealTotals(inMonth, date) }));
+
+  const avg = (key) => average(byDay.map(d => d[key]));
+  const highestCalorieDay = byDay.reduce((a, b) => (!a || b.calories > a.calories) ? b : a, null);
+  const lowestCalorieDay = byDay.reduce((a, b) => (!a || (b.calories > 0 && b.calories < a.calories)) ? b : a, null);
+  const bestProteinDay = byDay.reduce((a, b) => (!a || b.protein > a.protein) ? b : a, null);
+
+  return {
+    byDay,
+    daysLogged: days.length,
+    averageCalories: round1(avg("calories")),
+    averageProtein: round1(avg("protein")),
+    averageCarbs: round1(avg("carbs")),
+    averageFat: round1(avg("fat")),
+    averageFibre: round1(avg("fibre")),
+    highestCalorieDay,
+    lowestCalorieDay,
+    bestProteinDay,
+    aiEstimatedMeals: inMonth.filter(m => !m.userCorrected).length,
+    manuallyConfirmedMeals: inMonth.filter(m => m.userCorrected).length,
+    consistencyScore: days.length ? round1((days.length / new Date(Number(yearMonth.slice(0, 4)), Number(yearMonth.slice(5, 7)), 0).getDate()) * 100) : 0
+  };
+}
+
 /** Recovery red flags — never a generic "sleep more" warning, only trend-based signals. */
 export function recoveryWarnings({ recoveryLogs, stimulantLogs, workouts }) {
   const warnings = [];

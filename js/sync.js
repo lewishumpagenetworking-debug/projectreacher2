@@ -45,7 +45,7 @@ export function getSyncState() {
 
 const ID_COLLECTIONS = [
   "checkins", "measurements", "workouts", "bodyweightLogs", "nutritionLogs",
-  "recoveryLogs", "stimulantLogs", "supplementLogs", "progressPhotos", "prs",
+  "recoveryLogs", "stimulantLogs", "supplementLogs", "mealLogs", "progressPhotos", "prs",
   "monthlyReviews", "exercises", "supplements"
 ];
 
