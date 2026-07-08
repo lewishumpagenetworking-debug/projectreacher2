@@ -71,6 +71,7 @@ export function getData() {
 
 export function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  window.dispatchEvent(new CustomEvent("reacher:data-changed"));
 }
 
 // Keeps a timestamped snapshot of the pre-migration blob so a bad migration is always recoverable

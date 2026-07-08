@@ -195,6 +195,50 @@ export function renderProgramEditor(data) {
   });
 }
 
+const SYNC_STATUS_LABELS = {
+  not_configured: "Local only",
+  signed_out: "Signed out",
+  offline: "Offline — will sync",
+  syncing: "Syncing…",
+  synced: "Synced",
+  error: "Sync error"
+};
+
+export function renderCloudStatus(state) {
+  const badge = $("cloudBadge");
+  if (badge) {
+    badge.className = `sync-badge status-${state.status}`;
+    const label = SYNC_STATUS_LABELS[state.status] || state.status;
+    badge.textContent = state.status === "synced" && state.lastSyncedAt
+      ? `Synced ${new Date(state.lastSyncedAt).toLocaleTimeString()}`
+      : label;
+  }
+
+  const statusEl = $("cloudStatus");
+  const authForm = $("cloudAuthForm");
+  const signedInPanel = $("cloudSignedInPanel");
+  if (!statusEl) return;
+
+  if (state.status === "not_configured") {
+    statusEl.innerHTML = `<p class="small">Cloud sync isn't configured yet. Add your Supabase project URL and anon key to js/cloud-config.js to enable permanent, cross-device saving. Everything still works fully offline without it.</p>`;
+    if (authForm) authForm.hidden = true;
+    if (signedInPanel) signedInPanel.hidden = true;
+    return;
+  }
+
+  if (state.userId) {
+    statusEl.innerHTML = `
+      <p class="small">Signed in as ${esc(state.userEmail || "")} · ${esc(SYNC_STATUS_LABELS[state.status] || state.status)}${state.lastSyncedAt ? ` · Last synced ${new Date(state.lastSyncedAt).toLocaleString()}` : ""}</p>
+      ${state.lastError ? `<p class="small" style="color:#ff5b6e">${esc(state.lastError)}</p>` : ""}`;
+    if (authForm) authForm.hidden = true;
+    if (signedInPanel) signedInPanel.hidden = false;
+  } else {
+    statusEl.innerHTML = `<p class="small">Sign in or create an account to save your data permanently to the cloud and access it from any device.</p>`;
+    if (authForm) authForm.hidden = false;
+    if (signedInPanel) signedInPanel.hidden = true;
+  }
+}
+
 export function renderDataHealth(data) {
   const el = $("dataHealth");
   const bytes = new Blob([JSON.stringify(data)]).size;
