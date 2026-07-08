@@ -1,8 +1,11 @@
 import { $, esc } from "./dom.js";
-import { recommendProgression } from "./calculations.js";
+import { recommendProgression, getExerciseHistory, localExerciseAdvice } from "./calculations.js";
 import { getData, saveData, uid } from "./data.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
+
+// In-memory only — resets on page reload, i.e. "remembered for the current workout".
+const expandedExercises = new Set();
 
 function totalVolume(entry) {
   return (entry.exercises || []).reduce((sum, e) => {
@@ -12,19 +15,86 @@ function totalVolume(entry) {
   }, 0);
 }
 
+function formatSet(e) {
+  if (!e) return "no data yet";
+  return `${e.set1Weight ?? "-"}kg×${e.set1Reps ?? "-"}, ${e.set2Weight ?? "-"}kg×${e.set2Reps ?? "-"}`;
+}
+
 export function renderDaySelect(data) {
   const select = $("daySelect");
   const days = Object.keys(data.trainingProgram);
   select.innerHTML = days.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join("");
 }
 
+const VALID_REP_ITEMS = [
+  ["fullROM", "Full useful range of motion"],
+  ["controlledEccentric", "Controlled eccentric"],
+  ["targetMuscleLoaded", "Target muscle loaded"],
+  ["noPain", "No pain"],
+  ["noMomentum", "No uncontrolled momentum"],
+  ["sameFormAsLastWeek", "Same form as last week"]
+];
+
+function cueList(title, items) {
+  if (!items || !items.length) return "";
+  return `<p class="small"><strong>${esc(title)}:</strong> ${items.map(esc).join(" · ")}</p>`;
+}
+
+function renderGuideContent(def) {
+  if (!def || !def.targetMuscleCue) {
+    return "<p class='small'>No form guide available for this exercise yet.</p>";
+  }
+  return `
+    <p class="small"><strong>Target muscle:</strong> ${esc(def.targetMuscleCue)}</p>
+    <p class="small"><strong>Tempo:</strong> ${esc(def.tempoDescription || "--")}</p>
+    ${cueList("Setup", def.setupCues)}
+    ${cueList("Execution", def.executionCues)}
+    <p class="small"><strong>Range of motion:</strong> ${esc(def.rangeOfMotionStandard || "--")}</p>
+    ${cueList("Valid rep", def.validRepCriteria)}
+    ${cueList("Common mistakes", def.commonMistakes)}
+    ${def.safetyNotes && def.safetyNotes.length ? `<div class="warning-banner">${def.safetyNotes.map(esc).join(" · ")}</div>` : ""}
+    <p class="small"><strong>Today's focus:</strong> ${esc(def.todayFocusCue || "--")}</p>
+
+    <div class="valid-rep-checklist">
+      ${VALID_REP_ITEMS.map(([key, label]) => `
+        <label class="checklist-row"><input type="checkbox" class="rep-check" data-check="${key}"> <span>${esc(label)}</span></label>
+      `).join("")}
+    </div>
+
+    <div class="form-grid">
+      <label>Range of Motion 1-5<input class="romq" type="number" min="1" max="5"></label>
+      <label>Tempo Control 1-5<input class="tempoq" type="number" min="1" max="5"></label>
+      <label>Pain/Discomfort<input class="painflag" type="checkbox"></label>
+      <label>Form Note<input class="formnote" placeholder="quick note"></label>
+    </div>
+
+    <button type="button" class="secondary ask-ai-btn">Ask AI About This Exercise</button>
+    <div class="ai-answer small" hidden></div>
+  `;
+}
+
 export function renderWorkoutForm(data) {
   const day = $("daySelect").value || Object.keys(data.trainingProgram)[0];
   const exercises = data.trainingProgram[day] || [];
-  $("workoutList").innerHTML = exercises.map((x, i) => `
+
+  $("workoutList").innerHTML = exercises.map((x, i) => {
+    const exerciseDef = data.exercises.find(e => e.name === x.name);
+    const history = getExerciseHistory(data.workouts, x.name);
+    const isExpanded = expandedExercises.has(x.name);
+    const recBadge = history.lastSession?.progressionRecommendation
+      ? `<span class="badge ${history.lastSession.increaseNextWeek ? "status-on-target" : ""}">${history.lastSession.increaseNextWeek ? "⬆ Increase" : "Hold"}</span>`
+      : "";
+
+    return `
     <div class="exercise" data-exercise="${esc(x.name)}">
-      <h3>${i + 1}. ${esc(x.name)}</h3>
-      <div class="small">Target: ${esc(x.repRange)} · ${esc(x.note || "")}</div>
+      <div class="exercise-header" data-toggle-guide="${esc(x.name)}">
+        <div>
+          <h3>${i + 1}. ${esc(x.name)}</h3>
+          <div class="small">Target: ${esc(x.repRange)} · Last: ${formatSet(history.lastSession)} · Best: ${formatSet(history.previousBest)}</div>
+          ${recBadge ? `<div class="badge-row">${recBadge}</div>` : ""}
+        </div>
+        <button type="button" class="chevron-btn">${isExpanded ? "▴ Form" : "▾ Form"}</button>
+      </div>
       <div class="set-row">
         <label>Warm-up<input class="warmup" placeholder="Optional"></label>
         <label>Set 1 Weight<input class="set1w" type="number" step="0.5" placeholder="kg"></label>
@@ -41,8 +111,37 @@ export function renderWorkoutForm(data) {
         <label>Target Muscle Connection 1-5<input class="mmc" type="number" min="1" max="5"></label>
         <label>Notes<input class="exnotes" placeholder="form / machine / pain"></label>
       </div>
-    </div>
-  `).join("");
+      <div class="form-guide" ${isExpanded ? "" : "hidden"}>
+        ${renderGuideContent(exerciseDef)}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function readEntryFromCard(el) {
+  const q = (sel) => el.querySelector(sel);
+  const numOrNull = (sel) => { const f = q(sel); return (!f || f.value === "") ? null : Number(f.value); };
+  return {
+    warmup: q(".warmup").value,
+    set1Weight: Number(q(".set1w").value || 0),
+    set1Reps: Number(q(".set1r").value || 0),
+    set1RIR: numOrNull(".set1rir"),
+    set2Weight: Number(q(".set2w").value || 0),
+    set2Reps: Number(q(".set2r").value || 0),
+    set2RIR: numOrNull(".set2rir"),
+    optionalSet3Weight: numOrNull(".set3w"),
+    optionalSet3Reps: numOrNull(".set3r"),
+    RPE: numOrNull(".rpe"),
+    technicalFailureReached: q(".techfail").checked,
+    formQuality: numOrNull(".formq"),
+    targetMuscleConnection: numOrNull(".mmc"),
+    notes: q(".exnotes").value,
+    rangeOfMotionQuality: numOrNull(".romq"),
+    tempoControl: numOrNull(".tempoq"),
+    painFlag: q(".painflag") ? q(".painflag").checked : false,
+    formNote: q(".formnote") ? q(".formnote").value : "",
+    validRepChecklist: Object.fromEntries([...el.querySelectorAll(".rep-check")].map(cb => [cb.dataset.check, cb.checked]))
+  };
 }
 
 export function saveWorkout() {
@@ -52,27 +151,9 @@ export function saveWorkout() {
   const exercises = [...document.querySelectorAll("#workoutList .exercise")].map(el => {
     const name = el.dataset.exercise;
     const exerciseDef = data.exercises.find(e => e.name === name);
-    const entry = {
-      exerciseId: exerciseDef?.id || null,
-      name,
-      warmup: el.querySelector(".warmup").value,
-      set1Weight: Number(el.querySelector(".set1w").value || 0),
-      set1Reps: Number(el.querySelector(".set1r").value || 0),
-      set1RIR: el.querySelector(".set1rir").value === "" ? null : Number(el.querySelector(".set1rir").value),
-      set2Weight: Number(el.querySelector(".set2w").value || 0),
-      set2Reps: Number(el.querySelector(".set2r").value || 0),
-      set2RIR: el.querySelector(".set2rir").value === "" ? null : Number(el.querySelector(".set2rir").value),
-      optionalSet3Weight: el.querySelector(".set3w").value === "" ? null : Number(el.querySelector(".set3w").value),
-      optionalSet3Reps: el.querySelector(".set3r").value === "" ? null : Number(el.querySelector(".set3r").value),
-      RPE: el.querySelector(".rpe").value === "" ? null : Number(el.querySelector(".rpe").value),
-      technicalFailureReached: el.querySelector(".techfail").checked,
-      formQuality: el.querySelector(".formq").value === "" ? null : Number(el.querySelector(".formq").value),
-      targetMuscleConnection: el.querySelector(".mmc").value === "" ? null : Number(el.querySelector(".mmc").value),
-      notes: el.querySelector(".exnotes").value,
-      createdAt: now,
-      updatedAt: now
-    };
-    const rec = recommendProgression(entry, exerciseDef);
+    const history = getExerciseHistory(data.workouts, name);
+    const entry = { exerciseId: exerciseDef?.id || null, name, ...readEntryFromCard(el), createdAt: now, updatedAt: now };
+    const rec = recommendProgression(entry, exerciseDef, history.lastSession);
     entry.increaseNextWeek = rec.increaseNextWeek;
     entry.progressionRecommendation = rec.recommendation;
     return entry;
@@ -88,6 +169,51 @@ export function saveWorkout() {
   saveData(data);
   refreshAll();
   alert("Workout saved.");
+}
+
+function handleToggleGuide(toggle) {
+  const card = toggle.closest(".exercise");
+  const guide = card?.querySelector(".form-guide");
+  const chevronBtn = card?.querySelector(".chevron-btn");
+  if (!guide) return;
+  guide.hidden = !guide.hidden;
+  const name = toggle.dataset.toggleGuide;
+  if (guide.hidden) expandedExercises.delete(name); else expandedExercises.add(name);
+  if (chevronBtn) chevronBtn.textContent = guide.hidden ? "▾ Form" : "▴ Form";
+}
+
+function handleAskAI(btn) {
+  const card = btn.closest(".exercise");
+  if (!card) return;
+  const data = getData();
+  const name = card.dataset.exercise;
+  const exerciseDef = data.exercises.find(e => e.name === name);
+  const history = getExerciseHistory(data.workouts, name);
+  const entry = readEntryFromCard(card);
+  const advice = localExerciseAdvice(entry, exerciseDef, history.lastSession);
+
+  const el = card.querySelector(".ai-answer");
+  if (!el) return;
+  el.hidden = false;
+  el.innerHTML = `
+    <p><strong>Quick local analysis</strong> (rule-based from your logged data, not a live AI chat):</p>
+    <p>Set counted: ${advice.setCounted ? "Yes" : "Not yet — reps below target range"}</p>
+    <p>Next time: <strong>${advice.progressionDecision === "increase" ? "Increase load" : "Hold load"}</strong> — ${esc(advice.reason)}</p>
+    <p>Focus next set: ${esc(advice.nextSetCue)}</p>
+    ${advice.formLimitingProgression ? "<p>Form, range of motion, or tempo is currently limiting progression on this exercise.</p>" : ""}
+    ${advice.substitutionSuggested ? "<p>Worth considering a substitution for this movement.</p>" : ""}
+    ${advice.safetyWarning ? `<div class="warning-banner">${esc(advice.safetyWarning)}</div>` : ""}
+  `;
+}
+
+export function setupTrainEventDelegation() {
+  document.addEventListener("click", (e) => {
+    const toggle = e.target.closest("[data-toggle-guide]");
+    if (toggle) { handleToggleGuide(toggle); return; }
+
+    const askBtn = e.target.closest(".ask-ai-btn");
+    if (askBtn) { handleAskAI(askBtn); return; }
+  });
 }
 
 export function renderWorkoutHistory(data) {

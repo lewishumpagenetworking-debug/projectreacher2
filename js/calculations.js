@@ -2,6 +2,30 @@
 import { MUSCLE_GROUP_MAP, PRIORITY_MUSCLES } from "./program.js";
 import { parseLogDate, isSameWeek } from "./dates.js";
 
+function setVolume(e) {
+  return (Number(e.set1Weight) || 0) * (Number(e.set1Reps) || 0) + (Number(e.set2Weight) || 0) * (Number(e.set2Reps) || 0);
+}
+
+/** Last logged entry, most recent entry from a different week, and best-volume entry for one exercise across all past workouts. */
+export function getExerciseHistory(workouts, exerciseName, referenceDate = new Date()) {
+  const entries = [];
+  workouts.forEach(w => {
+    (w.exercises || []).forEach(e => {
+      if (e.name === exerciseName) entries.push({ ...e, date: w.date });
+    });
+  });
+  entries.sort((a, b) => (parseLogDate(a.date) || 0) - (parseLogDate(b.date) || 0));
+
+  const lastSession = entries.length ? entries[entries.length - 1] : null;
+  const previousWeek = [...entries].reverse().find(e => {
+    const d = parseLogDate(e.date);
+    return d && !isSameWeek(d, referenceDate);
+  }) || null;
+  const previousBest = entries.reduce((best, e) => (!best || setVolume(e) > setVolume(best)) ? e : best, null);
+
+  return { lastSession, previousWeek, previousBest };
+}
+
 export function average(nums) {
   const valid = nums.filter(n => typeof n === "number" && !Number.isNaN(n));
   if (!valid.length) return null;
@@ -100,7 +124,12 @@ function round2(n) { return Math.round(n * 100) / 100; }
  * - Increase load next time only if both working sets hit the TOP of the target rep
  *   range AND formQuality is 3+ (never recommend an increase on poor form).
  */
-export function recommendProgression(entry, exerciseDef) {
+/**
+ * previousEntry (optional) is the same exercise's most recent prior logged entry —
+ * used only for the "reps improved but form dropped" comparison. Everything else
+ * is decided from `entry` alone.
+ */
+export function recommendProgression(entry, exerciseDef, previousEntry = null) {
   if (!exerciseDef || exerciseDef.repRangeMax == null) {
     return { increaseNextWeek: false, recommendation: "No target rep range set for this exercise." };
   }
@@ -108,17 +137,77 @@ export function recommendProgression(entry, exerciseDef) {
   const s1 = Number(entry.set1Reps) || 0;
   const s2 = Number(entry.set2Reps) || 0;
   const formQuality = entry.formQuality != null ? Number(entry.formQuality) : null;
+  const romQuality = entry.rangeOfMotionQuality != null ? Number(entry.rangeOfMotionQuality) : null;
+  const tempoControl = entry.tempoControl != null ? Number(entry.tempoControl) : null;
 
-  if (formQuality != null && formQuality < 3) {
-    return { increaseNextWeek: false, recommendation: "Form quality below 3 — hold load even though reps may be high." };
+  if (entry.painFlag) {
+    return { increaseNextWeek: false, recommendation: "Pain/discomfort flagged — do not progress this exercise. Consider a professional if it persists." };
   }
-  if (s1 >= repRangeMax && s2 >= repRangeMax) {
+  if (formQuality != null && formQuality < 3) {
+    return { increaseNextWeek: false, recommendation: "Form quality below 3 — hold or reduce load, even though reps may be high." };
+  }
+  if (romQuality != null && romQuality < 4) {
+    return { increaseNextWeek: false, recommendation: "Range of motion below standard — hold load until depth/stretch is consistent." };
+  }
+  if (tempoControl != null && tempoControl < 3) {
+    return { increaseNextWeek: false, recommendation: "Tempo control broke down — hold load and focus on the eccentric next session." };
+  }
+
+  if (previousEntry) {
+    const prevS1 = Number(previousEntry.set1Reps) || 0;
+    const prevS2 = Number(previousEntry.set2Reps) || 0;
+    const prevForm = previousEntry.formQuality != null ? Number(previousEntry.formQuality) : null;
+    const repsImproved = (s1 + s2) > (prevS1 + prevS2);
+    const formDropped = prevForm != null && formQuality != null && formQuality < prevForm;
+    if (repsImproved && formDropped) {
+      return { increaseNextWeek: false, recommendation: "Reps improved but form quality dropped vs. last session — repeat the same load." };
+    }
+  }
+
+  if (s1 >= repRangeMax && s2 >= repRangeMax && (formQuality == null || formQuality >= 4)) {
     return { increaseNextWeek: true, recommendation: "Both sets hit the top of the rep range with good form — increase load next session." };
   }
   if (repRangeMin != null && (s1 < repRangeMin || s2 < repRangeMin)) {
     return { increaseNextWeek: false, recommendation: "Reps fell below target range — watch for fatigue or excessive load across sessions." };
   }
   return { increaseNextWeek: false, recommendation: "Within target range — repeat load, aim for more reps next session." };
+}
+
+/**
+ * Deterministic, rule-based stand-in for a live AI chat when asked "about this
+ * exercise" from the Train tab — there's no server in this app to hold an AI API
+ * key securely, so this reuses recommendProgression + the exercise's guide content
+ * to answer the same questions a coach would, without a network call.
+ */
+export function localExerciseAdvice(entry, exerciseDef, previousEntry = null) {
+  const rec = recommendProgression(entry, exerciseDef, previousEntry);
+  const s1 = Number(entry.set1Reps) || 0;
+  const s2 = Number(entry.set2Reps) || 0;
+  const repRangeMin = exerciseDef?.repRangeMin;
+  const setCounted = repRangeMin == null || (s1 >= repRangeMin && s2 >= repRangeMin) || entry.technicalFailureReached;
+
+  const formLimiting = entry.painFlag
+    || (entry.formQuality != null && Number(entry.formQuality) < 4)
+    || (entry.rangeOfMotionQuality != null && Number(entry.rangeOfMotionQuality) < 4)
+    || (entry.tempoControl != null && Number(entry.tempoControl) < 3);
+
+  const needsSubstitution = Boolean(entry.painFlag) || (entry.quickFlags || []).includes("Need substitution");
+
+  const nextSetCue = entry.painFlag
+    ? "Stop — do not push through pain. Reassess the movement."
+    : formLimiting
+      ? (exerciseDef?.commonMistakes?.[0] ? `Watch for: ${exerciseDef.commonMistakes[0]}` : "Prioritise form over adding reps this set.")
+      : (exerciseDef?.todayFocusCue || "Keep the same execution and chase one more clean rep.");
+
+  return {
+    setCounted,
+    progressionDecision: rec.increaseNextWeek ? "increase" : "hold",
+    reason: rec.recommendation,
+    nextSetCue,
+    formLimitingProgression: formLimiting,
+    substitutionSuggested: needsSubstitution,
+    safetyWarning: entry.painFlag ? "Pain/discomfort was flagged on this exercise — stop if it continues and consider a professional." : null
+  };
 }
 
 /** Flags repeated below-range performance across the last N logged sessions of an exercise. */
