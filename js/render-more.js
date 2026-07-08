@@ -3,6 +3,21 @@ import { getData, saveData, uid } from "./data.js";
 import { average, weeklyRateOfGain, sevenDayAverage, ratios, weeklyVolumeByMuscleGroup, workoutsInWeek } from "./calculations.js";
 import { parseLogDate, isSameWeek, startOfWeek, isLegacySlashDate } from "./dates.js";
 
+export function renderVisualModeToggle(data) {
+  const checkbox = $("visualModeToggle");
+  const note = $("visualModeNote");
+  if (!checkbox) return;
+  checkbox.checked = !!data.profile.visualModeEnabled;
+  if (note) note.textContent = data.profile.visualModeEnabled ? "Private personal visual mode enabled." : "";
+}
+
+export function toggleVisualMode() {
+  const data = getData();
+  data.profile.visualModeEnabled = $("visualModeToggle").checked;
+  saveData(data);
+  window.dispatchEvent(new CustomEvent("reacher:refresh"));
+}
+
 export function renderProfileForm(data) {
   const p = data.profile;
   $("pAge").value = p.age ?? "";
@@ -205,14 +220,18 @@ const SYNC_STATUS_LABELS = {
 };
 
 export function renderCloudStatus(state) {
+  const label = SYNC_STATUS_LABELS[state.status] || state.status;
+  const badgeText = state.status === "synced" && state.lastSyncedAt
+    ? `Synced ${new Date(state.lastSyncedAt).toLocaleTimeString()}`
+    : label;
+
   const badge = $("cloudBadge");
   if (badge) {
     badge.className = `sync-badge status-${state.status}`;
-    const label = SYNC_STATUS_LABELS[state.status] || state.status;
-    badge.textContent = state.status === "synced" && state.lastSyncedAt
-      ? `Synced ${new Date(state.lastSyncedAt).toLocaleTimeString()}`
-      : label;
+    badge.textContent = badgeText;
   }
+  const drawerStatus = $("drawerSyncStatus");
+  if (drawerStatus) drawerStatus.innerHTML = `<span class="sync-badge status-${state.status}">${badgeText}</span>`;
 
   const statusEl = $("cloudStatus");
   const authForm = $("cloudAuthForm");

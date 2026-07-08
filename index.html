@@ -10,13 +10,40 @@
 <body>
   <div class="app">
     <header>
-      <div>
+      <button id="menuBtn" class="menu-btn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="navDrawer">
+        <span></span><span></span><span></span>
+      </button>
+      <span id="mobilePageTitle" class="mobile-page-title">Dashboard</span>
+      <div class="header-titles">
         <p class="eyebrow">PROJECT REACHER</p>
         <h1>Physique OS</h1>
         <span id="cloudBadge" class="sync-badge"></span>
       </div>
       <button id="exportBtn">Export</button>
     </header>
+
+    <div id="navBackdrop" class="nav-backdrop" hidden></div>
+    <nav id="navDrawer" class="nav-drawer" aria-hidden="true" aria-label="Main navigation">
+      <div class="nav-drawer-header">
+        <div>
+          <p class="eyebrow">PROJECT REACHER</p>
+          <h2>Physique OS</h2>
+        </div>
+        <button id="closeDrawerBtn" class="close-btn" aria-label="Close navigation menu">✕</button>
+      </div>
+      <div class="nav-drawer-items">
+        <button class="nav-btn active" data-tab="dashboard"><span class="drawer-icon">📊</span> Dashboard</button>
+        <button class="nav-btn" data-tab="train"><span class="drawer-icon">🏋️</span> Train</button>
+        <button class="nav-btn" data-tab="body"><span class="drawer-icon">⚖️</span> Body</button>
+        <button class="nav-btn" data-tab="nutrition"><span class="drawer-icon">🍽️</span> Nutrition</button>
+        <button class="nav-btn" data-tab="recovery"><span class="drawer-icon">😴</span> Recovery</button>
+        <button class="nav-btn" data-tab="more"><span class="drawer-icon">⚙️</span> More</button>
+      </div>
+      <div class="nav-drawer-footer">
+        <button id="exportBtnDrawer" class="secondary">Export Data</button>
+        <div id="drawerSyncStatus" class="small"></div>
+      </div>
+    </nav>
 
     <nav class="side-nav">
       <button class="nav-btn active" data-tab="dashboard">Dashboard</button>
@@ -30,6 +57,8 @@
     <main>
     <!-- ================= DASHBOARD ================= -->
     <section class="tab-panel" data-tab="dashboard">
+      <div id="visual-dashboard"></div>
+
       <section class="grid stats">
         <div class="card"><span>Current Weight</span><strong id="currentWeight">73.0kg</strong></div>
         <div class="card"><span>7-Day Average</span><strong id="sevenDayAvg">--</strong></div>
@@ -76,6 +105,8 @@
         <div class="card"><span>Energy Score</span><strong id="dashEnergy">--</strong></div>
         <div class="card"><span>Caffeine / Nicotine</span><strong id="dashStims">--</strong></div>
       </section>
+
+      <div id="visual-low-motivation"></div>
 
       <section class="card" id="recoveryWarningsCard">
         <h2>Recovery Warnings</h2>
@@ -130,6 +161,8 @@
 
     <!-- ================= TRAIN ================= -->
     <section class="tab-panel" data-tab="train" hidden>
+      <div id="visual-train"></div>
+
       <section class="card">
         <div class="section-title">
           <h2>Today's Workout</h2>
@@ -268,6 +301,8 @@
 
     <!-- ================= NUTRITION ================= -->
     <section class="tab-panel" data-tab="nutrition" hidden>
+      <div id="visual-meals"></div>
+
       <section class="card">
         <h2>Log a Meal</h2>
         <label>What did you eat? <textarea id="mealDescription" placeholder="e.g. 2 chicken breasts, rice, olive oil and Greek yogurt"></textarea></label>
@@ -420,6 +455,13 @@
     <!-- ================= MORE ================= -->
     <section class="tab-panel" data-tab="more" hidden>
       <section class="card">
+        <h2>Reacher Visual Mode</h2>
+        <p class="small">Private, personal motivational visuals. Off by default. Paste your own image URLs (e.g. CloudFront) wherever you see a visual card — this app never generates or stores images itself.</p>
+        <label class="checklist-row"><input type="checkbox" id="visualModeToggle"> <span>Enable private visual mode</span></label>
+        <p class="small" id="visualModeNote"></p>
+      </section>
+
+      <section class="card">
         <h2>Profile</h2>
         <div class="form-grid">
           <label>Age <input id="pAge" type="number"></label>
@@ -439,12 +481,14 @@
 
       <section class="card">
         <h2>Weekly Check-In Summary (Auto)</h2>
+        <div id="visual-weekly-review"></div>
         <div id="weeklyCheckinSummary"></div>
         <button id="generateWeeklyCheckin">Generate This Week's Summary</button>
       </section>
 
       <section class="card">
         <h2>Monthly Review</h2>
+        <div id="visual-monthly-review"></div>
         <div id="monthlyReview"></div>
         <button id="generateMonthlyReview">Generate Monthly Review</button>
       </section>
@@ -483,15 +527,6 @@
       </section>
     </section>
     </main>
-
-    <nav class="bottom-nav">
-      <button class="nav-btn active" data-tab="dashboard">Dash</button>
-      <button class="nav-btn" data-tab="train">Train</button>
-      <button class="nav-btn" data-tab="body">Body</button>
-      <button class="nav-btn" data-tab="nutrition">Fuel</button>
-      <button class="nav-btn" data-tab="recovery">Recover</button>
-      <button class="nav-btn" data-tab="more">More</button>
-    </nav>
   </div>
 
   <script type="module" src="js/main.js"></script>
