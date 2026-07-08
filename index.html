@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>Project Reacher</title>
+  <link rel="icon" href="data:," />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -11,137 +12,383 @@
     <header>
       <div>
         <p class="eyebrow">PROJECT REACHER</p>
-        <h1>Physique Dashboard</h1>
+        <h1>Physique OS</h1>
       </div>
       <button id="exportBtn">Export</button>
     </header>
 
-    <section class="grid stats">
-      <div class="card"><span>Current Weight</span><strong id="currentWeight">73.0kg</strong></div>
-      <div class="card"><span>Target Weight</span><strong>89kg</strong></div>
-      <div class="card"><span>Weekly Gain</span><strong id="weeklyGain">+0.25kg</strong></div>
-      <div class="card"><span>Reacher Score</span><strong id="score">--/100</strong></div>
+    <nav class="side-nav">
+      <button class="nav-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="nav-btn" data-tab="train">Train</button>
+      <button class="nav-btn" data-tab="body">Body</button>
+      <button class="nav-btn" data-tab="nutrition">Nutrition</button>
+      <button class="nav-btn" data-tab="recovery">Recovery</button>
+      <button class="nav-btn" data-tab="more">More</button>
+    </nav>
+
+    <main>
+    <!-- ================= DASHBOARD ================= -->
+    <section class="tab-panel" data-tab="dashboard">
+      <section class="grid stats">
+        <div class="card"><span>Current Weight</span><strong id="currentWeight">73.0kg</strong></div>
+        <div class="card"><span>7-Day Average</span><strong id="sevenDayAvg">--</strong></div>
+        <div class="card"><span>Weekly Gain</span><strong id="weeklyGain">--</strong></div>
+        <div class="card"><span>Reacher Score</span><strong id="score">--/100</strong></div>
+      </section>
+
+      <section class="card">
+        <div class="section-title"><h2>Progress to Ambitious Target</h2><span id="progressText">0%</span></div>
+        <div class="bar"><div id="progressBar"></div></div>
+        <p class="small" id="progressSubtext"></p>
+      </section>
+
+      <section class="card" id="gainStatusCard">
+        <h2>Weekly Gain vs Target</h2>
+        <div id="gainStatus"></div>
+      </section>
+
+      <section class="grid stats">
+        <div class="card"><span>Calories</span><strong id="dashCalories">--</strong></div>
+        <div class="card"><span>Protein</span><strong id="dashProtein">--</strong></div>
+        <div class="card"><span>Protein / kg</span><strong id="dashProteinPerKg">--</strong></div>
+        <div class="card"><span>Carbs</span><strong id="dashCarbs">--</strong></div>
+        <div class="card"><span>Fats</span><strong id="dashFats">--</strong></div>
+        <div class="card"><span>Current Phase</span><strong id="dashPhase">--</strong></div>
+      </section>
+
+      <section class="card">
+        <h2>Nutrition Recommendation</h2>
+        <div id="nutritionRecommendation"></div>
+      </section>
+
+      <section class="grid stats">
+        <div class="card"><span>Sleep Duration</span><strong id="dashSleep">--</strong></div>
+        <div class="card"><span>Recovery Score</span><strong id="dashRecovery">--</strong></div>
+        <div class="card"><span>Energy Score</span><strong id="dashEnergy">--</strong></div>
+        <div class="card"><span>Caffeine / Nicotine</span><strong id="dashStims">--</strong></div>
+      </section>
+
+      <section class="card" id="recoveryWarningsCard">
+        <h2>Recovery Warnings</h2>
+        <div id="recoveryWarnings"></div>
+      </section>
+
+      <section class="card">
+        <h2>Next Workout</h2>
+        <div id="nextWorkout"></div>
+      </section>
+
+      <section class="card">
+        <h2>Last Workout Performance</h2>
+        <div id="lastWorkout"></div>
+      </section>
+
+      <section class="card">
+        <h2>Exercises to Increase Next Week</h2>
+        <div id="increaseNextWeek"></div>
+      </section>
+
+      <section class="grid stats">
+        <div class="card"><span>Shoulder:Waist Ratio</span><strong id="dashShoulderWaist">--</strong></div>
+        <div class="card"><span>Chest:Waist Ratio</span><strong id="dashChestWaist">--</strong></div>
+      </section>
+
+      <section class="card">
+        <h2>Bodyweight Milestones</h2>
+        <div id="bodyweightMilestones"></div>
+      </section>
+
+      <section class="card">
+        <h2>Strength Milestones</h2>
+        <div id="strengthMilestones"></div>
+      </section>
+
+      <section class="card">
+        <h2>Weekly Volume Summary</h2>
+        <div id="weeklyVolumeSummary"></div>
+      </section>
+
+      <section class="card" id="monthlyReviewReminderCard">
+        <h2>Monthly Review</h2>
+        <div id="monthlyReviewReminder"></div>
+      </section>
     </section>
 
-    <section class="card">
-      <div class="section-title">
-        <h2>Progress to 89kg</h2>
-        <span id="progressText">0%</span>
-      </div>
-      <div class="bar"><div id="progressBar"></div></div>
+    <!-- ================= TRAIN ================= -->
+    <section class="tab-panel" data-tab="train" hidden>
+      <section class="card">
+        <div class="section-title">
+          <h2>Today's Workout</h2>
+          <select id="daySelect"></select>
+        </div>
+        <div id="workoutList"></div>
+        <button id="saveWorkout">Save Workout</button>
+      </section>
+
+      <section class="card">
+        <h2>Recent Saved Workouts</h2>
+        <div id="sessionHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Historical Data Imported</h2>
+        <div id="insights"></div>
+        <div class="pill-row"></div>
+      </section>
+
+      <section class="card">
+        <h2>Historical Weekly Volume</h2>
+        <div id="weeklyVolumeChart" class="chart-box"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-title">
+          <h2>Exercise Progression</h2>
+          <select id="exerciseSelect"></select>
+        </div>
+        <div id="exerciseTrendChart" class="chart-box"></div>
+        <div id="exerciseTable"></div>
+      </section>
+
+      <section class="card">
+        <h2>Best Historical Volume Improvements</h2>
+        <div id="exerciseSummaryBars"></div>
+      </section>
+
+      <section class="card">
+        <h2>PR Tracker</h2>
+        <div id="prTracker"></div>
+      </section>
+
+      <section class="card">
+        <h2>Workout History</h2>
+        <div id="workoutHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Historical Progress Summary</h2>
+        <p class="small">Includes the interpreted historic entries from the previous spreadsheet and new sessions logged from this app.</p>
+        <div id="historicalSummary"></div>
+      </section>
+
+      <section class="card">
+        <h2>Workout Volume Trend</h2>
+        <div id="volumeChart" class="mini-chart"></div>
+      </section>
     </section>
 
-    <section class="card">
-      <h2>Historical Data Imported</h2>
-      <div id="insights"></div>
-      <div class="pill-row">
-        <span>421 logged exercise rows</span>
-        <span>18 training weeks</span>
-        <span>Home-stack weights estimated</span>
-      </div>
+    <!-- ================= BODY ================= -->
+    <section class="tab-panel" data-tab="body" hidden>
+      <section class="card">
+        <h2>Daily Bodyweight</h2>
+        <div class="form-grid">
+          <label>Morning Weight (kg) <input id="bwInput" type="number" step="0.1" placeholder="73.2"></label>
+          <label>Notes <input id="bwNotes" placeholder="optional"></label>
+        </div>
+        <button id="saveBodyweight">Save Bodyweight</button>
+        <h3>Bodyweight Trend</h3>
+        <div id="weightChart" class="mini-chart"></div>
+        <div id="bodyweightHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Weekly Check-In</h2>
+        <div id="bodyweightChart" class="chart-box small-chart"></div>
+        <div class="form-grid">
+          <label>Morning Weight <input id="weightInput" type="number" step="0.1" placeholder="73.2"></label>
+          <label>Protein Avg <input id="proteinInput" type="number" placeholder="180"></label>
+          <label>Sleep Avg <input id="sleepInput" type="number" step="0.1" placeholder="7.5"></label>
+          <label>Sessions <input id="sessionsInput" type="number" placeholder="5"></label>
+          <label>Recovery 1-10 <input id="recoveryInput" type="number" min="1" max="10"></label>
+          <label>Energy 1-10 <input id="energyInput" type="number" min="1" max="10"></label>
+        </div>
+        <textarea id="notesInput" placeholder="Wins, issues, soreness, exercises to change..."></textarea>
+        <button id="saveCheckin">Save Weekly Check-In</button>
+      </section>
+
+      <section class="card">
+        <h2>Progress History</h2>
+        <div id="history"></div>
+      </section>
+
+      <section class="card">
+        <h2>Monthly Measurements</h2>
+        <div class="form-grid">
+          <label>Weight <input id="mWeight" type="number" step="0.1"></label>
+          <label>Shoulders <input id="shoulders" type="number" step="0.1"></label>
+          <label>Chest <input id="chest" type="number" step="0.1"></label>
+          <label>Waist <input id="waist" type="number" step="0.1"></label>
+          <label>Neck <input id="neck" type="number" step="0.1"></label>
+          <label>Right Arm <input id="rarm" type="number" step="0.1"></label>
+          <label>Left Arm <input id="larm" type="number" step="0.1"></label>
+          <label>Right Thigh <input id="rthigh" type="number" step="0.1"></label>
+          <label>Left Thigh <input id="lthigh" type="number" step="0.1"></label>
+          <label>Calves <input id="calves" type="number" step="0.1"></label>
+        </div>
+        <textarea id="measurementNotes" placeholder="Notes"></textarea>
+        <button id="saveMeasurements">Save Measurements</button>
+        <div id="ratioSummary"></div>
+      </section>
+
+      <section class="card">
+        <h2>Measurement History</h2>
+        <div id="measurementHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Progress Photos</h2>
+        <p class="small">Every 4 weeks · same lighting · same time · relaxed pose · front, side, back.</p>
+        <div class="form-grid">
+          <label>Front <input id="photoFront" type="file" accept="image/*"></label>
+          <label>Side <input id="photoSide" type="file" accept="image/*"></label>
+          <label>Back <input id="photoBack" type="file" accept="image/*"></label>
+          <label>Bodyweight at Photo <input id="photoBodyweight" type="number" step="0.1"></label>
+          <label>Lighting Notes <input id="photoLighting" placeholder="optional"></label>
+        </div>
+        <textarea id="photoNotes" placeholder="Notes"></textarea>
+        <button id="savePhotos">Save Photo Check-In</button>
+        <div id="photoReminder" class="small"></div>
+        <div id="photoHistory"></div>
+      </section>
     </section>
 
-    <section class="card">
-      <h2>Historical Weekly Volume</h2>
-      <div id="weeklyVolumeChart" class="chart-box"></div>
+    <!-- ================= NUTRITION ================= -->
+    <section class="tab-panel" data-tab="nutrition" hidden>
+      <section class="card">
+        <h2>Daily Nutrition</h2>
+        <div class="form-grid">
+          <label>Calories <input id="nCalories" type="number"></label>
+          <label>Protein (g) <input id="nProtein" type="number"></label>
+          <label>Carbs (g) <input id="nCarbs" type="number"></label>
+          <label>Fat (g) <input id="nFat" type="number"></label>
+          <label>Fibre (g) <input id="nFibre" type="number"></label>
+          <label>Water (L) <input id="nWater" type="number" step="0.1"></label>
+          <label>Sodium (mg) <input id="nSodium" type="number"></label>
+          <label>Electrolytes <input id="nElectrolytes" placeholder="optional"></label>
+        </div>
+        <textarea id="nNotes" placeholder="Notes"></textarea>
+        <button id="saveNutrition">Save Nutrition Log</button>
+      </section>
+
+      <section class="card">
+        <h2>Macro Dashboard</h2>
+        <div id="macroDashboard"></div>
+      </section>
+
+      <section class="card">
+        <h2>Nutrition History</h2>
+        <div id="nutritionHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Supplement Tracker</h2>
+        <div id="supplementChecklist"></div>
+      </section>
+
+      <section class="card">
+        <h2>Supplement Log History</h2>
+        <div id="supplementHistory"></div>
+      </section>
     </section>
 
-    <section class="card">
-      <div class="section-title">
-        <h2>Exercise Progression</h2>
-        <select id="exerciseSelect"></select>
-      </div>
-      <div id="exerciseTrendChart" class="chart-box"></div>
-      <div id="exerciseTable"></div>
+    <!-- ================= RECOVERY ================= -->
+    <section class="tab-panel" data-tab="recovery" hidden>
+      <section class="card">
+        <h2>Daily Recovery</h2>
+        <div class="form-grid">
+          <label>Sleep Duration (hrs) <input id="rSleepDuration" type="number" step="0.1"></label>
+          <label>Sleep Quality 1-5 <input id="rSleepQuality" type="number" min="1" max="5"></label>
+          <label>Recovery Score 1-5 <input id="rRecoveryScore" type="number" min="1" max="5"></label>
+          <label>Energy Score 1-5 <input id="rEnergyScore" type="number" min="1" max="5"></label>
+          <label>Motivation 1-5 <input id="rMotivation" type="number" min="1" max="5"></label>
+          <label>Soreness 1-5 <input id="rSoreness" type="number" min="1" max="5"></label>
+          <label>Resting HR (optional) <input id="rRestingHR" type="number"></label>
+        </div>
+        <textarea id="rNotes" placeholder="Notes"></textarea>
+        <button id="saveRecovery">Save Recovery Log</button>
+      </section>
+
+      <section class="card">
+        <h2>Recovery History</h2>
+        <div id="recoveryHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Stimulant Tracking</h2>
+        <p class="small">Caffeine may improve acute training output. Nicotine may mask fatigue and is not recovery — it isn't encouraged here, just tracked.</p>
+        <div class="form-grid">
+          <label>Caffeine (mg) <input id="sCaffeineMg" type="number"></label>
+          <label>Caffeine Timing <input id="sCaffeineTiming" placeholder="e.g. 45 min pre-workout"></label>
+          <label>Nicotine Used <input id="sNicotineUsed" type="checkbox"></label>
+          <label>Nicotine Amount <input id="sNicotineAmount" placeholder="optional"></label>
+          <label>Nicotine Timing <input id="sNicotineTiming" placeholder="optional"></label>
+        </div>
+        <textarea id="sNotes" placeholder="Notes"></textarea>
+        <button id="saveStimulants">Save Stimulant Log</button>
+      </section>
+
+      <section class="card">
+        <h2>Stimulant History</h2>
+        <div id="stimulantHistory"></div>
+      </section>
     </section>
 
-    <section class="card">
-      <h2>Best Historical Volume Improvements</h2>
-      <div id="exerciseSummaryBars"></div>
-    </section>
+    <!-- ================= MORE ================= -->
+    <section class="tab-panel" data-tab="more" hidden>
+      <section class="card">
+        <h2>Profile</h2>
+        <div class="form-grid">
+          <label>Age <input id="pAge" type="number"></label>
+          <label>Height <input id="pHeight"></label>
+          <label>Starting Weight <input id="pStartingWeight" type="number" step="0.1"></label>
+          <label>Realistic Target Min <input id="pRealisticMin" type="number" step="0.1"></label>
+          <label>Realistic Target Max <input id="pRealisticMax" type="number" step="0.1"></label>
+          <label>Ambitious Target <input id="pAmbitious" type="number" step="0.1"></label>
+          <label>Target BF% Min <input id="pBfMin" type="number" step="0.1"></label>
+          <label>Target BF% Max <input id="pBfMax" type="number" step="0.1"></label>
+          <label>Current Phase <input id="pPhase"></label>
+          <label>Target Weekly Gain (kg) <input id="pWeeklyGain" type="number" step="0.01"></label>
+        </div>
+        <textarea id="pNotes" placeholder="Profile notes"></textarea>
+        <button id="saveProfile">Save Profile</button>
+      </section>
 
-    <section class="card">
-      <div class="section-title">
-        <h2>Today's Workout</h2>
-        <select id="daySelect"></select>
-      </div>
-      <div id="workoutList"></div>
-      <button id="saveWorkout">Save Workout</button>
-    </section>
+      <section class="card">
+        <h2>Weekly Check-In Summary (Auto)</h2>
+        <div id="weeklyCheckinSummary"></div>
+        <button id="generateWeeklyCheckin">Generate This Week's Summary</button>
+      </section>
 
-    <section class="card">
-      <h2>Recent Saved Workouts</h2>
-      <div id="sessionHistory"></div>
-    </section>
+      <section class="card">
+        <h2>Monthly Review</h2>
+        <div id="monthlyReview"></div>
+        <button id="generateMonthlyReview">Generate Monthly Review</button>
+      </section>
 
-    <section class="card">
-      <h2>Weekly Check-In</h2>
-      <div id="bodyweightChart" class="chart-box small-chart"></div>
-      <div class="form-grid">
-        <label>Morning Weight <input id="weightInput" type="number" step="0.1" placeholder="73.2"></label>
-        <label>Protein Avg <input id="proteinInput" type="number" placeholder="180"></label>
-        <label>Sleep Avg <input id="sleepInput" type="number" step="0.1" placeholder="7.5"></label>
-        <label>Sessions <input id="sessionsInput" type="number" placeholder="5"></label>
-        <label>Recovery 1-10 <input id="recoveryInput" type="number" min="1" max="10"></label>
-        <label>Energy 1-10 <input id="energyInput" type="number" min="1" max="10"></label>
-      </div>
-      <textarea id="notesInput" placeholder="Wins, issues, soreness, exercises to change..."></textarea>
-      <button id="saveCheckin">Save Weekly Check-In</button>
-    </section>
+      <section class="card">
+        <h2>Training Program Editor</h2>
+        <div id="programEditor"></div>
+      </section>
 
-    <section class="card">
-      <h2>Progress History</h2>
-      <div id="history"></div>
+      <section class="card">
+        <h2>Data Health / Backup</h2>
+        <div id="dataHealth"></div>
+        <p class="small">Export weekly. If you change phones or clear browser data, import your saved JSON backup here.</p>
+        <input id="importBackup" type="file" accept="application/json">
+      </section>
     </section>
+    </main>
 
-    <section class="card">
-      <h2>Monthly Measurements</h2>
-      <div class="form-grid">
-        <label>Shoulders <input id="shoulders" type="number" step="0.1"></label>
-        <label>Chest <input id="chest" type="number" step="0.1"></label>
-        <label>Waist <input id="waist" type="number" step="0.1"></label>
-        <label>Neck <input id="neck" type="number" step="0.1"></label>
-        <label>Right Arm <input id="rarm" type="number" step="0.1"></label>
-        <label>Left Arm <input id="larm" type="number" step="0.1"></label>
-        <label>Right Thigh <input id="rthigh" type="number" step="0.1"></label>
-        <label>Left Thigh <input id="lthigh" type="number" step="0.1"></label>
-      </div>
-      <button id="saveMeasurements">Save Measurements</button>
-    </section>
-
-    <section class="card">
-      <h2>Visual Progress</h2>
-      <p class="small">These simple bar visuals update automatically from your saved data.</p>
-      <h3>Bodyweight Trend</h3>
-      <div id="weightChart" class="mini-chart"></div>
-      <h3>Workout Volume Trend</h3>
-      <div id="volumeChart" class="mini-chart"></div>
-    </section>
-
-    <section class="card">
-      <h2>Workout History</h2>
-      <div id="workoutHistory"></div>
-    </section>
-
-    <section class="card">
-      <h2>Historical Progress Summary</h2>
-      <p class="small">Includes the interpreted historic entries from the previous spreadsheet and new sessions logged from this app.</p>
-      <div id="historicalSummary"></div>
-    </section>
-
-    <section class="card">
-      <h2>Measurement History</h2>
-      <div id="measurementHistory"></div>
-    </section>
-
-    <section class="card">
-      <h2>Backup / Restore</h2>
-      <p class="small">Export weekly. If you change phones or clear browser data, import your saved JSON backup here.</p>
-      <input id="importBackup" type="file" accept="application/json">
-    </section>
-
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-tab="dashboard">Dash</button>
+      <button class="nav-btn" data-tab="train">Train</button>
+      <button class="nav-btn" data-tab="body">Body</button>
+      <button class="nav-btn" data-tab="nutrition">Fuel</button>
+      <button class="nav-btn" data-tab="recovery">Recover</button>
+      <button class="nav-btn" data-tab="more">More</button>
+    </nav>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
