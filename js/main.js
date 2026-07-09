@@ -188,7 +188,42 @@ function setupEventListeners() {
     evt.target.value = "";
   });
 
+  $("clearCacheBtn")?.addEventListener("click", clearAppCacheAndReload);
+
   window.addEventListener("reacher:refresh", refreshAll);
+}
+
+/**
+ * "Force update" button: clears any cached app FILES (Cache Storage, any service
+ * worker) and reloads via a cache-busting URL so the browser fetches the latest
+ * deployed code — never touches localStorage, so all saved app data (workouts,
+ * meals, logs, drafts) is completely unaffected.
+ */
+async function clearAppCacheAndReload() {
+  const confirmed = confirm(
+    "This reloads the app to fetch the latest version and clears any cached app files. " +
+    "Your saved data (workouts, meals, logs) is NOT deleted — it stays exactly as it is. " +
+    "As an extra precaution, consider clicking Export first if you haven't recently. Continue?"
+  );
+  if (!confirmed) return;
+
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(r => r.unregister()));
+    }
+  } catch (err) {
+    console.warn("[Project Reacher] Cache/service worker cleanup failed (continuing to reload anyway).", err);
+  }
+
+  const url = new URL(window.location.href);
+  url.hash = "";
+  url.searchParams.set("_refresh", Date.now().toString());
+  window.location.replace(url.toString());
 }
 
 migrateData();
