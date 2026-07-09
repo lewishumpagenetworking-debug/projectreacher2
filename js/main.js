@@ -67,6 +67,32 @@ function setupNav() {
   });
 }
 
+const COLLECTION_LABELS = {
+  workouts: "Workouts", checkins: "Check-ins", measurements: "Measurements",
+  bodyweightLogs: "Bodyweight logs", nutritionLogs: "Nutrition logs", recoveryLogs: "Recovery logs",
+  stimulantLogs: "Stimulant logs", supplementLogs: "Supplement logs", mealLogs: "Meal logs",
+  progressPhotos: "Progress photos", monthlyReviews: "Monthly reviews", motivationalVisuals: "Motivational visuals"
+};
+
+function formatImportSummary(summary) {
+  const lines = ["Backup merged into your current data:"];
+  Object.entries(summary.collections || {}).forEach(([key, c]) => {
+    if (!c.foundInImport) return;
+    const label = COLLECTION_LABELS[key] || key;
+    const bits = [`${c.foundInImport} found`];
+    if (c.added) bits.push(`${c.added} added`);
+    if (c.skippedDuplicate) bits.push(`${c.skippedDuplicate} already present`);
+    lines.push(`${label}: ${bits.join(", ")}`);
+  });
+  if (summary.exercisesAdded) lines.push(`Exercises restored from the import: ${summary.exercisesAdded}`);
+  if (summary.programDaysAdded) lines.push(`Training program days restored: ${summary.programDaysAdded}`);
+  lines.push(`Day 6 present: ${summary.day6Preserved ? "yes" : "no"}`);
+  if (summary.activeDraftAction === "kept-current") lines.push("Active workout draft: kept your current unsaved draft.");
+  if (summary.activeDraftAction === "restored-from-import") lines.push("Active workout draft: restored from the imported file.");
+  lines.push("No current data, program days, or app features were removed.");
+  return lines.join("\n");
+}
+
 function setupDeleteDelegation() {
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-delete]");
@@ -122,16 +148,16 @@ function setupEventListeners() {
   $("importBackup").addEventListener("change", (evt) => {
     const file = evt.target.files[0];
     if (!file) return;
-    if (!confirm("Importing will REPLACE all current app data with the contents of this file. Existing unsaved data will be overwritten. Make sure you have exported a current backup first. Continue?")) {
+    if (!confirm("Importing will MERGE this file into your current data. Nothing currently saved is deleted or downgraded — the import can only add missing workouts, logs, exercises or program days. Continue?")) {
       evt.target.value = "";
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        importData(reader.result);
+        const { summary } = importData(reader.result);
         refreshAll();
-        alert("Backup imported.");
+        alert(formatImportSummary(summary));
       } catch (err) {
         alert("Could not import this file: " + err.message);
       }
