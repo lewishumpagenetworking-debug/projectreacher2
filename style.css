@@ -566,3 +566,13 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .draft-status-saved, .draft-status-restored, .draft-status-workoutSaved { color: var(--good); background: rgba(95, 245, 155, 0.1); }
 .draft-status-blocked, .draft-status-error { color: #ff5b6e; background: rgba(255, 91, 110, 0.1); }
 #draftResumeBanner button { margin: 6px 6px 0 0; }
+
+/* ---- Advanced full-restore (import) ---- */
+.advanced-restore {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.advanced-restore summary { cursor: pointer; color: var(--muted); }
+.advanced-restore p { margin: 8px 0; }
