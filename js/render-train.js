@@ -2,6 +2,7 @@ import { $, esc } from "./dom.js";
 import { recommendProgression, getExerciseHistory, localExerciseAdvice } from "./calculations.js";
 import { getData, saveData, uid } from "./data.js";
 import { metricLabel } from "./metric-info.js";
+import { showMissionStart, celebrateSetRow, celebrateExerciseComplete, showOperationComplete, formatVolumeComparison } from "./reward-system.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -101,6 +102,11 @@ export function renderWorkoutForm(data) {
       <div class="exercise-header">
         <div class="exercise-header-info" data-toggle-guide="${esc(x.name)}">
           <h3>${i + 1}. ${esc(x.name)}</h3>
+          <div class="exercise-state-row">
+            <span class="exercise-state-tag tag-active" hidden>Active Exercise</span>
+            <span class="exercise-state-tag tag-complete" hidden>Exercise Complete</span>
+            ${exerciseDef?.primaryMuscle ? `<span class="exercise-state-tag tag-muscle">${esc(exerciseDef.primaryMuscle)}</span>` : ""}
+          </div>
           <div class="small">Target: ${esc(x.repRange)} · Last: ${formatSet(history.lastSession)} · Best: ${formatSet(history.previousBest)}</div>
           ${recBadge ? `<div class="badge-row">${recBadge}</div>` : ""}
         </div>
@@ -132,6 +138,103 @@ export function renderWorkoutForm(data) {
   }).join("");
 
   applyDraftAfterRender(data, day);
+  initializeRewardState();
+}
+
+// ---- Visual reward state (active/complete card highlighting, session progress bar,
+// set/exercise completion micro-rewards). Session-only, recomputed on every render —
+// never persisted, so it can't drift from or affect the real save/draft data. ----
+let exerciseCompletionState = {};
+let setCompletionState = {};
+
+function numVal(card, selector) { return Number(card.querySelector(selector)?.value || 0); }
+function exerciseIsComplete(card) { return numVal(card, ".set1r") > 0 && numVal(card, ".set2r") > 0; }
+function setSlotFilled(card, weightSel, repsSel) { return numVal(card, weightSel) > 0 && numVal(card, repsSel) > 0; }
+
+function initializeRewardState() {
+  exerciseCompletionState = {};
+  setCompletionState = {};
+  document.querySelectorAll("#workoutList .exercise").forEach(card => {
+    const name = card.dataset.exercise;
+    exerciseCompletionState[name] = exerciseIsComplete(card);
+    setCompletionState[name] = { set1: setSlotFilled(card, ".set1w", ".set1r"), set2: setSlotFilled(card, ".set2w", ".set2r") };
+  });
+  updateExerciseVisualStates();
+  updateWorkoutProgress();
+}
+
+function updateExerciseVisualStates() {
+  const cards = [...document.querySelectorAll("#workoutList .exercise")];
+  let activeCard = cards.find(c => c.querySelector(".form-guide") && !c.querySelector(".form-guide").hidden);
+  if (!activeCard) activeCard = cards.find(c => !exerciseIsComplete(c)) || null;
+  cards.forEach(card => {
+    const isComplete = exerciseIsComplete(card);
+    const isActive = card === activeCard && !isComplete;
+    card.classList.toggle("is-active", isActive);
+    card.classList.toggle("is-complete", isComplete);
+    const activeTag = card.querySelector(".tag-active");
+    const completeTag = card.querySelector(".tag-complete");
+    if (activeTag) activeTag.hidden = !isActive;
+    if (completeTag) completeTag.hidden = !isComplete;
+  });
+}
+
+function updateWorkoutProgress() {
+  const cards = [...document.querySelectorAll("#workoutList .exercise")];
+  const fill = $("workoutProgressFill");
+  const text = $("workoutProgressText");
+  if (!fill) return;
+  if (!cards.length) { fill.style.width = "0%"; if (text) text.textContent = "0%"; return; }
+  const completeCount = cards.filter(exerciseIsComplete).length;
+  const pct = Math.round((completeCount / cards.length) * 100);
+  fill.style.width = `${pct}%`;
+  if (text) text.textContent = `${completeCount}/${cards.length} exercises · ${pct}%`;
+}
+
+function handleWorkoutInputReward(target) {
+  const card = target.closest?.(".exercise");
+  if (!card) return;
+  const name = card.dataset.exercise;
+  const setRow = card.querySelector(".set-row");
+
+  const prevSets = setCompletionState[name] || { set1: false, set2: false };
+  const nowSet1 = setSlotFilled(card, ".set1w", ".set1r");
+  const nowSet2 = setSlotFilled(card, ".set2w", ".set2r");
+  if ((nowSet1 && !prevSets.set1) || (nowSet2 && !prevSets.set2)) {
+    celebrateSetRow(setRow, "SET LOCKED");
+  }
+  setCompletionState[name] = { set1: nowSet1, set2: nowSet2 };
+
+  const wasComplete = exerciseCompletionState[name];
+  const isComplete = exerciseIsComplete(card);
+  if (isComplete && !wasComplete) {
+    const data = getData();
+    const history = getExerciseHistory(data.workouts, name);
+    const currentVol = totalVolume({ exercises: [readEntryFromCard(card)] });
+    const prevVol = history.lastSession ? totalVolume({ exercises: [history.lastSession] }) : null;
+    const note = formatVolumeComparison(currentVol, prevVol) || `${Math.round(currentVol)}kg total volume`;
+    celebrateExerciseComplete(card, `Exercise complete — ${note}`);
+  }
+  exerciseCompletionState[name] = isComplete;
+
+  updateExerciseVisualStates();
+  updateWorkoutProgress();
+}
+
+export function getMissionFocusPoints(data, day) {
+  const exercises = data.trainingProgram[day] || [];
+  const cues = [];
+  exercises.forEach(x => {
+    const def = data.exercises.find(e => e.name === x.name);
+    if (def?.todayFocusCue && !cues.includes(def.todayFocusCue)) cues.push(def.todayFocusCue);
+  });
+  return cues.length ? cues.slice(0, 2) : ["Controlled eccentrics, full contractions, no ego reps."];
+}
+
+export function startMission(data) {
+  const day = $("daySelect")?.value || Object.keys(data.trainingProgram)[0];
+  if (!day) return;
+  showMissionStart(day, getMissionFocusPoints(data, day));
 }
 
 function readEntryFromCard(el) {
@@ -368,11 +471,43 @@ function discardOtherDayDraft() {
   renderWorkoutForm(getData());
 }
 
+function buildCompletionSummary(workout, exercises, data, prs) {
+  const setCount = exercises.reduce((sum, e) => {
+    let c = 0;
+    if (Number(e.set1Reps) > 0) c++;
+    if (Number(e.set2Reps) > 0) c++;
+    if (Number(e.optionalSet3Reps) > 0) c++;
+    return sum + c;
+  }, 0);
+  const totalVol = exercises.reduce((sum, e) => sum + totalVolume({ exercises: [e] }), 0);
+  const progressionCandidates = exercises.filter(e => e.increaseNextWeek).map(e => e.name);
+  const musclesTrained = [...new Set(exercises.map(e => {
+    const def = data.exercises.find(d => d.name === e.name);
+    return def?.primaryMuscle;
+  }).filter(Boolean))];
+  const nextObjective = progressionCandidates.length
+    ? `Add reps or load to ${progressionCandidates[0]} next session.`
+    : "Repeat this session's loads with cleaner form and full range of motion.";
+  return {
+    day: workout.day,
+    date: workout.date,
+    exerciseCount: exercises.length,
+    setCount,
+    totalVolume: totalVol,
+    progressionCandidates,
+    musclesTrained,
+    prs,
+    nextObjective
+  };
+}
+
 export function saveWorkout() {
   const data = getData();
   const day = $("daySelect").value;
   const now = new Date().toISOString();
+  let summary = null;
   try {
+    const prs = [];
     const exercises = [...document.querySelectorAll("#workoutList .exercise")].map(el => {
       const name = el.dataset.exercise;
       const exerciseDef = data.exercises.find(e => e.name === name);
@@ -381,18 +516,26 @@ export function saveWorkout() {
       const rec = recommendProgression(entry, exerciseDef, history.lastSession);
       entry.increaseNextWeek = rec.increaseNextWeek;
       entry.progressionRecommendation = rec.recommendation;
+
+      const newVol = totalVolume({ exercises: [entry] });
+      const prevBestVol = history.previousBest ? totalVolume({ exercises: [history.previousBest] }) : 0;
+      if (history.previousBest && newVol > 0 && newVol > prevBestVol) {
+        prs.push({ name, oldBest: formatSet(history.previousBest), newBest: formatSet(entry) });
+      }
       return entry;
     });
-    data.workouts.push({
+    const workout = {
       id: uid(),
       date: new Date().toLocaleDateString("en-CA"),
       day,
       programDay: day,
       sessionName: day,
       exercises
-    });
+    };
+    data.workouts.push(workout);
     data.activeWorkoutDraft = null;
     saveData(data);
+    summary = buildCompletionSummary(workout, exercises, data, prs);
   } catch (err) {
     console.error("[Project Reacher] Failed to save workout", err);
     updateDraftStatusUI("error");
@@ -404,7 +547,7 @@ export function saveWorkout() {
   refreshAll();
   updateDraftStatusUI("workoutSaved");
   setTimeout(() => updateDraftStatusUI("clean"), 2500);
-  alert("Workout saved.");
+  if (summary) showOperationComplete(summary);
 }
 
 function handleToggleGuide(toggle) {
@@ -437,7 +580,10 @@ function handleAskAI(btn) {
   const el = card.querySelector(".ai-answer");
   if (!el) return;
   el.hidden = false;
+  const severity = advice.safetyWarning ? "red" : advice.formLimitingProgression ? "amber" : "green";
+  const severityLabel = severity === "red" ? "Adjust" : severity === "amber" ? "Monitor" : "On Track";
   el.innerHTML = `
+    <span class="ai-severity sev-${severity}">${esc(severityLabel)}</span>
     <p><strong>Quick local analysis</strong> (rule-based from your logged data, not a live AI chat):</p>
     <p>Set counted: ${advice.setCounted ? "Yes" : "Not yet — reps below target range"}</p>
     <p>Next time: <strong>${advice.progressionDecision === "increase" ? "Increase load" : "Hold load"}</strong> — ${esc(advice.reason)}</p>
@@ -451,7 +597,7 @@ function handleAskAI(btn) {
 export function setupTrainEventDelegation() {
   document.addEventListener("click", (e) => {
     const toggle = e.target.closest("[data-toggle-guide]");
-    if (toggle) { handleToggleGuide(toggle); scheduleDraftAutosave(); return; }
+    if (toggle) { handleToggleGuide(toggle); scheduleDraftAutosave(); updateExerciseVisualStates(); return; }
 
     const askBtn = e.target.closest(".ask-ai-btn");
     if (askBtn) { handleAskAI(askBtn); scheduleDraftAutosave(); return; }
@@ -476,10 +622,12 @@ export function setupTrainEventDelegation() {
   document.addEventListener("input", (e) => {
     if (!e.target.closest("#workoutList")) return;
     scheduleDraftAutosave();
+    handleWorkoutInputReward(e.target);
   });
   document.addEventListener("change", (e) => {
     if (!e.target.closest("#workoutList")) return;
     scheduleDraftAutosave();
+    handleWorkoutInputReward(e.target);
   });
 }
 

@@ -2,7 +2,8 @@ import { $, esc, fmt } from "./dom.js";
 import {
   sevenDayAverage, weeklyRateOfGain, gainRateStatus, macroTargets, perKg,
   suggestedCalorieAdjustment, ratios, weeklyVolumeByMuscleGroup, volumeStatus, recoveryWarnings,
-  workoutsInWeek, dailyMealTotals, remainingMacros, macroAdherence, armForearmDeltWarnings
+  workoutsInWeek, dailyMealTotals, remainingMacros, macroAdherence, armForearmDeltWarnings,
+  trainingStreakWeeks, loggingStreakDays, weeklyComplianceRate, computeBadges
 } from "./calculations.js";
 import { DEFAULT_TRAINING_PROGRAM, MUSCLE_GROUPS } from "./program.js";
 
@@ -13,6 +14,12 @@ export function renderDashboard(data) {
   const latestBw = data.bodyweightLogs[data.bodyweightLogs.length - 1];
   const currentWeight = latestBw ? Number(latestBw.morningBodyweight) : (data.checkins.at(-1)?.weight ?? profile.currentWeight ?? profile.startingWeight);
   $("currentWeight").textContent = `${fmt(currentWeight)}kg`;
+
+  renderHeroMission(data, currentWeight);
+  renderProgressCommandGrid(data);
+  renderStreaks(data);
+  renderBadges(data);
+  renderNextObjective(data);
 
   const sevenDay = sevenDayAverage(data.bodyweightLogs, "morningBodyweight");
   $("sevenDayAvg").textContent = sevenDay != null ? `${fmt(sevenDay)}kg` : "--";
@@ -54,6 +61,102 @@ function renderDraftBanner(data) {
   if (!hasContent) { card.hidden = true; return; }
   card.hidden = false;
   statusEl.innerHTML = `<p class="small">Active workout draft exists for <strong>${esc(draft.day)}</strong>, last edited ${new Date(draft.lastEditedAt).toLocaleTimeString()}. Nothing is lost — resume it any time.</p>`;
+}
+
+function renderHeroMission(data, currentWeight) {
+  const headline = $("heroNextWorkoutName");
+  if (!headline) return;
+  const days = Object.keys(data.trainingProgram || DEFAULT_TRAINING_PROGRAM);
+  const last = data.workouts.at(-1);
+  let nextDay = days[0];
+  if (last) {
+    const idx = days.indexOf(last.day || last.programDay);
+    nextDay = days[(idx + 1) % days.length] ?? days[0];
+  }
+  headline.textContent = nextDay || "--";
+
+  const heroPhase = $("heroPhase");
+  if (heroPhase) heroPhase.textContent = data.profile.currentPhase || "--";
+  const heroWeight = $("heroWeight");
+  if (heroWeight) heroWeight.textContent = `${fmt(currentWeight)}kg`;
+  const heroGain = $("heroGainTarget");
+  if (heroGain) heroGain.textContent = data.profile.targetWeeklyGain != null ? `+${data.profile.targetWeeklyGain}kg/wk` : "--";
+  const latestRecovery = data.recoveryLogs.at(-1);
+  const heroRecovery = $("heroRecovery");
+  if (heroRecovery) heroRecovery.textContent = latestRecovery ? `${latestRecovery.recoveryScore ?? "--"}/5` : "--";
+}
+
+function renderProgressCommandGrid(data) {
+  const el = $("progressCommandGrid");
+  if (!el) return;
+  const compliance = weeklyComplianceRate(data.workouts, data.trainingProgram);
+  const totals = weeklyVolumeByMuscleGroup(data.workouts, data.exercises);
+  const armForearmSets = (totals["biceps"] || 0) + (totals["brachialis"] || 0) + (totals["triceps"] || 0) +
+    (totals["forearms"] || 0) + (totals["forearm-flexors"] || 0) + (totals["forearm-extensors"] || 0);
+  const armForearmPct = pct(Math.round((armForearmSets / 24) * 100));
+  const latestRecovery = data.recoveryLogs.at(-1);
+  const recoveryScore = latestRecovery ? Number(latestRecovery.recoveryScore) || 0 : 0;
+  const recoveryPct = pct(Math.round((recoveryScore / 5) * 100));
+
+  const tiles = [
+    { label: "Weekly Compliance", value: `${compliance}%`, pctValue: compliance, good: compliance >= 80 },
+    { label: "Arm + Forearm Specialisation", value: `${armForearmSets} sets`, pctValue: armForearmPct, good: armForearmPct >= 60 },
+    { label: "Recovery Readiness", value: latestRecovery ? `${latestRecovery.recoveryScore}/5` : "--", pctValue: recoveryPct, good: recoveryPct >= 60 }
+  ];
+  el.innerHTML = tiles.map(t => `
+    <div class="card command-tile">
+      <span class="tile-label">${esc(t.label)}</span>
+      <span class="tile-value">${esc(t.value)}</span>
+      <div class="tile-bar-wrap"><div class="tile-bar-fill ${t.good ? "fill-good" : ""}" style="width:${t.pctValue}%"></div></div>
+    </div>`).join("");
+}
+
+function renderStreaks(data) {
+  const el = $("streakGrid");
+  if (!el) return;
+  const trainStreak = trainingStreakWeeks(data.workouts);
+  const nutritionStreak = loggingStreakDays(data.mealLogs || [], "date");
+  const recoveryStreak = loggingStreakDays(data.recoveryLogs || [], "date");
+  const compliance = weeklyComplianceRate(data.workouts, data.trainingProgram);
+
+  const tiles = [
+    { number: trainStreak, label: "Mission Chain (weeks)" },
+    { number: `${compliance}%`, label: "Weekly Compliance" },
+    { number: nutritionStreak, label: "Nutrition Discipline (days)" },
+    { number: recoveryStreak, label: "Recovery Streak (days)" }
+  ];
+  el.innerHTML = tiles.map(t => `
+    <div class="streak-tile ${Number(t.number) > 0 ? "streak-active" : ""}">
+      <div class="streak-number">${esc(String(t.number))}</div>
+      <div class="streak-label">${esc(t.label)}</div>
+    </div>`).join("");
+}
+
+function renderBadges(data) {
+  const el = $("badgeGrid");
+  if (!el) return;
+  const badges = computeBadges(data);
+  el.innerHTML = badges.map(b => `
+    <div class="badge-tile ${b.unlocked ? "unlocked" : ""}">
+      <span class="badge-tile-icon">${b.icon}</span>
+      <span class="badge-tile-name ${b.unlocked ? "" : "locked-name"}">${esc(b.name)}</span>
+    </div>`).join("");
+}
+
+function renderNextObjective(data) {
+  const el = $("dashNextObjective");
+  if (!el) return;
+  const last = data.workouts.at(-1);
+  const flagged = (last?.exercises || []).filter(e => e.increaseNextWeek);
+  const latestMeal = data.mealLogs.at(-1);
+  const latestRecovery = data.recoveryLogs.at(-1);
+
+  let objective = "Log today's workout to unlock a next objective.";
+  if (flagged.length) objective = `Add reps or load to ${flagged[0].name} next session.`;
+  else if (!latestRecovery) objective = "Log today's recovery to keep your readiness score accurate.";
+  else if (!latestMeal) objective = "Log a meal to track today's protein and calorie target.";
+
+  el.innerHTML = `<p class="mission-tag">Next Objective</p><p>${esc(objective)}</p>`;
 }
 
 function renderArmForearmDeltSummary(data) {
