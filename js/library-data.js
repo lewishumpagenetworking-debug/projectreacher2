@@ -1510,8 +1510,8 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Project Reacher's exercise-level coaching advice is generated locally from your logged entries and each exercise's guide content using deterministic rules — it is not a live AI chat calling an external model.",
     beginnerExplanation: "When the app gives advice like a next-set cue or a progression decision, it's built from clear if/then rules applied to your own logged numbers, not from a live conversation with an AI.",
     whyItMatters: "It's important to understand what kind of 'AI' this is — honest, rule-based logic you can inspect and trust, not a black box.",
-    projectReacherApplication: "Used in the Train tab's exercise advice and in the Library's own Ask-About-This feature — both are local and rule-based, clearly labelled as such.",
-    practicalAction: ["Treat these recommendations as a structured second opinion drawn from your own data, and still apply your own judgement."],
+    projectReacherApplication: "Used in the Train tab's exercise advice and in the Library's own Ask-About-This feature — both are local and rule-based, clearly labelled as such. On arm, forearm and side-delt isolation work it will not recommend reducing volume unless recovery, pain or performance data actually supports it — arms and forearms are a deliberate priority, not something to quietly deprioritise.",
+    practicalAction: ["Treat these recommendations as a structured second opinion drawn from your own data, and still apply your own judgement.", "Watch elbow, wrist and shoulder pain flags closely on Day 6 — the advice will hold or reduce load on a specific exercise if pain is logged, without dropping the day's overall priority."],
     cautionNuance: "This app has no server-side AI API key and does not send your data to a live AI model for coaching advice — everything is computed locally in your browser from your own logged data and the app's built-in guide content.",
     relatedTerms: ["suggested-edits", "data-sufficiency"], tags: ["AI coach", "AI recommendations"], readingTimeMin: 2, evidenceTier: "Implementation"
   }),
@@ -1705,7 +1705,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Project Reacher is a training, nutrition and recovery tracking app built around one specific natural bodybuilding goal — building broad, proportionate, Alan Ritchson / Jack Reacher-style shoulders, chest, back and arms over a controlled waist, entirely drug-free.",
     beginnerExplanation: "It logs your workouts, meals, bodyweight, measurements and recovery, then uses that data to give you specific, personalised feedback instead of generic advice.",
     whyItMatters: "Generic fitness advice doesn't account for your specific starting point, constraints (like a fixed sleep schedule) or goal — this app is built around exactly those specifics.",
-    projectReacherApplication: "Every feature — Train, Nutrition, Recovery, Weekly/Monthly Review, and this Library — exists to support that one specific, natural, proportion-focused goal.",
+    projectReacherApplication: "Every feature — Train, Nutrition, Recovery, Weekly/Monthly Review, and this Library — exists to support that one specific, natural, proportion-focused goal, including a dedicated Saturday Day 6 — Arm + Forearm + Delt Specialisation session, since arms are already a strong feature the plan wants to preserve and amplify while bringing lagging forearms up and emphasising side delts for shoulder-to-waist ratio.",
     practicalAction: ["Use the Library whenever a term or app metric is unclear, then get back to logging."],
     relatedTerms: ["what-physique-are-we-building", "how-to-adapt-training-to-your-own-style"], tags: ["project reacher", "overview"],
     readingTimeMin: 2, evidenceTier: "Implementation"
@@ -1727,9 +1727,9 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Broad shoulders and lat width drive the V-taper; upper chest fullness and traps/neck add upper-body power and presence; arm size fills out the overall proportion — each is deliberately prioritised in exercise selection.",
     beginnerExplanation: "Shoulders (delts) create width at the top of the frame. Upper chest adds visible fullness above the pecs' lower mass. Lats/back width widen the frame from behind and create the V-taper with the waist. Arms fill out the silhouette from the front and side. Traps and neck add a powerful, proportionate look to the upper body.",
     whyItMatters: "Training everything equally would dilute effort away from the muscle groups that actually drive this specific visual goal.",
-    projectReacherApplication: "This is why Cable Lateral Raise, Incline DB Press, Lat Pulldown variants, curls/extensions and Shrugs/Neck Isometrics all get deliberate, dedicated program slots rather than being afterthoughts.",
+    projectReacherApplication: "This is why Cable Lateral Raise, Incline DB Press, Lat Pulldown variants, curls/extensions and Shrugs/Neck Isometrics all get deliberate, dedicated program slots rather than being afterthoughts. Day 6 — Arm + Forearm + Delt Specialisation adds a dedicated Saturday session for biceps, brachialis/brachioradialis, triceps, forearm flexors/extensors, grip and side delts, since arms are already a strong feature worth amplifying, forearms are lagging and need to catch up, and side-delt width directly supports the shoulder-to-waist ratio.",
     practicalAction: ["Prioritise consistent effort and progression specifically on these movements over adding unrelated exercises."],
-    relatedTerms: ["cable-lateral-raise", "incline-db-press", "wide-grip-lat-pulldown", "shrugs"], tags: ["shoulders", "chest", "back", "arms", "traps", "neck"],
+    relatedTerms: ["cable-lateral-raise", "incline-db-press", "wide-grip-lat-pulldown", "shrugs"], tags: ["shoulders", "chest", "back", "arms", "traps", "neck", "forearms", "day 6"],
     readingTimeMin: 2, evidenceTier: "Implementation"
   }),
   E({

@@ -106,6 +106,37 @@ export function suggestedCalorieAdjustment(gainRate, targetWeeklyGain = 0.25) {
   return "Log more bodyweight data";
 }
 
+/** Arm-vs-forearm growth comparison between two measurement records, for monthly review. */
+export function armForearmBalance(first, last) {
+  if (!first || !last) return { status: "insufficient-data", message: "Not enough measurement data yet." };
+  const rArmChange = round2((Number(last.rarm) || 0) - (Number(first.rarm) || 0));
+  const lArmChange = round2((Number(last.larm) || 0) - (Number(first.larm) || 0));
+  const rForearmChange = round2((Number(last.rforearm) || 0) - (Number(first.rforearm) || 0));
+  const lForearmChange = round2((Number(last.lforearm) || 0) - (Number(first.lforearm) || 0));
+  const armChange = round2((rArmChange + lArmChange) / 2);
+  const forearmChange = round2((rForearmChange + lForearmChange) / 2);
+  const haveForearmData = Number(first.rforearm) > 0 && Number(last.rforearm) > 0;
+
+  let status = "insufficient-data";
+  let message = "Not enough forearm measurement data yet — log Right/Left Forearm in Measurements to track this.";
+  if (haveForearmData) {
+    if (armChange > 0 && forearmChange <= 0) {
+      status = "forearms-lagging";
+      message = "Forearms lagging behind arm growth this period.";
+    } else if (forearmChange > 0 && forearmChange >= armChange) {
+      status = "forearms-improving";
+      message = "Forearms catching up — growing at or above the rate of the upper arm.";
+    } else if (armChange > 0 && forearmChange > 0) {
+      status = "balanced";
+      message = "Balanced arm and forearm growth.";
+    } else if (armChange > 0 || forearmChange > 0) {
+      status = "strong-improvement";
+      message = "Measurable growth recorded this period.";
+    }
+  }
+  return { rArmChange, lArmChange, rForearmChange, lForearmChange, armChange, forearmChange, status, message };
+}
+
 /** shoulder:waist and chest:waist ratios from a measurement entry. */
 export function ratios(measurement) {
   const shoulders = Number(measurement.shoulders);
@@ -237,7 +268,7 @@ export function weeklyVolumeByMuscleGroup(workouts, exercises, referenceDate = n
       (w.exercises || []).forEach(e => {
         const def = byName[e.name];
         if (!def) return;
-        const group = MUSCLE_GROUP_MAP[def.primaryMuscle];
+        const group = def.volumeGroup || MUSCLE_GROUP_MAP[def.primaryMuscle];
         if (!group) return;
         let hardSets = 0;
         if (Number(e.set1Reps) > 0) hardSets++;
@@ -257,12 +288,68 @@ export function workoutsInWeek(workouts, referenceDate = new Date()) {
   });
 }
 
+// Custom weekly-set targets for the arm/forearm/delt specialisation groups — these
+// have their own moderate/strong guidance rather than the generic priority-muscle
+// [16, 20] band, since 2-working-set-per-exercise programming realistically lands
+// well under that for isolation-only muscle groups.
+const VOLUME_TARGET_OVERRIDES = {
+  "biceps": { moderate: 6, strong: 8 },
+  "brachialis": { moderate: 6, strong: 8 },
+  "triceps": { moderate: 6, strong: 8 },
+  "forearms": { moderate: 4, strong: 6 },
+  "forearm-flexors": { moderate: 4, strong: 6 },
+  "forearm-extensors": { moderate: 4, strong: 6 },
+  "side delts": { moderate: 6, strong: 10 }
+};
+
 export function volumeStatus(group, sets) {
+  const override = VOLUME_TARGET_OVERRIDES[group];
+  if (override) {
+    const specialisationLabel = sets >= override.strong ? "strong specialisation" : sets >= override.moderate ? "moderate" : "under baseline";
+    return {
+      status: sets < override.moderate ? "under" : "on-target",
+      target: [override.moderate, override.strong],
+      isPriority: true,
+      specialisationLabel
+    };
+  }
   const isPriority = PRIORITY_MUSCLES.includes(group);
   const target = isPriority ? [16, 20] : [10, null];
   if (sets < 10) return { status: "under", target, isPriority };
   if (isPriority && sets < 16) return { status: "below-priority-target", target, isPriority };
   return { status: "on-target", target, isPriority };
+}
+
+/**
+ * Arm/forearm/delt specialisation warnings — surfaced on the Dashboard and in the
+ * Weekly Review. Only fires from real logged volume/pain data, never a generic nag.
+ */
+export function armForearmDeltWarnings({ workouts, exercises, recoveryLogs = [] }, referenceDate = new Date()) {
+  const totals = weeklyVolumeByMuscleGroup(workouts, exercises, referenceDate);
+  const warnings = [];
+  const forearmSets = (totals["forearms"] || 0) + (totals["forearm-flexors"] || 0) + (totals["forearm-extensors"] || 0);
+  const armSets = (totals["biceps"] || 0) + (totals["brachialis"] || 0) + (totals["triceps"] || 0) + forearmSets;
+  const sideDeltSets = totals["side delts"] || 0;
+
+  if (forearmSets > 0 && forearmSets < 4) {
+    warnings.push("Forearm volume may be too low to bring them up relative to upper arms.");
+  }
+
+  const recentPain = workouts.slice(-4).some(w => (w.exercises || []).some(e => e.painFlag));
+  const recentShoulderDiscomfort = recentPain && workouts.slice(-4).some(w =>
+    (w.exercises || []).some(e => e.painFlag && ["Cable Lateral Raise", "Seated DB Lateral Raise", "Face Pull", "Rear Delt Fly", "Seated DB Shoulder Press"].includes(e.name)));
+  if (sideDeltSets >= 10 && recentShoulderDiscomfort) {
+    warnings.push("Side-delt volume is high. Monitor shoulder comfort, trap takeover and pressing performance.");
+  }
+
+  const recentElbowWristPain = workouts.slice(-4).some(w => (w.exercises || []).some(e => e.painFlag &&
+    ["Hammer Curl", "EZ Curl", "Incline DB Curl", "Reverse Curl", "Overhead Triceps Extension", "Reverse-Grip Bar Extension",
+     "Triceps Pushdown", "Wrist Curl", "Reverse Wrist Curl", "Farmer's Carry"].includes(e.name)));
+  if (armSets >= 12 && recentElbowWristPain) {
+    warnings.push("Arm/forearm volume may be exceeding joint recovery. Hold load increases and monitor discomfort.");
+  }
+
+  return warnings;
 }
 
 /** Sums calories/protein/carbs/fat/fibre for all meals logged on a given ISO date. */

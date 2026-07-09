@@ -1,6 +1,6 @@
 import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
-import { average, weeklyRateOfGain, sevenDayAverage, ratios, weeklyVolumeByMuscleGroup, workoutsInWeek } from "./calculations.js";
+import { average, weeklyRateOfGain, sevenDayAverage, ratios, weeklyVolumeByMuscleGroup, workoutsInWeek, armForearmBalance, volumeStatus, armForearmDeltWarnings } from "./calculations.js";
 import { parseLogDate, isSameWeek, startOfWeek, isLegacySlashDate } from "./dates.js";
 
 export function renderVisualModeToggle(data) {
@@ -66,6 +66,32 @@ export function generateWeeklyCheckin() {
   const sessions = workoutsInWeek(data.workouts, now);
   const increases = sessions.flatMap(w => (w.exercises || []).filter(e => e.increaseNextWeek));
 
+  const ARM_FOREARM_DELT_EXERCISES = new Set([
+    "Incline DB Curl", "Hammer Curl", "EZ Curl", "Reverse Curl",
+    "Overhead Triceps Extension", "Reverse-Grip Bar Extension", "Triceps Pushdown", "Close Grip Chest Press",
+    "Wrist Curl", "Reverse Wrist Curl", "Farmer's Carry", "Trap Bar Hold",
+    "Cable Lateral Raise", "Seated DB Lateral Raise", "Face Pull", "Rear Delt Fly"
+  ]);
+  const armForearmDeltEntries = sessions.flatMap(w => (w.exercises || []).filter(e => ARM_FOREARM_DELT_EXERCISES.has(e.name)));
+  const bestArmForearmDeltLift = armForearmDeltEntries.reduce((best, e) => {
+    const vol = (Number(e.set1Weight) || 0) * (Number(e.set1Reps) || 0) + (Number(e.set2Weight) || 0) * (Number(e.set2Reps) || 0);
+    const bestVol = best ? (Number(best.set1Weight) || 0) * (Number(best.set1Reps) || 0) + (Number(best.set2Weight) || 0) * (Number(best.set2Reps) || 0) : -1;
+    return vol > bestVol ? e : best;
+  }, null);
+  const weekVolume = weeklyVolumeByMuscleGroup(data.workouts, data.exercises, now);
+  const armForearmDeltReview = {
+    bicepsSets: weekVolume["biceps"] || 0,
+    brachialisSets: weekVolume["brachialis"] || 0,
+    tricepsSets: weekVolume["triceps"] || 0,
+    forearmSets: (weekVolume["forearms"] || 0) + (weekVolume["forearm-flexors"] || 0) + (weekVolume["forearm-extensors"] || 0),
+    gripSets: weekVolume["grip"] || 0,
+    sideDeltSets: weekVolume["side delts"] || 0,
+    bestLift: bestArmForearmDeltLift ? `${bestArmForearmDeltLift.name}: ${bestArmForearmDeltLift.set1Weight}kg x ${bestArmForearmDeltLift.set1Reps}` : "No arm/forearm/delt sets logged this week.",
+    forearmCatchingUp: volumeStatus("forearms", (weekVolume["forearms"] || 0) + (weekVolume["forearm-flexors"] || 0) + (weekVolume["forearm-extensors"] || 0)).status !== "under",
+    sideDeltProductive: volumeStatus("side delts", weekVolume["side delts"] || 0).status !== "under",
+    warnings: armForearmDeltWarnings({ workouts: data.workouts, exercises: data.exercises }, now)
+  };
+
   const weekNumber = data.checkins.filter(c => c.weekNumber != null).length + 1;
   const summary = {
     id: uid(),
@@ -90,6 +116,7 @@ export function generateWeeklyCheckin() {
     protein: Math.round(average(nut.map(n => n.protein)) || 0),
     sleep: average(rec.map(r => r.sleepDuration)),
     strengthProgressSummary: increases.length ? `${increases.length} exercise(s) flagged to increase load.` : "No load increases flagged this week.",
+    armForearmDeltReview,
     notes: "",
     recommendation: sessions.length >= 4 ? "Keep plan" : "Review adherence — fewer than 4 sessions logged this week."
   };
@@ -111,6 +138,19 @@ export function renderWeeklyCheckinSummary(data) {
       Sessions: ${last.sessionsCompleted} · Recovery avg: ${fmt(last.recoveryAverage)}/5 · Energy avg: ${fmt(last.energyAverage)}/5<br>
       ${esc(last.strengthProgressSummary)}<br>
       <strong>${esc(last.recommendation)}</strong>
+      ${last.armForearmDeltReview ? renderArmForearmDeltReview(last.armForearmDeltReview) : ""}
+    </div>`;
+}
+
+function renderArmForearmDeltReview(review) {
+  return `
+    <div class="library-quick-explain-box">
+      <strong>Arm + Forearm + Delt Specialisation Review</strong>
+      <p class="small">Biceps ${review.bicepsSets} sets · Brachialis ${review.brachialisSets} sets · Triceps ${review.tricepsSets} sets</p>
+      <p class="small">Forearm ${review.forearmSets} sets (${review.forearmCatchingUp ? "catching up" : "still behind — keep pushing"}) · Grip ${review.gripSets} sets</p>
+      <p class="small">Side delts ${review.sideDeltSets} sets (${review.sideDeltProductive ? "productive volume" : "below productive threshold"})</p>
+      <p class="small">Best lift this week: ${esc(review.bestLift)}</p>
+      ${review.warnings.map(w => `<div class="warning-banner">${esc(w)}</div>`).join("")}
     </div>`;
 }
 
@@ -141,6 +181,7 @@ export function generateMonthlyReview() {
     recoveryTrend: rec.length ? `Avg recovery ${fmt(average(rec.map(r => r.recoveryScore)))}/5` : "No recovery logs",
     stimulantTrend: stim.length ? `Avg caffeine ${fmt(average(stim.map(s => s.caffeineMg)), 0)}mg, nicotine used ${stim.filter(s => s.nicotineUsed).length}/${stim.length} days` : "No stimulant logs",
     volumeByMuscleGroup: volumeTotals,
+    armForearmBalance: (first && last) ? armForearmBalance(first, last) : { status: "insufficient-data", message: "Not enough measurement data yet." },
     recommendation: decision,
     notes: $("monthlyReviewNotes")?.value || ""
   };
@@ -167,6 +208,7 @@ export function renderMonthlyReview(data) {
       Weight trend: ${esc(last.weightTrend)}<br>
       Measurements: ${esc(last.measurementChange)}<br>
       Shoulder:Waist ${last.ratios?.shoulderToWaist ?? "--"} · Chest:Waist ${last.ratios?.chestToWaist ?? "--"}<br>
+      ${last.armForearmBalance ? `Arm change: ${last.armForearmBalance.armChange ?? "--"}cm avg · Forearm change: ${last.armForearmBalance.forearmChange ?? "--"}cm avg — <strong>${esc(last.armForearmBalance.message)}</strong><br>` : ""}
       Nutrition: ${esc(last.macroAdherenceNote)}<br>
       Recovery: ${esc(last.recoveryTrend)}<br>
       Stimulants: ${esc(last.stimulantTrend)}<br>

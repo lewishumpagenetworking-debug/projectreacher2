@@ -6,7 +6,17 @@ import { metricLabel } from "./metric-info.js";
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
 // In-memory only — resets on page reload, i.e. "remembered for the current workout".
+// Also persisted into the active workout draft (see below) so it survives a reload too.
 const expandedExercises = new Set();
+
+// ---- Active workout draft: autosave + restore, so unsaved Train tab values are never
+// wiped by navigation or by an unrelated save action elsewhere in the app triggering a
+// global refreshAll() (which rebuilds #workoutList from clean storage data). The draft
+// lives in data.activeWorkoutDraft via the existing saveData()/getData() persistence
+// layer — no new storage mechanism, no rebuild of the save system. ----
+let draftSaveTimer = null;
+let conflictAsked = false;
+let hasShownRestoredOnce = false;
 
 function totalVolume(entry) {
   return (entry.exercises || []).reduce((sum, e) => {
@@ -120,6 +130,8 @@ export function renderWorkoutForm(data) {
       </div>
     </div>`;
   }).join("");
+
+  applyDraftAfterRender(data, day);
 }
 
 function readEntryFromCard(el) {
@@ -148,30 +160,250 @@ function readEntryFromCard(el) {
   };
 }
 
+// ---- Draft helpers ----
+
+function isEntryEmpty(entry) {
+  if (!entry) return true;
+  const zeroableEmpty = !entry.set1Weight && !entry.set1Reps && !entry.set2Weight && !entry.set2Reps;
+  const optionalEmpty = ["set1RIR", "set2RIR", "optionalSet3Weight", "optionalSet3Reps", "RPE",
+    "formQuality", "targetMuscleConnection", "rangeOfMotionQuality", "tempoControl"].every(k => entry[k] == null);
+  const textEmpty = !entry.warmup && !entry.notes && !entry.formNote;
+  const flagsEmpty = !entry.technicalFailureReached && !entry.painFlag;
+  const checklistEmpty = !entry.validRepChecklist || Object.values(entry.validRepChecklist).every(v => !v);
+  return zeroableEmpty && optionalEmpty && textEmpty && flagsEmpty && checklistEmpty;
+}
+
+function isDraftEmpty(exercisesMap) {
+  return Object.values(exercisesMap || {}).every(isEntryEmpty);
+}
+
+function buildDraftFromDOM(day) {
+  const exercises = {};
+  document.querySelectorAll("#workoutList .exercise").forEach(card => {
+    const name = card.dataset.exercise;
+    const aiAnswerEl = card.querySelector(".ai-answer");
+    exercises[name] = {
+      ...readEntryFromCard(card),
+      expanded: expandedExercises.has(name),
+      aiAdvice: (aiAnswerEl && !aiAnswerEl.hidden) ? aiAnswerEl.innerHTML : null
+    };
+  });
+  return { day, lastEditedAt: new Date().toISOString(), status: "draft", exercises };
+}
+
+function fillField(card, selector, value, { allowZero = false } = {}) {
+  const field = card.querySelector(selector);
+  if (!field) return;
+  const hasValue = allowZero ? value != null : !!value;
+  if (!hasValue) return;
+  if (field.type === "checkbox") field.checked = !!value;
+  else field.value = value;
+}
+
+function applyEntryToCard(card, entry) {
+  fillField(card, ".warmup", entry.warmup);
+  fillField(card, ".set1w", entry.set1Weight);
+  fillField(card, ".set1r", entry.set1Reps);
+  fillField(card, ".set1rir", entry.set1RIR, { allowZero: true });
+  fillField(card, ".set2w", entry.set2Weight);
+  fillField(card, ".set2r", entry.set2Reps);
+  fillField(card, ".set2rir", entry.set2RIR, { allowZero: true });
+  fillField(card, ".set3w", entry.optionalSet3Weight, { allowZero: true });
+  fillField(card, ".set3r", entry.optionalSet3Reps, { allowZero: true });
+  fillField(card, ".rpe", entry.RPE, { allowZero: true });
+  fillField(card, ".techfail", entry.technicalFailureReached);
+  fillField(card, ".formq", entry.formQuality, { allowZero: true });
+  fillField(card, ".mmc", entry.targetMuscleConnection, { allowZero: true });
+  fillField(card, ".exnotes", entry.notes);
+  fillField(card, ".romq", entry.rangeOfMotionQuality, { allowZero: true });
+  fillField(card, ".tempoq", entry.tempoControl, { allowZero: true });
+  fillField(card, ".painflag", entry.painFlag);
+  fillField(card, ".formnote", entry.formNote);
+  card.querySelectorAll(".rep-check").forEach(cb => {
+    if (entry.validRepChecklist?.[cb.dataset.check]) cb.checked = true;
+  });
+  if (entry.aiAdvice) {
+    const aiEl = card.querySelector(".ai-answer");
+    if (aiEl) { aiEl.innerHTML = entry.aiAdvice; aiEl.hidden = false; }
+  }
+}
+
+function applyDraftAfterRender(data, day) {
+  const draft = data.activeWorkoutDraft;
+  const resumeBanner = $("draftResumeBanner");
+
+  if (draft && draft.day === day && !isDraftEmpty(draft.exercises)) {
+    document.querySelectorAll("#workoutList .exercise").forEach(card => {
+      const entry = draft.exercises[card.dataset.exercise];
+      if (entry) {
+        applyEntryToCard(card, entry);
+        if (entry.expanded) expandedExercises.add(card.dataset.exercise);
+      }
+    });
+    // Re-apply expanded state to any card whose guide should now show as open.
+    document.querySelectorAll("#workoutList .exercise").forEach(card => {
+      const name = card.dataset.exercise;
+      if (!expandedExercises.has(name)) return;
+      const guide = card.querySelector(".form-guide");
+      const btn = card.querySelector(".technique-btn");
+      if (guide) guide.hidden = false;
+      if (btn) {
+        btn.setAttribute("aria-expanded", "true");
+        btn.querySelector(".technique-btn-icon").textContent = "▴";
+        btn.querySelector(".technique-btn-label").textContent = "Hide Technique";
+      }
+    });
+    if (resumeBanner) resumeBanner.hidden = true;
+    if (!hasShownRestoredOnce) { updateDraftStatusUI("restored"); hasShownRestoredOnce = true; }
+    else updateDraftStatusUI("saved");
+    conflictAsked = false;
+    return;
+  }
+
+  if (draft && draft.day && draft.day !== day && !isDraftEmpty(draft.exercises)) {
+    if (resumeBanner) {
+      resumeBanner.hidden = false;
+      resumeBanner.innerHTML = `You have an unsaved draft for "${esc(draft.day)}". ` +
+        `<button type="button" id="resumeDraftInlineBtn" class="secondary">Resume that draft</button> ` +
+        `<button type="button" id="discardOtherDraftBtn" class="secondary">Discard it</button>`;
+    }
+    updateDraftStatusUI("clean");
+    return;
+  }
+
+  if (resumeBanner) resumeBanner.hidden = true;
+  updateDraftStatusUI("clean");
+}
+
+function updateDraftStatusUI(state, extraDay) {
+  const el = $("draftStatus");
+  const clearBtn = $("clearDraftBtn");
+  if (!el) return;
+  const labels = {
+    unsaved: "Unsaved changes…",
+    saved: "Draft saved",
+    restored: "Draft restored",
+    workoutSaved: "Workout saved",
+    blocked: extraDay ? `Not saved here — switch back to "${extraDay}" to keep that draft, or discard it first.` : "Not saved.",
+    error: "Could not save — your values are still here. Please try again."
+  };
+  const text = labels[state];
+  if (!text) {
+    el.hidden = true;
+    el.textContent = "";
+    if (clearBtn) clearBtn.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  el.textContent = text;
+  el.className = `draft-status draft-status-${state}`;
+  if (clearBtn) clearBtn.hidden = false;
+}
+
+function scheduleDraftAutosave() {
+  updateDraftStatusUI("unsaved");
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(persistDraftFromDOM, 500);
+}
+
+function persistDraftFromDOM() {
+  const day = $("daySelect")?.value;
+  if (!day || !document.querySelector("#workoutList .exercise")) return;
+  const data = getData();
+  const existing = data.activeWorkoutDraft;
+
+  if (existing && existing.day && existing.day !== day && !isDraftEmpty(existing.exercises) && !conflictAsked) {
+    conflictAsked = true;
+    const discard = confirm(
+      `You have unsaved workout values for "${existing.day}". Press OK to discard that draft and continue logging ` +
+      `"${day}". Press Cancel to stop typing here and switch back to "${existing.day}" to save or keep it.`
+    );
+    if (!discard) {
+      updateDraftStatusUI("blocked", existing.day);
+      return;
+    }
+  }
+
+  const draft = buildDraftFromDOM(day);
+  if (isDraftEmpty(draft.exercises)) {
+    if (existing && existing.day === day) {
+      data.activeWorkoutDraft = null;
+      saveData(data);
+    }
+    updateDraftStatusUI("clean");
+    return;
+  }
+  draft.startedAt = (existing && existing.day === day && existing.startedAt) ? existing.startedAt : draft.lastEditedAt;
+  data.activeWorkoutDraft = draft;
+  saveData(data);
+  conflictAsked = false;
+  updateDraftStatusUI("saved");
+}
+
+function clearDraft() {
+  const data = getData();
+  if (!data.activeWorkoutDraft) return;
+  if (!confirm("Clear this draft? Any unsaved values will be permanently discarded.")) return;
+  data.activeWorkoutDraft = null;
+  saveData(data);
+  conflictAsked = false;
+  renderWorkoutForm(getData());
+}
+
+function resumeDraftForCurrentDaySelect() {
+  const data = getData();
+  const draft = data.activeWorkoutDraft;
+  if (!draft) return;
+  $("daySelect").value = draft.day;
+  conflictAsked = false;
+  renderWorkoutForm(getData());
+}
+
+function discardOtherDayDraft() {
+  if (!confirm("Discard the unsaved draft for the other day? This cannot be undone.")) return;
+  const data = getData();
+  data.activeWorkoutDraft = null;
+  saveData(data);
+  conflictAsked = false;
+  renderWorkoutForm(getData());
+}
+
 export function saveWorkout() {
   const data = getData();
   const day = $("daySelect").value;
   const now = new Date().toISOString();
-  const exercises = [...document.querySelectorAll("#workoutList .exercise")].map(el => {
-    const name = el.dataset.exercise;
-    const exerciseDef = data.exercises.find(e => e.name === name);
-    const history = getExerciseHistory(data.workouts, name);
-    const entry = { exerciseId: exerciseDef?.id || null, name, ...readEntryFromCard(el), createdAt: now, updatedAt: now };
-    const rec = recommendProgression(entry, exerciseDef, history.lastSession);
-    entry.increaseNextWeek = rec.increaseNextWeek;
-    entry.progressionRecommendation = rec.recommendation;
-    return entry;
-  });
-  data.workouts.push({
-    id: uid(),
-    date: new Date().toLocaleDateString("en-CA"),
-    day,
-    programDay: day,
-    sessionName: day,
-    exercises
-  });
-  saveData(data);
+  try {
+    const exercises = [...document.querySelectorAll("#workoutList .exercise")].map(el => {
+      const name = el.dataset.exercise;
+      const exerciseDef = data.exercises.find(e => e.name === name);
+      const history = getExerciseHistory(data.workouts, name);
+      const entry = { exerciseId: exerciseDef?.id || null, name, ...readEntryFromCard(el), createdAt: now, updatedAt: now };
+      const rec = recommendProgression(entry, exerciseDef, history.lastSession);
+      entry.increaseNextWeek = rec.increaseNextWeek;
+      entry.progressionRecommendation = rec.recommendation;
+      return entry;
+    });
+    data.workouts.push({
+      id: uid(),
+      date: new Date().toLocaleDateString("en-CA"),
+      day,
+      programDay: day,
+      sessionName: day,
+      exercises
+    });
+    data.activeWorkoutDraft = null;
+    saveData(data);
+  } catch (err) {
+    console.error("[Project Reacher] Failed to save workout", err);
+    updateDraftStatusUI("error");
+    alert("Could not save this workout: " + (err?.message || "unknown error") + ". Your entered values are still here — please try again.");
+    return;
+  }
+  conflictAsked = false;
+  clearTimeout(draftSaveTimer);
   refreshAll();
+  updateDraftStatusUI("workoutSaved");
+  setTimeout(() => updateDraftStatusUI("clean"), 2500);
   alert("Workout saved.");
 }
 
@@ -219,10 +451,35 @@ function handleAskAI(btn) {
 export function setupTrainEventDelegation() {
   document.addEventListener("click", (e) => {
     const toggle = e.target.closest("[data-toggle-guide]");
-    if (toggle) { handleToggleGuide(toggle); return; }
+    if (toggle) { handleToggleGuide(toggle); scheduleDraftAutosave(); return; }
 
     const askBtn = e.target.closest(".ask-ai-btn");
-    if (askBtn) { handleAskAI(askBtn); return; }
+    if (askBtn) { handleAskAI(askBtn); scheduleDraftAutosave(); return; }
+
+    const clearBtn = e.target.closest("#clearDraftBtn");
+    if (clearBtn) { clearDraft(); return; }
+
+    const resumeInline = e.target.closest("#resumeDraftInlineBtn");
+    if (resumeInline) { resumeDraftForCurrentDaySelect(); return; }
+
+    const discardOther = e.target.closest("#discardOtherDraftBtn");
+    if (discardOther) { discardOtherDayDraft(); return; }
+
+    const resumeDash = e.target.closest("#resumeDraftBtn");
+    if (resumeDash) {
+      document.querySelector('.nav-drawer .nav-btn[data-tab="train"], .side-nav .nav-btn[data-tab="train"]')?.click();
+      resumeDraftForCurrentDaySelect();
+      return;
+    }
+  });
+
+  document.addEventListener("input", (e) => {
+    if (!e.target.closest("#workoutList")) return;
+    scheduleDraftAutosave();
+  });
+  document.addEventListener("change", (e) => {
+    if (!e.target.closest("#workoutList")) return;
+    scheduleDraftAutosave();
   });
 }
 
