@@ -2,7 +2,7 @@ import { $, esc, fmt } from "./dom.js";
 import {
   sevenDayAverage, weeklyRateOfGain, gainRateStatus, macroTargets, perKg,
   suggestedCalorieAdjustment, ratios, weeklyVolumeByMuscleGroup, volumeStatus, recoveryWarnings,
-  workoutsInWeek, dailyMealTotals, remainingMacros, macroAdherence
+  workoutsInWeek, dailyMealTotals, remainingMacros, macroAdherence, armForearmDeltWarnings
 } from "./calculations.js";
 import { DEFAULT_TRAINING_PROGRAM, MUSCLE_GROUPS } from "./program.js";
 
@@ -38,7 +38,47 @@ export function renderDashboard(data) {
   renderRatios(data);
   renderMilestones(data, currentWeight);
   renderVolumeSummary(data);
+  renderArmForearmDeltSummary(data);
   renderMonthlyReviewReminder(data);
+  renderDraftBanner(data);
+}
+
+function renderDraftBanner(data) {
+  const card = $("draftBannerCard");
+  const statusEl = $("dashDraftStatus");
+  if (!card || !statusEl) return;
+  const draft = data.activeWorkoutDraft;
+  const hasContent = draft && draft.exercises && Object.values(draft.exercises).some(e =>
+    e.set1Weight || e.set1Reps || e.set2Weight || e.set2Reps || e.notes || e.formNote ||
+    e.RPE != null || e.set1RIR != null || e.set2RIR != null);
+  if (!hasContent) { card.hidden = true; return; }
+  card.hidden = false;
+  statusEl.innerHTML = `<p class="small">Active workout draft exists for <strong>${esc(draft.day)}</strong>, last edited ${new Date(draft.lastEditedAt).toLocaleTimeString()}. Nothing is lost — resume it any time.</p>`;
+}
+
+function renderArmForearmDeltSummary(data) {
+  const el = $("armForearmDeltSummary");
+  if (!el) return;
+  const totals = weeklyVolumeByMuscleGroup(data.workouts, data.exercises);
+  const groups = [
+    ["biceps", "Biceps"], ["brachialis", "Brachialis / brachioradialis"], ["triceps", "Triceps"],
+    ["forearms", "Forearms (general)"], ["forearm-flexors", "Forearm flexors"], ["forearm-extensors", "Forearm extensors"],
+    ["grip", "Grip / loaded holds"], ["side delts", "Side delts"]
+  ];
+  el.innerHTML = groups.map(([key, label]) => {
+    const sets = totals[key] || 0;
+    const vs = volumeStatus(key, sets);
+    const extra = vs.specialisationLabel ? ` (${vs.specialisationLabel})` : "";
+    return `<div class="checklist-row"><span>${vs.isPriority ? "⭐" : ""}</span><span>${esc(label)}</span><span class="badge status-${vs.status}">${sets} sets${esc(extra)}</span></div>`;
+  }).join("");
+
+  const warnings = armForearmDeltWarnings({ workouts: data.workouts, exercises: data.exercises, recoveryLogs: data.recoveryLogs });
+  const warningsEl = $("armForearmDeltWarnings");
+  if (warningsEl) {
+    warningsEl.innerHTML = warnings.length
+      ? warnings.map(w => `<div class="warning-banner">${esc(w)}</div>`).join("")
+      : "<div class='ok-banner'>No arm/forearm/delt volume warnings this week.</div>";
+  }
 }
 
 function renderNutritionCards(data, currentWeight) {
@@ -144,7 +184,9 @@ function renderNextWorkout(data) {
     nextDay = days[(idx + 1) % days.length] ?? days[0];
   }
   const exercises = (data.trainingProgram?.[nextDay] || []).map(e => e.name).join(", ");
-  $("nextWorkout").innerHTML = `<p><strong>${esc(nextDay)}</strong></p><p class="small">${esc(exercises)}</p>`;
+  const isArmDay = /Arm.*Forearm.*Delt/i.test(nextDay);
+  $("nextWorkout").innerHTML = `<p><strong>${esc(nextDay)}</strong></p><p class="small">${esc(exercises)}</p>` +
+    (isArmDay ? `<div class="ok-banner">Arm + Forearm + Delt Specialisation next — focus on clean reps, controlled eccentrics, forearm tension, side-delt control, elbow/wrist comfort and full contractions.</div>` : "");
 }
 
 function renderLastWorkout(data) {

@@ -10,11 +10,11 @@ const eid = (name) => `ex_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_").repla
 function exercise({
   name, category, primaryMuscle, secondaryMuscles = [], movementPattern, equipment,
   repRangeMin, repRangeMax, targetRIRSet1, targetRIRSet2, failureRule, notes = "",
-  active = true, optional = false
+  active = true, optional = false, volumeGroup = null
 }) {
   return {
     id: eid(name), name, category, primaryMuscle, secondaryMuscles, movementPattern, equipment,
-    repRangeMin, repRangeMax, targetRIRSet1, targetRIRSet2, failureRule, notes, active, optional
+    repRangeMin, repRangeMax, targetRIRSet1, targetRIRSet2, failureRule, notes, active, optional, volumeGroup
   };
 }
 
@@ -42,22 +42,28 @@ export const EXERCISE_DATABASE = [
   exercise({ name: "Seated Cable Row", category: "compound", primaryMuscle: "back thickness", secondaryMuscles: ["lats", "biceps"], movementPattern: "horizontal pull", equipment: "cable", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure." }),
   exercise({ name: "Shrugs", category: "isolation", primaryMuscle: "traps", movementPattern: "elevation", equipment: "dumbbell", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure." }),
 
-  exercise({ name: "Hammer Curl", category: "isolation", primaryMuscle: "biceps", secondaryMuscles: ["brachialis"], movementPattern: "elbow flexion", equipment: "dumbbell", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure. Brachialis / arm thickness." }),
+  exercise({ name: "Hammer Curl", category: "isolation", primaryMuscle: "biceps", secondaryMuscles: ["brachialis"], movementPattern: "elbow flexion", equipment: "dumbbell", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure. Brachialis / arm thickness.", volumeGroup: "brachialis" }),
   exercise({ name: "EZ Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "ez bar", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure." }),
+  exercise({ name: "Incline DB Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "dumbbell", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Biceps long head / stretched-position biceps. Sub: Bayesian Cable Curl / Preacher Curl / Cable Curl." }),
   exercise({ name: "Overhead Triceps Extension", category: "isolation", primaryMuscle: "triceps (long head)", movementPattern: "elbow extension", equipment: "cable", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", notes: "Main long-head triceps builder — excellent stretch reported. Do not remove or replace." }),
-  exercise({ name: "Reverse-Grip Bar Extension", category: "isolation", primaryMuscle: "triceps", movementPattern: "elbow extension", equipment: "cable/bar", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", notes: "Added on Specialisation Day to give a second direct triceps isolation movement per week alongside Overhead Triceps Extension on Push Day." }),
+  exercise({ name: "Reverse-Grip Bar Extension", category: "isolation", primaryMuscle: "triceps", movementPattern: "elbow extension", equipment: "cable/bar", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", notes: "Direct triceps isolation movement, contraction / width support. Sub: Straight-Bar Pushdown / Single-Arm Reverse Pushdown." }),
+  exercise({ name: "Triceps Pushdown", category: "isolation", primaryMuscle: "triceps", movementPattern: "elbow extension", equipment: "cable", repRangeMin: 12, repRangeMax: 15, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Rope or straight bar — triceps width / stable contraction. Sub: Straight-Bar Pushdown / V-Bar Pushdown." }),
+
+  exercise({ name: "Seated DB Lateral Raise", category: "isolation", primaryMuscle: "side delts", movementPattern: "abduction", equipment: "dumbbell", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Strict variation, low momentum, side delt tension over load — improves shoulder-to-waist ratio. Sub: Machine Lateral Raise / Lean-Away Cable Lateral Raise / Strict Cable Lateral Raise." }),
+
+  exercise({ name: "Wrist Curl", category: "isolation", primaryMuscle: "forearm flexors", movementPattern: "wrist flexion", equipment: "dumbbell", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Sub: Cable Wrist Curl / DB Wrist Curl." }),
+  exercise({ name: "Reverse Wrist Curl", category: "isolation", primaryMuscle: "forearm extensors", movementPattern: "wrist extension", equipment: "dumbbell", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Forearm balance vs. Wrist Curl. Sub: Cable Reverse Wrist Curl / DB Reverse Wrist Curl." }),
 
   exercise({ name: "Manual Neck Isometrics", category: "isolation", primaryMuscle: "neck", movementPattern: "isometric", equipment: "bodyweight", repRangeMin: null, repRangeMax: null, targetRIRSet1: null, targetRIRSet2: null, failureRule: "3 x 20-30 sec holds.", notes: "Home-based alternative." }),
 
   // Optional future exercises
   exercise({ name: "Straight Arm Pulldown", category: "isolation", primaryMuscle: "lats", movementPattern: "shoulder extension", equipment: "cable", repRangeMin: 12, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
   exercise({ name: "Cable Fly", category: "isolation", primaryMuscle: "chest", movementPattern: "horizontal adduction", equipment: "cable", repRangeMin: 12, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
-  exercise({ name: "Farmer's Carry", category: "compound", primaryMuscle: "traps", secondaryMuscles: ["forearms", "core"], movementPattern: "carry", equipment: "dumbbell", repRangeMin: null, repRangeMax: null, targetRIRSet1: null, targetRIRSet2: null, failureRule: "Timed/distance carry.", active: false, optional: true }),
-  exercise({ name: "Trap Bar Hold", category: "isolation", primaryMuscle: "traps", secondaryMuscles: ["forearms"], movementPattern: "isometric carry", equipment: "trap bar", repRangeMin: null, repRangeMax: null, targetRIRSet1: null, targetRIRSet2: null, failureRule: "Timed hold.", active: false, optional: true }),
-  exercise({ name: "Triceps Pushdown", category: "isolation", primaryMuscle: "triceps", movementPattern: "elbow extension", equipment: "cable", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
+  exercise({ name: "Farmer's Carry", category: "compound", primaryMuscle: "traps", secondaryMuscles: ["forearms", "core"], movementPattern: "carry", equipment: "dumbbell", repRangeMin: null, repRangeMax: null, targetRIRSet1: null, targetRIRSet2: null, failureRule: "2 sets, 20-45 sec.", notes: "Optional loaded hold finisher — grip / full forearm density / support strength. Sub: Trap Bar Hold / Heavy Dumbbell Static Hold.", optional: true, volumeGroup: "grip" }),
+  exercise({ name: "Trap Bar Hold", category: "isolation", primaryMuscle: "traps", secondaryMuscles: ["forearms"], movementPattern: "isometric carry", equipment: "trap bar", repRangeMin: null, repRangeMax: null, targetRIRSet1: null, targetRIRSet2: null, failureRule: "2 sets, 20-45 sec.", notes: "Loaded hold finisher alternative to Farmer's Carry.", active: false, optional: true, volumeGroup: "grip" }),
   exercise({ name: "Incline Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "dumbbell", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
   exercise({ name: "Spider Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "ez bar", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
-  exercise({ name: "Reverse Curl", category: "isolation", primaryMuscle: "forearms", secondaryMuscles: ["biceps"], movementPattern: "elbow flexion", equipment: "ez bar", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
+  exercise({ name: "Reverse Curl", category: "isolation", primaryMuscle: "forearms", secondaryMuscles: ["biceps"], movementPattern: "elbow flexion", equipment: "ez bar", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Brachioradialis / upper forearm / forearm thickness. Sub: EZ Reverse Curl / Cable Reverse Curl.", volumeGroup: "brachialis" }),
   exercise({ name: "Seated Calf Raise", category: "isolation", primaryMuscle: "calves", movementPattern: "plantarflexion", equipment: "machine", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true })
 ];
 
@@ -363,6 +369,97 @@ const EXERCISE_GUIDES = {
     progressionCriteria: ["Both sets to technical failure", "Full range maintained", "Form quality 4+"],
     todayFocusCue: "Pause at the stretch and the top"
   },
+  incline_db_curl: {
+    targetMuscleCue: "Biceps long head / stretched-position biceps",
+    setupCues: ["Shoulder slightly extended behind the torso", "Chest tall"],
+    executionCues: ["Curl without shoulder swing", "Control the full stretch"],
+    tempoDescription: "2 second curl, brief squeeze, 4 second lowering",
+    eccentricSeconds: 4, pauseBottomSeconds: 0, concentricSeconds: 2, pauseTopSeconds: 1,
+    rangeOfMotionStandard: "Full controlled eccentric and no torso momentum",
+    validRepCriteria: ["Full controlled eccentric", "No torso momentum", "Full stretch at the bottom"],
+    commonMistakes: ["Swinging", "Cutting the stretch short", "Shoulders rolling forward"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets hit top of rep range or technical failure", "Form quality 4+"],
+    todayFocusCue: "Full stretch at the bottom"
+  },
+  reverse_curl: {
+    targetMuscleCue: "Brachioradialis / upper forearm",
+    setupCues: ["Shoulders down", "Elbows controlled", "Pronated grip"],
+    executionCues: ["Curl without torso swing", "Control the lowering"],
+    tempoDescription: "2 second curl, brief squeeze, 4 second lowering",
+    eccentricSeconds: 4, pauseBottomSeconds: 0, concentricSeconds: 2, pauseTopSeconds: 1,
+    rangeOfMotionStandard: "Full controlled lowering every rep",
+    validRepCriteria: ["No swinging", "No partial reps", "Wrist stays controlled, not collapsing"],
+    commonMistakes: ["Swinging", "Partial reps", "Wrist collapse"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Controlled full lowering"
+  },
+  triceps_pushdown: {
+    targetMuscleCue: "Lateral/medial triceps, triceps width",
+    setupCues: ["Elbows pinned to sides"],
+    executionCues: ["Push down", "Fully contract", "Control the return"],
+    tempoDescription: "Controlled down, brief squeeze, controlled up",
+    eccentricSeconds: null, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 1,
+    rangeOfMotionStandard: "Elbow stays fixed and full contraction is achieved",
+    validRepCriteria: ["Elbow stays fixed", "Full contraction achieved"],
+    commonMistakes: ["Leaning over", "Shoulders moving", "Partial reps"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Elbows pinned, full contraction"
+  },
+  seated_db_lateral_raise: {
+    targetMuscleCue: "Side delts / shoulder width",
+    setupCues: ["Seated, shoulders down", "Elbows slightly bent"],
+    executionCues: ["Lead with elbows, raise in the scapular plane", "Lower slowly"],
+    tempoDescription: "Controlled raise, 3-4 second lowering",
+    eccentricSeconds: 4, pauseBottomSeconds: 0, concentricSeconds: null, pauseTopSeconds: 0,
+    rangeOfMotionStandard: "Side delts drive the movement, no torso swing",
+    validRepCriteria: ["Side delts drive the movement", "No torso swing", "Controlled lowering"],
+    commonMistakes: ["Swinging", "Shrugging", "Going too heavy", "Turning it into a front raise"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure with control", "Form quality 4+"],
+    todayFocusCue: "Side delt tension over load"
+  },
+  wrist_curl: {
+    targetMuscleCue: "Forearm flexors",
+    setupCues: ["Forearms supported", "Wrists free to move"],
+    executionCues: ["Curl through the wrist", "Squeeze at the top", "Lower under control"],
+    tempoDescription: "Controlled up and down",
+    eccentricSeconds: 2, pauseBottomSeconds: 0, concentricSeconds: 1, pauseTopSeconds: 1,
+    rangeOfMotionStandard: "Full controlled wrist range every rep",
+    validRepCriteria: ["Wrist doing the work", "Full controlled range"],
+    commonMistakes: ["Rushing reps", "Using shoulder movement"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Wrist isolation, no forearm/shoulder swing"
+  },
+  reverse_wrist_curl: {
+    targetMuscleCue: "Forearm extensors",
+    setupCues: ["Forearms supported", "Pronated grip"],
+    executionCues: ["Extend through the wrist", "Control the lowering"],
+    tempoDescription: "Controlled up and down",
+    eccentricSeconds: 2, pauseBottomSeconds: 0, concentricSeconds: 1, pauseTopSeconds: 1,
+    rangeOfMotionStandard: "Smooth wrist extension, controlled lower",
+    validRepCriteria: ["Smooth wrist extension", "Controlled lower"],
+    commonMistakes: ["Too much weight", "Tiny range of motion"],
+    safetyNotes: [],
+    progressionCriteria: ["Both sets to technical failure", "Form quality 4+"],
+    todayFocusCue: "Full controlled extension"
+  },
+  farmer_s_carry: {
+    targetMuscleCue: "Grip / whole forearm density",
+    setupCues: ["Tall posture", "Shoulders packed"],
+    executionCues: ["Hold or carry without straps unless strap usage is being tracked"],
+    tempoDescription: "Sustained hold/carry for the prescribed duration",
+    eccentricSeconds: null, pauseBottomSeconds: null, concentricSeconds: null, pauseTopSeconds: null,
+    rangeOfMotionStandard: "Isometric/carry — no set range, just sustained grip and posture",
+    validRepCriteria: ["Strong grip maintained for the intended duration", "Posture maintained throughout"],
+    commonMistakes: ["Posture collapse", "Short effort", "Relying on momentum"],
+    safetyNotes: [],
+    progressionCriteria: ["Hold/carry duration maintained or extended with posture intact"],
+    todayFocusCue: "Grip and posture for the full duration"
+  },
   manual_neck_isometrics: {
     targetMuscleCue: "Neck",
     setupCues: ["Neutral spine", "Apply gentle, even pressure"],
@@ -389,11 +486,13 @@ function progExercise(name, reps, note) {
   return { id: eid(name), name, repRange: reps, note };
 }
 
-// The live 5-day program. Day 3 keeps Overhead Triceps Extension (long-head builder,
-// kept for the stretch it gives). Day 5 gains Reverse-Grip Bar Extension as the second
-// direct triceps isolation movement of the week; Close Grip Chest Press stays as indirect
-// triceps work. This only changes the TEMPLATE for future sessions — it never touches
-// exercises already recorded in past workout logs.
+// The live 6-day program. Day 3 keeps Overhead Triceps Extension (long-head builder,
+// kept for the stretch it gives). Day 5 stays upper-chest/back/delt/neck specialisation;
+// direct arm, forearm and side-delt isolation is now centralised on Day 6 so Saturday
+// carries a dedicated Arm + Forearm + Delt Specialisation session (biceps, brachialis/
+// brachioradialis, triceps, forearm flexors/extensors, grip, and side delts for
+// shoulder-to-waist ratio). This only changes the TEMPLATE for future sessions — it
+// never touches exercises already recorded in past workout logs.
 export const DEFAULT_TRAINING_PROGRAM = {
   "Day 1 - Upper Width": [
     progExercise("Incline DB Press", "6-10", "Set 1: 1 RIR | Set 2: technical failure"),
@@ -429,9 +528,19 @@ export const DEFAULT_TRAINING_PROGRAM = {
     progExercise("Single Arm Lat Pulldown", "10-12", "Lat isolation"),
     progExercise("Cable Lateral Raise", "12-15", "Side delt priority"),
     progExercise("Close Grip Chest Press", "8-12", "Triceps / pressing power (indirect triceps)"),
-    progExercise("Hammer Curl", "10-12", "Arm thickness"),
-    progExercise("Reverse-Grip Bar Extension", "10-15", "Second direct triceps isolation movement of the week"),
     progExercise("Manual Neck Isometrics", "3 x 20-30 sec", "Home-based alternative")
+  ],
+  "Day 6 - Arm + Forearm + Delt Specialisation": [
+    progExercise("Incline DB Curl", "8-12", "Biceps long head / stretched biceps. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Bayesian Cable Curl / Preacher Curl / Cable Curl"),
+    progExercise("Hammer Curl", "10-12", "Brachialis / brachioradialis / arm width. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Rope Hammer Curl / Cross-Body Hammer Curl"),
+    progExercise("Reverse Curl", "10-15", "Brachioradialis / upper forearm / forearm thickness. Set 1: 0-1 RIR | Set 2: technical failure. Sub: EZ Reverse Curl / Cable Reverse Curl"),
+    progExercise("Overhead Triceps Extension", "10-15", "Triceps long head in stretched position. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Rope Overhead Extension / DB Overhead Extension"),
+    progExercise("Reverse-Grip Bar Extension", "10-15", "Triceps contraction / width support. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Straight-Bar Pushdown / Single-Arm Reverse Pushdown"),
+    progExercise("Triceps Pushdown", "12-15", "Rope or cable pushdown — triceps width / stable contraction. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Straight-Bar Pushdown / V-Bar Pushdown"),
+    progExercise("Seated DB Lateral Raise", "12-20", "Side delts / shoulder width for shoulder-to-waist ratio. Set 1: 0-1 RIR | Set 2: technical failure. Strict, low momentum. Sub: Machine Lateral Raise / Lean-Away Cable Lateral Raise / Strict Cable Lateral Raise"),
+    progExercise("Wrist Curl", "12-20", "Forearm flexors. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Cable Wrist Curl / DB Wrist Curl"),
+    progExercise("Reverse Wrist Curl", "12-20", "Forearm extensors / forearm balance. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Cable Reverse Wrist Curl / DB Reverse Wrist Curl"),
+    progExercise("Farmer's Carry", "2 x 20-45 sec", "Optional loaded hold finisher — grip / full forearm density / support strength. Remove this row in the Program Editor if the session runs long. Sub: Trap Bar Hold / Heavy Dumbbell Static Hold")
   ]
 };
 
@@ -455,7 +564,9 @@ export const DEFAULT_PRS = [
   { exercise: "Chest Supported Row", goal: "Progressive overload target" },
   { exercise: "Cable Lateral Raise", goal: "Progressive overload target" },
   { exercise: "Overhead Triceps Extension", goal: "Progressive overload target" },
-  { exercise: "Reverse-Grip Bar Extension", goal: "Progressive overload target" }
+  { exercise: "Reverse-Grip Bar Extension", goal: "Progressive overload target" },
+  { exercise: "Incline DB Curl", goal: "Progressive overload target" },
+  { exercise: "Seated DB Lateral Raise", goal: "Progressive overload target" }
 ].map(p => ({
   id: eid(p.exercise) + "_pr",
   exerciseId: eid(p.exercise),
@@ -469,14 +580,22 @@ export const DEFAULT_PRS = [
 function uidLike(s) { return `supp_${s}_${(seq++)}`; }
 
 // Muscle-group volume mapping, used by the weekly volume tracker.
+// Side delts, rear delts, brachialis and the forearm buckets were split out from the
+// previously-collapsed "shoulders"/"biceps"/"core" buckets for the arm+forearm+delt
+// specialisation update — this only changes how future volume is CATEGORISED for
+// display, it does not alter any stored workout record.
 export const MUSCLE_GROUPS = [
-  "shoulders", "upper chest", "chest general", "lats/back width", "back thickness",
-  "biceps", "triceps", "traps", "neck", "quads", "hamstrings/glutes", "calves", "core"
+  "shoulders", "side delts", "rear delts", "upper chest", "chest general", "lats/back width", "back thickness",
+  "biceps", "brachialis", "triceps", "forearms", "forearm-flexors", "forearm-extensors", "grip",
+  "traps", "neck", "quads", "hamstrings/glutes", "calves", "core"
 ];
 
-export const PRIORITY_MUSCLES = ["shoulders", "upper chest", "lats/back width", "biceps", "triceps", "traps", "neck"];
+export const PRIORITY_MUSCLES = ["shoulders", "side delts", "upper chest", "lats/back width", "biceps", "triceps", "traps", "neck"];
 
 // Maps EXERCISE_DATABASE primaryMuscle -> volume tracker muscle group bucket.
+// An exercise's optional `volumeGroup` field (see exercise()) overrides this lookup
+// when present, for exercises whose primaryMuscle is too broad for accurate tracking
+// (e.g. Hammer Curl's primaryMuscle stays "biceps" but its volumeGroup is "brachialis").
 export const MUSCLE_GROUP_MAP = {
   "quads": "quads",
   "hamstrings": "hamstrings/glutes",
@@ -485,16 +604,18 @@ export const MUSCLE_GROUP_MAP = {
   "upper chest": "upper chest",
   "chest": "chest general",
   "shoulders": "shoulders",
-  "side delts": "shoulders",
-  "rear delts": "shoulders",
+  "side delts": "side delts",
+  "rear delts": "rear delts",
   "lats": "lats/back width",
   "back thickness": "back thickness",
   "traps": "traps",
   "biceps": "biceps",
-  "brachialis": "biceps",
+  "brachialis": "brachialis",
   "triceps": "triceps",
   "triceps (long head)": "triceps",
   "neck": "neck",
-  "forearms": "core",
+  "forearms": "forearms",
+  "forearm flexors": "forearm-flexors",
+  "forearm extensors": "forearm-extensors",
   "core": "core"
 };

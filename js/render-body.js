@@ -97,9 +97,14 @@ export function saveMeasurements() {
     neck: $("neck").value,
     rarm: $("rarm").value,
     larm: $("larm").value,
+    rforearm: $("rforearm").value,
+    lforearm: $("lforearm").value,
     rthigh: $("rthigh").value,
     lthigh: $("lthigh").value,
     calves: $("calves").value,
+    flexedArm: $("flexedArm").value,
+    relaxedArm: $("relaxedArm").value,
+    pumpedNote: $("pumpedNote").value,
     notes: $("measurementNotes").value
   });
   saveData(data);
@@ -114,6 +119,7 @@ export function renderMeasurementsHistory(data) {
       const r = ratios(m);
       return `<div class="history-item">
         <strong>${esc(m.date)}</strong> · Shoulders ${m.shoulders || "-"} · Chest ${m.chest || "-"} · Waist ${m.waist || "-"} · Neck ${m.neck || "-"} · Calves ${m.calves || "-"}
+        <br>Arms R/L ${m.rarm || "-"}/${m.larm || "-"} · Forearms R/L ${m.rforearm || "-"}/${m.lforearm || "-"}${m.pumpedNote ? ` (${esc(m.pumpedNote)})` : ""}
         ${r.shoulderToWaist ? `<br>Shoulder:Waist ${r.shoulderToWaist} (target 1.6-1.7) · Chest:Waist ${r.chestToWaist}` : ""}
         <div class="actions"><button class="danger" data-delete="measurements" data-id="${m.id}">Delete</button></div>
       </div>`;

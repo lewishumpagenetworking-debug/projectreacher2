@@ -60,7 +60,8 @@ function emptyData() {
     motivationalVisuals: [],
     historical: legacyHistoricalData,
     libraryFavorites: [],
-    libraryRecentlyViewed: []
+    libraryRecentlyViewed: [],
+    activeWorkoutDraft: null
   };
 }
 
@@ -131,7 +132,8 @@ export function migrateData() {
   }));
 
   data.measurements = data.measurements.map(m => withDefaults(m, {
-    weight: null, calves: null, notes: ""
+    weight: null, calves: null, notes: "",
+    rforearm: null, lforearm: null, flexedArm: null, relaxedArm: null, pumpedNote: ""
   }));
 
   data.workouts = data.workouts.map(w => withDefaults(w, {
