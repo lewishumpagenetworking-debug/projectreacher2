@@ -547,8 +547,13 @@
       <section class="card">
         <h2>Data Health / Backup</h2>
         <div id="dataHealth"></div>
-        <p class="small">Export weekly. If you change phones or clear browser data, import your saved JSON backup here.</p>
+        <p class="small">Export weekly. Uploading a file here imports its historical data (workouts, meals, logs) into your current app — it never changes your current program, features, or app version.</p>
         <input id="importBackup" type="file" accept="application/json">
+        <details class="advanced-restore">
+          <summary class="small">Advanced: Full Restore</summary>
+          <p class="small">Replaces your entire current app state with the uploaded file, exactly as it was exported — this can remove newer features (like Day 6) if the file predates them. Only use this if you specifically want to roll back to an old snapshot. A safety backup of your current data is still taken first.</p>
+          <label class="checklist-row"><input type="checkbox" id="fullRestoreToggle"> <span>Enable Full Restore mode for the next upload</span></label>
+        </details>
       </section>
     </section>
 

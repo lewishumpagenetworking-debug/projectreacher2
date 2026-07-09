@@ -226,154 +226,318 @@ export function exportData() {
   URL.revokeObjectURL(url);
 }
 
+// ==================== IMPORT / MERGE SYSTEM ====================
+// An uploaded backup is historical DATA — a "notebook" of past progress. The
+// current app (this code: its schema, program template, exercise database and
+// feature set) is always the source of truth ("the operating system"). An import
+// can only ADD workouts/logs/history into the current app; it can never replace,
+// downgrade or remove any current structure or feature. See importAndMergeData().
+
 const COLLECTION_KEYS = [
   "checkins", "measurements", "workouts", "bodyweightLogs", "nutritionLogs", "recoveryLogs",
   "stimulantLogs", "supplementLogs", "mealLogs", "progressPhotos", "monthlyReviews", "motivationalVisuals"
 ];
 
-// Extra "this is really the same record" keys per collection, for backups whose ids
-// don't line up (e.g. re-exported from a different device) but whose content clearly
-// represents the same logged entry — avoids double-counting on repeated imports.
-const SECONDARY_DEDUPE_KEY = {
-  workouts: (w) => `${w.date}__${w.day || w.programDay || ""}`
-};
+function normalizeSetSignature(e) {
+  return `${e?.name || ""}:${e?.set1Weight ?? ""}x${e?.set1Reps ?? ""}:${e?.set2Weight ?? ""}x${e?.set2Reps ?? ""}`;
+}
+
+/** id or legacyLocalId match — the baseline duplicate check shared by every simple collection. */
+function detectDuplicateById(existingList, candidate) {
+  if (!candidate) return null;
+  if (candidate.id) { const m = existingList.find(x => x.id === candidate.id); if (m) return m; }
+  if (candidate.legacyLocalId) { const m = existingList.find(x => x.legacyLocalId && x.legacyLocalId === candidate.legacyLocalId); if (m) return m; }
+  return null;
+}
+
+/** Workouts additionally dedupe on date+day, and on exercise-name+set-data content, for backups re-exported from a different device whose ids don't line up. */
+function detectDuplicateWorkout(existingList, candidate) {
+  const byId = detectDuplicateById(existingList, candidate);
+  if (byId) return byId;
+  const day = candidate.day || candidate.programDay || candidate.sessionName || "";
+  const byDateDay = existingList.find(w => w.date === candidate.date && (w.day || w.programDay || w.sessionName || "") === day);
+  if (byDateDay) return byDateDay;
+  const candidateSig = (candidate.exercises || []).map(normalizeSetSignature).sort().join("|");
+  if (!candidateSig) return null;
+  return existingList.find(w => (w.exercises || []).map(normalizeSetSignature).sort().join("|") === candidateSig) || null;
+}
+
+/** Meals additionally dedupe on date+time+name+calories, for the same reason. */
+function detectDuplicateMeal(existingList, candidate) {
+  const byId = detectDuplicateById(existingList, candidate);
+  if (byId) return byId;
+  const sig = (m) => `${m.date || ""}__${m.time || ""}__${(m.mealName || m.rawDescription || "").toLowerCase()}__${m.calories ?? ""}`;
+  const candidateSig = sig(candidate);
+  return existingList.find(m => sig(m) === candidateSig) || null;
+}
 
 /**
- * Merges an imported list into the current list by id, current's fields always
- * winning on a conflict (so a stale imported record can never overwrite a live one)
- * while still backfilling any field the current record happens to be missing.
- * Records only present in the import are ADDED, never used to replace or drop a
- * current-only record. Returns { merged, added, skippedDuplicate }.
+ * Generic merge: current always wins a field conflict (a stale imported record can
+ * never overwrite a live one); imported-only records are ADDED, never used to
+ * replace or drop a current-only record. A duplicate that turns out to add a field
+ * current was missing counts as "enriched" rather than a plain skip.
  */
-function mergeById(currentList, importedList, secondaryKeyFn) {
+function mergeByIdGeneric(currentList, importedList, duplicateDetector) {
   const currentArr = Array.isArray(currentList) ? currentList : [];
   const importedArr = Array.isArray(importedList) ? importedList : [];
-  const byId = new Map();
-  currentArr.forEach(item => { if (item && item.id) byId.set(item.id, item); });
-  const secondarySeen = new Set(secondaryKeyFn ? currentArr.map(secondaryKeyFn).filter(Boolean) : []);
+  const result = [...currentArr];
+  let added = 0, skippedDuplicate = 0, enriched = 0;
 
-  let added = 0;
-  let skippedDuplicate = 0;
   importedArr.forEach(item => {
     if (!item || typeof item !== "object") return;
-    if (item.id && byId.has(item.id)) {
-      byId.set(item.id, withDefaults(byId.get(item.id), item));
+    const existing = duplicateDetector(result, item);
+    if (existing) {
+      const before = Object.keys(existing).length;
+      const filled = withDefaults(existing, item);
+      if (Object.keys(filled).length > before) { Object.assign(existing, filled); enriched++; }
+      else skippedDuplicate++;
       return;
     }
-    const key = secondaryKeyFn ? secondaryKeyFn(item) : null;
-    if (key && secondarySeen.has(key)) { skippedDuplicate++; return; }
-    if (key) secondarySeen.add(key);
-    const id = item.id || uid();
-    byId.set(id, { ...item, id });
+    result.push({ ...item, id: item.id || uid() });
     added++;
   });
-  return { merged: [...byId.values()], added, skippedDuplicate };
+  return { merged: result, added, skippedDuplicate, enriched };
 }
 
-function mergeArraysUnique(currentArr, importedArr) {
-  return [...new Set([...(currentArr || []), ...(importedArr || [])])];
+/** Maps historic exercise names onto the CURRENT exercise database's id where possible; always keeps the original name, and marks an unmatched entry "legacy_unknown" rather than guessing. */
+function mapLegacyExerciseNames(exercises, currentExercises) {
+  const byName = new Map((currentExercises || []).map(e => [e.name.toLowerCase(), e.id]));
+  const validIds = new Set((currentExercises || []).map(e => e.id));
+  return (exercises || []).map(e => {
+    if (e.exerciseId && validIds.has(e.exerciseId)) return e; // already a valid current exerciseId — leave untouched
+    const matchedId = e.name ? byName.get(e.name.toLowerCase()) : null;
+    // No match: mark unknown rather than silently keeping a stale/invalid id from the import.
+    return { ...e, exerciseId: matchedId || "legacy_unknown" };
+  });
+}
+
+function mergeWorkouts(current, imported, currentExercises) {
+  const mapped = (imported || []).map(w => ({ ...w, exercises: mapLegacyExerciseNames(w.exercises, currentExercises) }));
+  return mergeByIdGeneric(current, mapped, detectDuplicateWorkout);
+}
+function mergeMealLogs(current, imported) { return mergeByIdGeneric(current, imported, detectDuplicateMeal); }
+function mergeRecoveryLogs(current, imported) { return mergeByIdGeneric(current, imported, detectDuplicateById); }
+function mergeStimulantLogs(current, imported) { return mergeByIdGeneric(current, imported, detectDuplicateById); }
+function mergeBodyweightLogs(current, imported) { return mergeByIdGeneric(current, imported, detectDuplicateById); }
+function mergeMeasurements(current, imported) { return mergeByIdGeneric(current, imported, detectDuplicateById); }
+function mergeProgressPhotos(current, imported) { return mergeByIdGeneric(current, imported, detectDuplicateById); }
+function mergeCheckins(current, imported) { return mergeByIdGeneric(current, imported, detectDuplicateById); }
+function mergeMonthlyReviews(current, imported) { return mergeByIdGeneric(current, imported, detectDuplicateById); }
+function mergeMotivationalVisuals(current, imported) { return mergeByIdGeneric(current, imported, detectDuplicateById); }
+
+function mergeLibraryState(currentArr, importedArr, cap) {
+  const merged = [...new Set([...(currentArr || []), ...(importedArr || [])])];
+  return cap ? merged.slice(0, cap) : merged;
+}
+
+/** PRs: the current goal always wins. A conflicting imported goal is never silently dropped — it's preserved on the record as a labelled legacy reference. */
+function mergePRs(current, imported) {
+  const currentArr = Array.isArray(current) ? [...current] : [];
+  const importedArr = Array.isArray(imported) ? imported : [];
+  let added = 0, legacyGoalsPreserved = 0;
+  importedArr.forEach(p => {
+    if (!p) return;
+    const key = p.exerciseId || p.exerciseName;
+    const existing = currentArr.find(c => (c.exerciseId || c.exerciseName) === key);
+    if (existing) {
+      if (p.goal && p.goal !== existing.goal && !existing.importedLegacyGoal) {
+        existing.importedLegacyGoal = p.goal;
+        legacyGoalsPreserved++;
+      }
+      return;
+    }
+    currentArr.push({ ...p, id: p.id || uid() });
+    added++;
+  });
+  return { merged: currentArr, added, legacyGoalsPreserved };
+}
+
+/** Never lets an older/partial import remove a training day the current app's code defines (e.g. Day 6) — only ADDS entirely-missing days. Existing days, including Program Editor edits, are left untouched. */
+function preserveCurrentProgramTemplate(current, imported) {
+  const merged = { ...current };
+  let daysAdded = 0;
+  Object.entries(imported || {}).forEach(([day, exercises]) => {
+    if (!(day in merged) && Array.isArray(exercises) && exercises.length) { merged[day] = exercises; daysAdded++; }
+  });
+  return { merged, daysAdded };
+}
+
+/** Never lets an older/partial import remove an exercise (or the form-guide fields already backfilled onto it) the current app's code defines — only ADDS entirely-missing exercises. */
+function preserveCurrentExerciseDatabase(current, imported) {
+  const byId = new Map((current || []).map(e => [e.id, e]));
+  let added = 0;
+  (imported || []).forEach(ex => {
+    if (!ex || !ex.id) return;
+    if (!byId.has(ex.id)) { byId.set(ex.id, ex); added++; }
+  });
+  return { merged: [...byId.values()], added };
+}
+
+function createPreImportBackup(current) {
+  const key = `projectReacher_backup_pre_import_${Date.now()}`;
+  try {
+    localStorage.setItem(key, JSON.stringify(current));
+    return key;
+  } catch (err) {
+    console.warn("[Project Reacher] Could not save pre-import safety backup (storage may be full).", err);
+    return null;
+  }
+}
+
+function rollbackImport(preImportState) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(preImportState));
+  console.warn("[Project Reacher] Import failed — rolled back to the pre-import state.");
 }
 
 /**
- * Merges an imported top-level state object onto the current live state.
- * Current always wins for anything it already has (structure, program days,
- * exercise guidance, user-editable values); the import only ADDS what's missing —
- * this is what stops an older/partial backup from ever downgrading a newer app
- * state, while still letting a genuinely-empty (e.g. fresh device) current state
- * be fully populated from the import.
+ * Converts an imported blob's records into current-shape objects (every record
+ * gets an id; workouts get their programDay/sessionName defaults) BEFORE it's
+ * merged onto current — this is the "convert old data into the current schema"
+ * step, kept separate from the merge itself so partially-shaped legacy records
+ * never propagate their gaps into current.
  */
-function mergeProjectReacherState(current, imported) {
-  const merged = { ...current };
-  const summary = { collections: {}, day6Preserved: false, activeDraftAction: "none" };
-
-  COLLECTION_KEYS.forEach(key => {
-    const { merged: mergedList, added, skippedDuplicate } = mergeById(current[key], imported[key], SECONDARY_DEDUPE_KEY[key]);
-    merged[key] = mergedList;
-    summary.collections[key] = {
-      foundInImport: Array.isArray(imported[key]) ? imported[key].length : 0,
-      added, skippedDuplicate
-    };
+function migrateImportedDataToCurrentSchema(imported) {
+  const migrated = { ...imported };
+  COLLECTION_KEYS.concat(["checkins"]).forEach(key => {
+    if (!Array.isArray(migrated[key])) return;
+    migrated[key] = migrated[key].map(item => (item && !item.id) ? { id: uid(), ...item } : item);
   });
+  if (Array.isArray(migrated.workouts)) {
+    migrated.workouts = migrated.workouts.map(w => withDefaults(w, { programDay: w.day || null, sessionName: w.day || null }));
+  }
+  return migrated;
+}
 
-  // Profile: current's values win for anything it already has; import only fills
-  // in fields the current profile doesn't have set.
+function generateImportSummary({ collectionResults, programDaysAdded, exercisesAdded, prResult, day6Preserved, activeDraftAction, errors }) {
+  return {
+    collections: collectionResults,
+    programDaysAdded, exercisesAdded,
+    prsAdded: prResult.added,
+    prLegacyGoalsPreserved: prResult.legacyGoalsPreserved,
+    day6Preserved, activeDraftAction,
+    errors: errors || []
+  };
+}
+
+/**
+ * The adaptive-merge orchestrator. `imported` is treated purely as historical
+ * progress data to fold into `current` — the current app's schema, program
+ * template, exercise database and every other structural feature always wins.
+ * Imported records can only ADD workouts/logs/history; nothing here can replace,
+ * downgrade or remove anything the live app already has.
+ */
+export function importAndMergeData(importedRaw, currentState) {
+  const imported = migrateImportedDataToCurrentSchema(importedRaw);
+  const current = currentState;
+  const merged = { ...current };
+  const collectionResults = {};
+  const record = (key, result) => {
+    merged[key] = result.merged;
+    collectionResults[key] = {
+      foundInImport: Array.isArray(imported[key]) ? imported[key].length : 0,
+      added: result.added, skippedDuplicate: result.skippedDuplicate || 0, enriched: result.enriched || 0
+    };
+  };
+
+  record("checkins", mergeCheckins(current.checkins, imported.checkins));
+  record("measurements", mergeMeasurements(current.measurements, imported.measurements));
+  record("workouts", mergeWorkouts(current.workouts, imported.workouts, current.exercises));
+  record("bodyweightLogs", mergeBodyweightLogs(current.bodyweightLogs, imported.bodyweightLogs));
+  record("nutritionLogs", mergeByIdGeneric(current.nutritionLogs, imported.nutritionLogs, detectDuplicateById));
+  record("recoveryLogs", mergeRecoveryLogs(current.recoveryLogs, imported.recoveryLogs));
+  record("stimulantLogs", mergeStimulantLogs(current.stimulantLogs, imported.stimulantLogs));
+  record("supplementLogs", mergeByIdGeneric(current.supplementLogs, imported.supplementLogs, detectDuplicateById));
+  record("mealLogs", mergeMealLogs(current.mealLogs, imported.mealLogs));
+  record("progressPhotos", mergeProgressPhotos(current.progressPhotos, imported.progressPhotos));
+  record("monthlyReviews", mergeMonthlyReviews(current.monthlyReviews, imported.monthlyReviews));
+  record("motivationalVisuals", mergeMotivationalVisuals(current.motivationalVisuals, imported.motivationalVisuals));
+
   merged.profile = withDefaults(current.profile || {}, imported.profile || {});
 
-  // Training program + exercises: current already has every day/exercise the running
-  // app's code defines (see emptyData()/migrateData()), so this only matters for a
-  // day or exercise that exists in the import but not in current at all — e.g.
-  // restoring onto a state that somehow lost one. Never overwrites an existing day
-  // or exercise, so Day 6 (and any other current feature) is never removed by an
-  // older import.
-  merged.trainingProgram = { ...current.trainingProgram };
-  let addedDays = 0;
-  Object.entries(imported.trainingProgram || {}).forEach(([day, exercises]) => {
-    if (!(day in merged.trainingProgram) && Array.isArray(exercises) && exercises.length) {
-      merged.trainingProgram[day] = exercises;
-      addedDays++;
-    }
-  });
-  summary.day6Preserved = "Day 6 - Arm + Forearm + Delt Specialisation" in merged.trainingProgram;
-  summary.programDaysAdded = addedDays;
+  const programResult = preserveCurrentProgramTemplate(current.trainingProgram, imported.trainingProgram);
+  merged.trainingProgram = programResult.merged;
 
-  {
-    const byId = new Map((current.exercises || []).map(e => [e.id, e]));
-    let exercisesAdded = 0;
-    (imported.exercises || []).forEach(ex => {
-      if (!ex || !ex.id) return;
-      if (!byId.has(ex.id)) { byId.set(ex.id, ex); exercisesAdded++; }
-      // else: current already has this exercise — keep it exactly as-is, including
-      // any guidance fields already backfilled by migrateData().
-    });
-    merged.exercises = [...byId.values()];
-    summary.exercisesAdded = exercisesAdded;
-  }
+  const exerciseResult = preserveCurrentExerciseDatabase(current.exercises, imported.exercises);
+  merged.exercises = exerciseResult.merged;
 
-  merged.supplements = mergeById(current.supplements, imported.supplements, s => s.supplementName).merged;
-  merged.prs = mergeById(current.prs, imported.prs, p => p.exerciseId || p.exerciseName).merged;
+  merged.supplements = mergeByIdGeneric(current.supplements, imported.supplements, (list, c) => list.find(x => x.supplementName === c.supplementName)).merged;
+  const prResult = mergePRs(current.prs, imported.prs);
+  merged.prs = prResult.merged;
 
-  merged.libraryFavorites = mergeArraysUnique(current.libraryFavorites, imported.libraryFavorites);
-  merged.libraryRecentlyViewed = mergeArraysUnique(current.libraryRecentlyViewed, imported.libraryRecentlyViewed).slice(0, 8);
+  merged.libraryFavorites = mergeLibraryState(current.libraryFavorites, imported.libraryFavorites);
+  merged.libraryRecentlyViewed = mergeLibraryState(current.libraryRecentlyViewed, imported.libraryRecentlyViewed, 8);
 
   merged.historical = (current.historical && current.historical.length) ? current.historical : (imported.historical || current.historical);
 
   // Active draft: never let an import silently discard in-progress unsaved workout
-  // values. If current has none, a draft in the import is offered back.
+  // values. Default is always to keep the current draft; an imported draft is only
+  // adopted when current has none at all.
+  let activeDraftAction = "none";
   if (current.activeWorkoutDraft) {
     merged.activeWorkoutDraft = current.activeWorkoutDraft;
-    summary.activeDraftAction = "kept-current";
+    activeDraftAction = "kept-current";
   } else if (imported.activeWorkoutDraft) {
     merged.activeWorkoutDraft = imported.activeWorkoutDraft;
-    summary.activeDraftAction = "restored-from-import";
+    activeDraftAction = "restored-from-import";
   } else {
     merged.activeWorkoutDraft = null;
   }
 
   merged.schemaVersion = SCHEMA_VERSION;
+
+  const summary = generateImportSummary({
+    collectionResults, programDaysAdded: programResult.daysAdded, exercisesAdded: exerciseResult.added,
+    prResult, day6Preserved: "Day 6 - Arm + Forearm + Delt Specialisation" in merged.trainingProgram,
+    activeDraftAction, errors: []
+  });
+
   return { merged, summary };
 }
 
 /**
- * Imports a backup file by MERGING it onto the current live state — never by
- * replacing it. Older or partial backups can only ADD missing records/fields; they
- * can never remove a workout, meal log, exercise, program day (e.g. Day 6) or any
- * other current feature that the live app already has. Returns { data, summary }.
+ * Imports a backup file as historical data merged onto the current live app — the
+ * uploaded file can only ADD workouts/logs/history; it never replaces the app's
+ * schema, program template, exercise database or any other current feature.
+ * Snapshots the pre-import state first and rolls back automatically if the merge
+ * or save fails partway through, so a bad import never leaves the app half-changed.
  */
 export function importData(jsonText) {
   const imported = JSON.parse(jsonText);
   if (typeof imported !== "object" || imported === null) throw new Error("Invalid backup file.");
 
   const current = getData();
-  try {
-    localStorage.setItem(`projectReacher_backup_pre_import_${Date.now()}`, JSON.stringify(current));
-  } catch (err) {
-    console.warn("[Project Reacher] Could not save pre-import safety backup (storage may be full).", err);
-  }
+  createPreImportBackup(current);
 
-  const { merged, summary } = mergeProjectReacherState(current, imported);
-  saveData(merged);
-  const data = migrateData();
-  return { data, summary };
+  try {
+    const { merged, summary } = importAndMergeData(imported, current);
+    saveData(merged);
+    const data = migrateData();
+    return { data, summary };
+  } catch (err) {
+    rollbackImport(current);
+    throw new Error(`Import failed and was rolled back to your previous data: ${err.message}`);
+  }
+}
+
+/**
+ * Advanced/dangerous full restore: replaces the current app state with the
+ * uploaded file verbatim. NEVER the default import path — only reachable through
+ * an explicit, separately-confirmed UI action. Still snapshots the pre-restore
+ * state first, and still runs migrateData() afterward so current-app repairs
+ * (e.g. restoring Day 6 if the restored file predates it) still apply on top.
+ */
+export function fullRestoreFromBackup(jsonText) {
+  const imported = JSON.parse(jsonText);
+  if (typeof imported !== "object" || imported === null) throw new Error("Invalid backup file.");
+  const current = getData();
+  createPreImportBackup(current);
+  try {
+    saveData(imported);
+    return migrateData();
+  } catch (err) {
+    rollbackImport(current);
+    throw new Error(`Full restore failed and was rolled back to your previous data: ${err.message}`);
+  }
 }
 
 export function deleteItem(collection, id) {

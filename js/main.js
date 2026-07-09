@@ -1,5 +1,5 @@
 import { $ } from "./dom.js";
-import { getData, migrateData, exportData, importData, deleteItem } from "./data.js";
+import { getData, migrateData, exportData, importData, fullRestoreFromBackup, deleteItem } from "./data.js";
 import { renderDashboard } from "./render-dashboard.js";
 import {
   renderDaySelect, renderWorkoutForm, saveWorkout, renderWorkoutHistory,
@@ -75,21 +75,25 @@ const COLLECTION_LABELS = {
 };
 
 function formatImportSummary(summary) {
-  const lines = ["Backup merged into your current data:"];
+  const lines = ["Historical data imported into your current app:"];
   Object.entries(summary.collections || {}).forEach(([key, c]) => {
     if (!c.foundInImport) return;
     const label = COLLECTION_LABELS[key] || key;
     const bits = [`${c.foundInImport} found`];
     if (c.added) bits.push(`${c.added} added`);
+    if (c.enriched) bits.push(`${c.enriched} updated with extra detail`);
     if (c.skippedDuplicate) bits.push(`${c.skippedDuplicate} already present`);
     lines.push(`${label}: ${bits.join(", ")}`);
   });
   if (summary.exercisesAdded) lines.push(`Exercises restored from the import: ${summary.exercisesAdded}`);
   if (summary.programDaysAdded) lines.push(`Training program days restored: ${summary.programDaysAdded}`);
+  if (summary.prsAdded) lines.push(`PR reference goals added: ${summary.prsAdded}`);
+  if (summary.prLegacyGoalsPreserved) lines.push(`Conflicting PR goals from the file kept as a legacy reference (your current goals were not changed): ${summary.prLegacyGoalsPreserved}`);
   lines.push(`Day 6 present: ${summary.day6Preserved ? "yes" : "no"}`);
   if (summary.activeDraftAction === "kept-current") lines.push("Active workout draft: kept your current unsaved draft.");
   if (summary.activeDraftAction === "restored-from-import") lines.push("Active workout draft: restored from the imported file.");
-  lines.push("No current data, program days, or app features were removed.");
+  if (summary.errors && summary.errors.length) lines.push(`Errors: ${summary.errors.join("; ")}`);
+  lines.push("Your current app, program, and features were not changed or downgraded.");
   return lines.join("\n");
 }
 
@@ -148,16 +152,34 @@ function setupEventListeners() {
   $("importBackup").addEventListener("change", (evt) => {
     const file = evt.target.files[0];
     if (!file) return;
-    if (!confirm("Importing will MERGE this file into your current data. Nothing currently saved is deleted or downgraded — the import can only add missing workouts, logs, exercises or program days. Continue?")) {
+    const fullRestore = $("fullRestoreToggle")?.checked;
+
+    if (fullRestore) {
+      const confirmed = confirm(
+        "FULL RESTORE (ADVANCED): This replaces your entire current app with the uploaded file, exactly as exported. " +
+        "It can remove newer features (like Day 6) if this file predates them. A safety backup of your current data " +
+        "is taken first, but this is not the normal way to import a backup — most people want the default merge " +
+        "instead. Are you sure you want to fully restore from this file?"
+      );
+      if (!confirmed) { evt.target.value = ""; return; }
+    } else if (!confirm("Import historical data into your current app. This adds workouts, meals and logs — it will never change your current program, features, or app version. Continue?")) {
       evt.target.value = "";
       return;
     }
+
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const { summary } = importData(reader.result);
-        refreshAll();
-        alert(formatImportSummary(summary));
+        if (fullRestore) {
+          fullRestoreFromBackup(reader.result);
+          refreshAll();
+          alert("Full restore complete. Your app now matches the uploaded file exactly (a safety backup of your previous data was saved first).");
+          if ($("fullRestoreToggle")) $("fullRestoreToggle").checked = false;
+        } else {
+          const { summary } = importData(reader.result);
+          refreshAll();
+          alert(formatImportSummary(summary));
+        }
       } catch (err) {
         alert("Could not import this file: " + err.message);
       }
