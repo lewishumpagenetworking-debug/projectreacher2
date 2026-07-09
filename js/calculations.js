@@ -1,6 +1,6 @@
 // Pure calculation utilities. No DOM access, no storage access — easy to reason about and reuse.
 import { MUSCLE_GROUP_MAP, PRIORITY_MUSCLES } from "./program.js";
-import { parseLogDate, isSameWeek } from "./dates.js";
+import { parseLogDate, isSameWeek, startOfWeek } from "./dates.js";
 
 function setVolume(e) {
   return (Number(e.set1Weight) || 0) * (Number(e.set1Reps) || 0) + (Number(e.set2Weight) || 0) * (Number(e.set2Reps) || 0);
@@ -457,4 +457,77 @@ export function recoveryWarnings({ recoveryLogs, stimulantLogs, workouts }) {
   if (risingCaffeine) warnings.push("Caffeine use increasing — check whether it's masking declining recovery.");
 
   return warnings;
+}
+
+/**
+ * All figures below are derived live from existing collections on every call —
+ * nothing here is stored, so the streak/badge/engagement layer can never drift
+ * from or corrupt the underlying save data.
+ */
+
+/** Consecutive Monday-Sunday weeks (counting the current week) with >=1 workout logged, most-recent-first. */
+export function trainingStreakWeeks(workouts, referenceDate = new Date()) {
+  const weeksWithSessions = new Set(
+    workouts.map(w => parseLogDate(w.date)).filter(Boolean).map(d => startOfWeek(d).getTime())
+  );
+  let streak = 0;
+  const cursor = startOfWeek(referenceDate);
+  while (weeksWithSessions.has(cursor.getTime())) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 7);
+  }
+  return streak;
+}
+
+/** Consecutive calendar days (counting today, walking backward) with >=1 entry in a date-keyed collection. */
+export function loggingStreakDays(entries, dateKey = "date", referenceDate = new Date()) {
+  const daysWithEntries = new Set(
+    entries.map(e => parseLogDate(e[dateKey])).filter(Boolean)
+      .map(d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime())
+  );
+  let streak = 0;
+  const cursor = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+  while (daysWithEntries.has(cursor.getTime())) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+/** Percentage of this program's training days that have a logged session in the current week (0-100). */
+export function weeklyComplianceRate(workouts, trainingProgram, referenceDate = new Date()) {
+  const dayCount = Object.keys(trainingProgram || {}).length;
+  if (!dayCount) return 0;
+  const logged = new Set(workoutsInWeek(workouts, referenceDate).map(w => w.day || w.programDay));
+  return Math.round((logged.size / dayCount) * 100);
+}
+
+/**
+ * Serious, performance-focused badge set — every badge is computed live from
+ * existing collections, never stored, so there is no new persisted state at all.
+ */
+export function computeBadges(data) {
+  const workouts = data.workouts || [];
+  const recoveryStreak = loggingStreakDays(data.recoveryLogs || [], "date");
+  const nutritionStreak = loggingStreakDays(data.mealLogs || [], "date");
+  const trainStreak = trainingStreakWeeks(workouts);
+  const anyPR = (data.prs || []).some(p => p.currentBest);
+  const armDayLogged = workouts.some(w => /Arm.*Forearm.*Delt/i.test(w.day || w.programDay || ""));
+  const forearmLogged = workouts.some(w => (w.exercises || []).some(e => /forearm|wrist|farmer/i.test(e.name || "")));
+  const noMissedThisWeek = weeklyComplianceRate(workouts, data.trainingProgram, new Date()) >= 100;
+  const techFailureLogged = workouts.some(w => (w.exercises || []).some(e => e.technicalFailureReached));
+
+  return [
+    { id: "first-week", name: "First Week Logged", icon: "🎖", unlocked: trainStreak >= 1 },
+    { id: "five-workouts", name: "5 Workouts Completed", icon: "🏋", unlocked: workouts.length >= 5 },
+    { id: "ten-workouts", name: "10 Workouts Completed", icon: "🏆", unlocked: workouts.length >= 10 },
+    { id: "first-pr", name: "First PR", icon: "⭐", unlocked: anyPR },
+    { id: "arm-day", name: "Arm Day Completed", icon: "💪", unlocked: armDayLogged },
+    { id: "forearm-work", name: "Forearm Work Logged", icon: "🦾", unlocked: forearmLogged },
+    { id: "recovery-3", name: "Recovery Logged 3 Days", icon: "😴", unlocked: recoveryStreak >= 3 },
+    { id: "nutrition-7", name: "Nutrition Logged 7 Days", icon: "🍽", unlocked: nutritionStreak >= 7 },
+    { id: "no-missed", name: "No Missed Sessions This Week", icon: "🎯", unlocked: noMissedThisWeek },
+    { id: "tech-failure", name: "Technical Failure Standard", icon: "🔥", unlocked: techFailureLogged },
+    { id: "consistency-chain", name: "Consistency Chain", icon: "⛓", unlocked: trainStreak >= 3 }
+  ];
 }

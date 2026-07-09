@@ -61,10 +61,41 @@
     <section class="tab-panel" data-tab="dashboard">
       <div id="visual-dashboard"></div>
 
+      <section class="card command-hero" id="heroMissionCard">
+        <p class="mission-tag">Today's Mission</p>
+        <p class="hero-headline" id="heroNextWorkoutName">--</p>
+        <div class="hero-stat-row">
+          <div class="hero-stat"><span>Phase</span><strong id="heroPhase">--</strong></div>
+          <div class="hero-stat"><span>Bodyweight</span><strong id="heroWeight">--</strong></div>
+          <div class="hero-stat"><span>Weekly Gain Target</span><strong id="heroGainTarget">--</strong></div>
+          <div class="hero-stat"><span>Recovery Status</span><strong id="heroRecovery">--</strong></div>
+        </div>
+        <button type="button" class="hero-cta" id="heroStartWorkoutBtn" data-goto-tab="train">Start / Resume Workout</button>
+      </section>
+
       <section class="card" id="draftBannerCard" hidden>
         <h2>Active Workout Draft</h2>
         <div id="dashDraftStatus"></div>
         <button type="button" id="resumeDraftBtn" class="secondary">Resume Workout Draft</button>
+      </section>
+
+      <section class="card">
+        <h2>Progress Command Grid</h2>
+        <div id="progressCommandGrid" class="grid"></div>
+      </section>
+
+      <section class="card next-objective-card">
+        <div id="dashNextObjective"></div>
+      </section>
+
+      <section class="card">
+        <h2>Mission Streaks</h2>
+        <div id="streakGrid" class="streak-grid"></div>
+      </section>
+
+      <section class="card">
+        <h2>Reward Unlocks</h2>
+        <div id="badgeGrid" class="badge-tile-grid"></div>
       </section>
 
       <section class="grid stats">
@@ -181,6 +212,10 @@
         <div class="section-title">
           <h2>Today's Workout</h2>
           <select id="daySelect"></select>
+        </div>
+        <div class="workout-progress-wrap">
+          <div class="workout-progress-label"><span>Session Progress</span><span id="workoutProgressText">0%</span></div>
+          <div class="workout-progress-bar"><div id="workoutProgressFill" class="workout-progress-fill"></div></div>
         </div>
         <div id="draftResumeBanner" class="warning-banner" hidden></div>
         <div id="draftStatus" class="draft-status" hidden></div>
@@ -505,14 +540,16 @@
       </section>
 
       <section class="card">
-        <h2>Weekly Check-In Summary (Auto)</h2>
+        <h2>Weekly Debrief</h2>
+        <p class="small">Auto-generated from this week's logged training, nutrition and recovery.</p>
         <div id="visual-weekly-review"></div>
         <div id="weeklyCheckinSummary"></div>
         <button id="generateWeeklyCheckin">Generate This Week's Summary</button>
       </section>
 
       <section class="card">
-        <h2>Monthly Review</h2>
+        <h2>Monthly Progress Report</h2>
+        <p class="small">Your transformation report — bodyweight, measurements, strength and specialisation trend.</p>
         <div id="visual-monthly-review"></div>
         <div id="monthlyReview"></div>
         <button id="generateMonthlyReview">Generate Monthly Review</button>

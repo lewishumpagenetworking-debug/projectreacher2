@@ -1,7 +1,7 @@
 import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
 import { estimateMealMacros } from "./food-estimator.js";
-import { macroTargets, dailyMealTotals, remainingMacros, macroAdherence, monthlyMealSummary } from "./calculations.js";
+import { macroTargets, dailyMealTotals, remainingMacros, macroAdherence, monthlyMealSummary, loggingStreakDays } from "./calculations.js";
 import { lineChart, stackedBarRows } from "./charts.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
@@ -106,7 +106,12 @@ function renderTodayMeals(data) {
   }
   const remainingEl = $("mealRemaining");
   if (remainingEl) {
-    remainingEl.innerHTML = `<p class="small">Remaining today: ${remaining.caloriesRemaining}kcal · ${remaining.proteinRemaining}g protein · ${remaining.carbsRemaining}g carbs · ${remaining.fatRemaining}g fat · ${remaining.fibreRemaining}g fibre</p>`;
+    const streak = loggingStreakDays(data.mealLogs, "date");
+    const proteinHit = targets.proteinMin && totals.protein >= targets.proteinMin;
+    const rewardLine = totals.mealCount
+      ? `<p class="small exercise-complete-note">${proteinHit ? "Protein target hit. " : ""}${streak >= 2 ? `Nutrition Discipline: ${streak}-day streak.` : ""}</p>`
+      : "";
+    remainingEl.innerHTML = `<p class="small">Remaining today: ${remaining.caloriesRemaining}kcal · ${remaining.proteinRemaining}g protein · ${remaining.carbsRemaining}g carbs · ${remaining.fatRemaining}g fat · ${remaining.fibreRemaining}g fibre</p>${rewardLine}`;
   }
 
   const logEl = $("todayMealLog");

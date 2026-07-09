@@ -3,7 +3,8 @@ import { getData, migrateData, exportData, importData, fullRestoreFromBackup, de
 import { renderDashboard } from "./render-dashboard.js";
 import {
   renderDaySelect, renderWorkoutForm, saveWorkout, renderWorkoutHistory,
-  renderMiniVolumeChart, renderHistoricalSummary, renderPrTracker, setupTrainEventDelegation
+  renderMiniVolumeChart, renderHistoricalSummary, renderPrTracker, setupTrainEventDelegation,
+  startMission
 } from "./render-train.js";
 import {
   saveBodyweight, renderBodyweight, saveCheckin, renderCheckinHistory,
@@ -108,7 +109,11 @@ function setupDeleteDelegation() {
 }
 
 function setupEventListeners() {
-  $("daySelect").addEventListener("change", () => renderWorkoutForm(getData()));
+  $("daySelect").addEventListener("change", () => {
+    const data = getData();
+    renderWorkoutForm(data);
+    startMission(data);
+  });
   $("saveWorkout").addEventListener("click", saveWorkout);
 
   $("saveBodyweight").addEventListener("click", saveBodyweight);

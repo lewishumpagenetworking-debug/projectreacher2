@@ -7,6 +7,16 @@ const RECENTLY_VIEWED_MAX = 8;
 const ENTRIES_BY_SLUG = Object.fromEntries(LIBRARY_ENTRIES.map(e => [e.slug, e]));
 const AI_MODES = ["Quick Explain", "Deep Dive", "Coach Mode", "Quiz Mode"];
 
+const CATEGORY_ICONS = {
+  "Training Principles": "🎯", "Exercise Technique": "🏋", "Hypertrophy Science": "🔬",
+  "Progression & Performance": "📈", "Nutrition Basics": "🍽", "Macros": "🥩",
+  "Micronutrients": "🧪", "Meal Timing": "⏱", "Recovery": "😴", "Sleep & Fatigue": "🌙",
+  "Stimulants": "☕", "Supplements": "💊", "Body Composition": "⚖", "Measurements & Ratios": "📐",
+  "Mini-Cuts / Fat Loss": "🔻", "High-Responder Tracking": "🧬", "App Metrics & Scores": "📊",
+  "Acronyms & Definitions": "🔤", "Injury & Safety Basics": "⚠", "Project Reacher System": "🪖"
+};
+function categoryIcon(category) { return CATEGORY_ICONS[category] || "📘"; }
+
 // UI-only view state — deliberately not persisted, so it resets each session
 // rather than needing its own save/migration handling.
 let searchText = "";
@@ -59,7 +69,7 @@ function cardHtml(entry, isFavorite) {
   return `
     <button type="button" class="library-card" data-library-open="${esc(entry.slug)}">
       <div class="library-card-top">
-        <strong>${esc(entry.title)}</strong>
+        <strong><span class="library-card-icon" aria-hidden="true">${categoryIcon(entry.category)}</span>${esc(entry.title)}</strong>
         ${isFavorite ? '<span class="library-fav-star" aria-hidden="true">★</span>' : ""}
       </div>
       <span class="small library-card-tooltip">${esc(entry.tooltipVersion)}</span>
@@ -76,7 +86,7 @@ function renderCategoryChips() {
   if (!el) return;
   const cats = ["All", ...LIBRARY_CATEGORIES];
   el.innerHTML = cats.map(c => `
-    <button type="button" class="library-chip ${c === activeCategory ? "active" : ""}" data-library-category="${esc(c)}" role="tab" aria-selected="${c === activeCategory}">${esc(c)}</button>
+    <button type="button" class="library-chip ${c === activeCategory ? "active" : ""}" data-library-category="${esc(c)}" role="tab" aria-selected="${c === activeCategory}">${c === "All" ? "" : categoryIcon(c) + " "}${esc(c)}</button>
   `).join("");
 }
 
