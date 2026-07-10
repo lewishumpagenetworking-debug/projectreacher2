@@ -11,7 +11,10 @@ import {
   saveMeasurements, renderMeasurementsHistory, savePhotoCheckin, renderPhotos
 } from "./render-body.js";
 import { saveNutrition, renderNutrition, renderSupplements } from "./render-nutrition.js";
-import { saveRecovery, renderRecoveryHistory, saveStimulants, renderStimulantHistory } from "./render-recovery.js";
+import {
+  saveRecovery, renderRecoveryHistory, saveStimulants, renderStimulantHistory,
+  saveSleepLog, saveHydrationLog, renderRecoveryCommandCentre, setupRecoveryEventDelegation
+} from "./render-recovery.js";
 import {
   renderProfileForm, saveProfile, generateWeeklyCheckin, renderWeeklyCheckinSummary,
   generateMonthlyReview, renderMonthlyReview, renderProgramEditor, renderDataHealth,
@@ -42,6 +45,7 @@ export function refreshAll() {
   renderSupplements(data);
   renderRecoveryHistory(data);
   renderStimulantHistory(data);
+  renderRecoveryCommandCentre(data);
   renderProfileForm(data);
   renderWeeklyCheckinSummary(data);
   renderMonthlyReview(data);
@@ -72,7 +76,8 @@ const COLLECTION_LABELS = {
   workouts: "Workouts", checkins: "Check-ins", measurements: "Measurements",
   bodyweightLogs: "Bodyweight logs", nutritionLogs: "Nutrition logs", recoveryLogs: "Recovery logs",
   stimulantLogs: "Stimulant logs", supplementLogs: "Supplement logs", mealLogs: "Meal logs",
-  progressPhotos: "Progress photos", monthlyReviews: "Monthly reviews", motivationalVisuals: "Motivational visuals"
+  progressPhotos: "Progress photos", monthlyReviews: "Monthly reviews", motivationalVisuals: "Motivational visuals",
+  sleepLogs: "Sleep logs", hydrationLogs: "Hydration logs"
 };
 
 function formatImportSummary(summary) {
@@ -127,6 +132,8 @@ function setupEventListeners() {
   $("syncMealsToDailyBtn").addEventListener("click", syncMealsToDailyNutrition);
   $("saveRecovery").addEventListener("click", saveRecovery);
   $("saveStimulants").addEventListener("click", saveStimulants);
+  $("saveSleepLog")?.addEventListener("click", saveSleepLog);
+  $("saveHydrationLog")?.addEventListener("click", saveHydrationLog);
 
   $("saveProfile").addEventListener("click", saveProfile);
   $("generateWeeklyCheckin").addEventListener("click", generateWeeklyCheckin);
@@ -241,6 +248,7 @@ setupTrainEventDelegation();
 setupVisualsEventDelegation();
 setupMetricInfoDelegation();
 setupLibraryEventDelegation();
+setupRecoveryEventDelegation();
 refreshAll();
 renderHistoricalImport();
 

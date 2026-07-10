@@ -54,6 +54,8 @@ function emptyData() {
     supplements: structuredClone(DEFAULT_SUPPLEMENTS),
     supplementLogs: [],
     mealLogs: [],
+    sleepLogs: [],
+    hydrationLogs: [],
     progressPhotos: [],
     prs: structuredClone(DEFAULT_PRS),
     monthlyReviews: [],
@@ -112,7 +114,7 @@ export function migrateData() {
   // collection still has an id, then layer on the new optional fields additively.
   ["checkins", "measurements", "workouts", "bodyweightLogs", "nutritionLogs", "recoveryLogs",
    "stimulantLogs", "supplementLogs", "mealLogs", "progressPhotos", "prs", "monthlyReviews",
-   "motivationalVisuals"].forEach(key => {
+   "motivationalVisuals", "sleepLogs", "hydrationLogs"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -134,6 +136,29 @@ export function migrateData() {
   data.measurements = data.measurements.map(m => withDefaults(m, {
     weight: null, calves: null, notes: "",
     rforearm: null, lforearm: null, flexedArm: null, relaxedArm: null, pumpedNote: ""
+  }));
+
+  // Recovery Command Centre — additive fields only. Every field below defaults to
+  // null/false/"" so older logs (or imports) that predate these fields are simply
+  // treated as "not recorded", never as zero/false in a way that would misfire the
+  // readiness/fatigue engine.
+  data.stimulantLogs = data.stimulantLogs.map(s => withDefaults(s, {
+    source: null, productName: "", servingSize: "", betaAlanineMg: null, bcaaMg: null,
+    preWorkoutMealCompleted: null, perceivedEffect: null, pumpQuality: null,
+    crashLater: null, jittersAnxiety: null, sleepAffected: null, performanceImproved: null
+  }));
+
+  data.mealLogs = data.mealLogs.map(m => withDefaults(m, { recoveryTag: null }));
+
+  data.sleepLogs = data.sleepLogs.map(s => withDefaults(s, {
+    bedtime: null, wakeTime: null, calculatedDurationHours: null, timeToFallAsleepMinutes: null,
+    awakenings: null, sleepQuality: null, morningEnergy: null, napDurationMinutes: null, napTime: null,
+    caffeineCutoffTime: null, preBedRoutineCompleted: null, weekendRecoveryExtension: null, notes: ""
+  }));
+
+  data.hydrationLogs = data.hydrationLogs.map(h => withDefaults(h, {
+    waterIntake: null, electrolytesUsed: null, saltIncluded: null, sweatLevel: null,
+    pumpQuality: null, cramping: null, headache: null, notes: ""
   }));
 
   data.workouts = data.workouts.map(w => withDefaults(w, {
@@ -235,7 +260,8 @@ export function exportData() {
 
 const COLLECTION_KEYS = [
   "checkins", "measurements", "workouts", "bodyweightLogs", "nutritionLogs", "recoveryLogs",
-  "stimulantLogs", "supplementLogs", "mealLogs", "progressPhotos", "monthlyReviews", "motivationalVisuals"
+  "stimulantLogs", "supplementLogs", "mealLogs", "progressPhotos", "monthlyReviews", "motivationalVisuals",
+  "sleepLogs", "hydrationLogs"
 ];
 
 function normalizeSetSignature(e) {
@@ -451,6 +477,8 @@ export function importAndMergeData(importedRaw, currentState) {
   record("progressPhotos", mergeProgressPhotos(current.progressPhotos, imported.progressPhotos));
   record("monthlyReviews", mergeMonthlyReviews(current.monthlyReviews, imported.monthlyReviews));
   record("motivationalVisuals", mergeMotivationalVisuals(current.motivationalVisuals, imported.motivationalVisuals));
+  record("sleepLogs", mergeByIdGeneric(current.sleepLogs, imported.sleepLogs, detectDuplicateById));
+  record("hydrationLogs", mergeByIdGeneric(current.hydrationLogs, imported.hydrationLogs, detectDuplicateById));
 
   merged.profile = withDefaults(current.profile || {}, imported.profile || {});
 

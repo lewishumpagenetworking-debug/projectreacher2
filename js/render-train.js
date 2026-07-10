@@ -1,5 +1,5 @@
 import { $, esc } from "./dom.js";
-import { recommendProgression, getExerciseHistory, localExerciseAdvice } from "./calculations.js";
+import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore } from "./calculations.js";
 import { getData, saveData, uid } from "./data.js";
 import { metricLabel } from "./metric-info.js";
 import { showMissionStart, celebrateSetRow, celebrateExerciseComplete, showOperationComplete, formatVolumeComparison } from "./reward-system.js";
@@ -139,6 +139,19 @@ export function renderWorkoutForm(data) {
 
   applyDraftAfterRender(data, day);
   initializeRewardState();
+  renderTrainReadinessChip(data);
+}
+
+/** Small, non-blocking readiness chip at the top of the Train tab — never interrupts logging. */
+export function renderTrainReadinessChip(data) {
+  const el = $("trainReadinessChip");
+  if (!el) return;
+  const readiness = readinessScore(data);
+  const cls = (readiness.status === "green" || readiness.status === "amber-green") ? "chip-green" : (readiness.status === "amber" ? "chip-amber" : "chip-red");
+  el.innerHTML = `
+    <span class="readiness-chip ${cls}">Readiness: ${readiness.score} — ${esc(readiness.trainingMode)}</span>
+    <span class="readiness-chip-note">${esc(readiness.mainBottleneck)}</span>
+  `;
 }
 
 // ---- Visual reward state (active/complete card highlighting, session progress bar,
