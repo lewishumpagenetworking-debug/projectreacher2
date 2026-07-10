@@ -59,12 +59,14 @@ export function saveMeal() {
     assumptions: lastEstimate?.assumptions || [],
     userCorrected,
     correctionNotes: "",
+    recoveryTag: $("mealRecoveryTag")?.value || null,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
   });
   saveData(data);
 
   ["mealDescription", "mealName", "mealTime", "mealCalories", "mealProtein", "mealCarbs", "mealFat", "mealFibre"].forEach(id => $(id).value = "");
+  if ($("mealRecoveryTag")) $("mealRecoveryTag").value = "";
   $("mealEstimateResult").hidden = true;
   lastEstimate = null;
   refreshAll();
@@ -148,6 +150,7 @@ function mealHistoryItem(m) {
       <span class="badge">C${m.carbs}</span>
       <span class="badge">F${m.fat}</span>
       <span class="badge">Fibre${m.fibre}</span>
+      ${m.recoveryTag ? `<span class="badge status-on-target">${esc(m.recoveryTag.replace(/-/g, " "))}</span>` : ""}
     </div>
     <div class="actions">
       <button class="secondary" data-duplicate-meal="${m.id}">Add Again Today</button>

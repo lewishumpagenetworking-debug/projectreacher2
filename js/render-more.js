@@ -1,6 +1,9 @@
 import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
-import { average, weeklyRateOfGain, sevenDayAverage, ratios, weeklyVolumeByMuscleGroup, workoutsInWeek, armForearmBalance, volumeStatus, armForearmDeltWarnings } from "./calculations.js";
+import {
+  average, weeklyRateOfGain, sevenDayAverage, ratios, weeklyVolumeByMuscleGroup, workoutsInWeek, armForearmBalance, volumeStatus, armForearmDeltWarnings,
+  weeklyRecoveryDebrief, monthlyRecoveryTrajectory
+} from "./calculations.js";
 import { parseLogDate, isSameWeek, startOfWeek, isLegacySlashDate } from "./dates.js";
 
 export function renderVisualModeToggle(data) {
@@ -117,6 +120,7 @@ export function generateWeeklyCheckin() {
     sleep: average(rec.map(r => r.sleepDuration)),
     strengthProgressSummary: increases.length ? `${increases.length} exercise(s) flagged to increase load.` : "No load increases flagged this week.",
     armForearmDeltReview,
+    recoveryDebrief: weeklyRecoveryDebrief(data, now),
     notes: "",
     recommendation: sessions.length >= 4 ? "Keep plan" : "Review adherence — fewer than 4 sessions logged this week."
   };
@@ -139,6 +143,21 @@ export function renderWeeklyCheckinSummary(data) {
       ${esc(last.strengthProgressSummary)}<br>
       <strong>${esc(last.recommendation)}</strong>
       ${last.armForearmDeltReview ? renderArmForearmDeltReview(last.armForearmDeltReview) : ""}
+      ${last.recoveryDebrief ? renderWeeklyRecoveryDebrief(last.recoveryDebrief) : ""}
+    </div>`;
+}
+
+function renderWeeklyRecoveryDebrief(d) {
+  return `
+    <div class="library-quick-explain-box">
+      <p class="mission-tag">Weekly Recovery Debrief</p>
+      <p class="small">Avg sleep: ${d.averageSleep ?? "--"}h (weekday ${d.weekdaySleepAverage ?? "--"}h · weekend ${d.weekendSleepAverage ?? "--"}h) · Sleep debt estimate: ${d.sleepDebtEstimate ?? "--"}h</p>
+      <p class="small">Best night: ${d.bestSleepNight ? `${esc(d.bestSleepNight.date)} (${d.bestSleepNight.hours}h)` : "--"} · Worst night: ${d.worstSleepNight ? `${esc(d.worstSleepNight.date)} (${d.worstSleepNight.hours}h)` : "--"}</p>
+      <p class="small">Caffeine avg: ${d.caffeineAverage ?? "--"}mg · High-caffeine days: ${d.highCaffeineDays}</p>
+      <p class="small">Pre-workout fuel compliance: ${d.preWorkoutFuelCompliance ?? "--"}% · Post-workout recovery compliance: ${d.postWorkoutRecoveryCompliance ?? "--"}%</p>
+      <p class="small">Pre-bed routine compliance: ${d.preBedRoutineCompliance ?? "--"}% · Hydration/electrolyte compliance: ${d.hydrationElectrolyteCompliance ?? "--"}%</p>
+      <p class="small">Average soreness: ${d.averageSoreness ?? "--"}/5 · Recovery bottleneck of the week: <strong>${esc(d.recoveryBottleneckOfWeek)}</strong></p>
+      <p class="small"><strong>Next week objective:</strong> ${esc(d.nextWeekObjective)}</p>
     </div>`;
 }
 
@@ -182,6 +201,7 @@ export function generateMonthlyReview() {
     stimulantTrend: stim.length ? `Avg caffeine ${fmt(average(stim.map(s => s.caffeineMg)), 0)}mg, nicotine used ${stim.filter(s => s.nicotineUsed).length}/${stim.length} days` : "No stimulant logs",
     volumeByMuscleGroup: volumeTotals,
     armForearmBalance: (first && last) ? armForearmBalance(first, last) : { status: "insufficient-data", message: "Not enough measurement data yet." },
+    recoveryTrajectory: monthlyRecoveryTrajectory(data, now),
     recommendation: decision,
     notes: $("monthlyReviewNotes")?.value || ""
   };
@@ -214,7 +234,20 @@ export function renderMonthlyReview(data) {
       Stimulants: ${esc(last.stimulantTrend)}<br>
       <strong>Recommendation: ${esc(last.recommendation)}</strong>
       ${last.notes ? `<br>${esc(last.notes)}` : ""}
+      ${last.recoveryTrajectory ? renderMonthlyRecoveryTrajectory(last.recoveryTrajectory) : ""}
     </div>${controls}`;
+}
+
+function renderMonthlyRecoveryTrajectory(t) {
+  return `
+    <div class="library-quick-explain-box">
+      <p class="mission-tag">Monthly Recovery Trajectory</p>
+      <p class="small">Monthly avg sleep: ${t.monthlyAverageSleep ?? "--"}h · Weekday vs weekend gap: ${t.weekdayVsWeekendGap ?? "--"}h</p>
+      <p class="small">Caffeine trend: ${t.caffeineTrend ?? "--"}mg/day · Recovery score trend: ${t.recoveryScoreTrend ?? "--"}/5</p>
+      <p class="small">Bodyweight gain this month: ${t.bodyweightGain ?? "--"}kg (target ~${t.targetGainForMonth ?? "--"}kg) · Sessions logged: ${t.sessionsLogged}</p>
+      <p class="small">6-day training sustainability: ${t.sixDaySustainable ? "On track" : "At risk"}</p>
+      <p class="small"><strong>${esc(t.label)}</strong> — ${esc(t.nextMonthPriority)}</p>
+    </div>`;
 }
 
 export function renderProgramEditor(data) {

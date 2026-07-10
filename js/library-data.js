@@ -23,7 +23,8 @@ export const LIBRARY_CATEGORIES = [
   "App Metrics & Scores",
   "Acronyms & Definitions",
   "Injury & Safety Basics",
-  "Project Reacher System"
+  "Project Reacher System",
+  "Medical / Education Only"
 ];
 
 export const LEARNING_PATHS = [
@@ -1913,5 +1914,239 @@ export const LIBRARY_ENTRIES = [
     practicalAction: ["Before changing an exercise or rep range, check which underlying principle it's meant to serve, and preserve that."],
     relatedTerms: ["what-is-project-reacher", "exercise-selection-specificity"], tags: ["adapting training", "training philosophy"],
     readingTimeMin: 2, evidenceTier: "Consensus"
+  }),
+
+  // ============ RECOVERY COMMAND CENTRE ============
+  E({
+    slug: "sleep-debt", title: "Sleep Debt", category: "Sleep & Fatigue", difficulty: "Basic",
+    instantMeaning: "The accumulated shortfall between the sleep you got and the sleep you needed.",
+    shortDefinition: "Sleep debt is an estimate of how far your recent nights have fallen short of a reasonable sleep target, added up over several days.",
+    beginnerExplanation: "If you consistently sleep less than your body needs, that shortfall builds up — it isn't fully 'reset' by one good night.",
+    whyItMatters: "Sleep debt is one of the strongest levers on recovery, energy and training performance — more so than most supplements.",
+    projectReacherApplication: "The Recovery Command Centre's Sleep Debt figure sums the daily shortfall over the last 7 days from your logged sleep windows.",
+    practicalAction: ["Log bedtime and wake time consistently so the debt estimate is accurate.", "Use planned lower-demand days to chip away at debt rather than ignoring it."],
+    commonMistakes: ["Assuming one long weekend sleep fully cancels a week of short nights."],
+    relatedTerms: ["weekend-sleep-extension", "readiness-score"], tags: ["sleep", "recovery"], readingTimeMin: 1, evidenceTier: "Good"
+  }),
+  E({
+    slug: "sleep-consistency", title: "Sleep Consistency", category: "Sleep & Fatigue", difficulty: "Basic",
+    instantMeaning: "Going to bed and waking up at similar times, night to night.",
+    shortDefinition: "Sleep consistency measures how much your sleep timing and duration vary night to night — lower variability generally supports better recovery and daytime energy.",
+    beginnerExplanation: "A body that knows roughly when sleep is coming tends to fall asleep faster and recover more predictably than one on a constantly shifting schedule.",
+    whyItMatters: "Two people can average the same total sleep hours but recover very differently if one is wildly inconsistent night to night.",
+    projectReacherApplication: "The sleep tracker's consistency spread shows the gap between your best and worst night in the last 7 days.",
+    practicalAction: ["Aim to keep bedtime within roughly an hour of the same time most nights, even when duration has to vary."],
+    relatedTerms: ["sleep-debt", "caffeine-cutoff"], tags: ["sleep"], readingTimeMin: 1, evidenceTier: "Moderate"
+  }),
+  E({
+    slug: "weekend-sleep-extension", title: "Weekend Sleep Extension", category: "Sleep & Fatigue", difficulty: "Basic",
+    instantMeaning: "Using lower-demand days to sleep longer and partially recover.",
+    shortDefinition: "Weekend sleep extension means deliberately sleeping longer (e.g. 8-10h) on days without early obligations, to partially offset weekday sleep restriction.",
+    beginnerExplanation: "If your week forces short nights, using the weekend to sleep longer genuinely helps — but it's a partial fix, not a full reset.",
+    whyItMatters: "For a lifestyle with a fixed weekday sleep constraint, this is the single most realistic recovery lever available.",
+    projectReacherApplication: "The Weekend Recovery Extension card tracks Saturday/Sunday sleep and shows a Recovery Battery based on how close you got to the 8-10h target.",
+    practicalAction: ["Target 8-10h sleep Saturday and Sunday.", "Pair it with a high-carb recovery meal and lower caffeine over the weekend."],
+    cautionNuance: "Weekend sleep extension is helpful, but consistent sleep remains the stronger long-term recovery strategy.",
+    relatedTerms: ["sleep-debt", "readiness-score"], tags: ["sleep", "weekend recovery"], readingTimeMin: 1, evidenceTier: "Moderate"
+  }),
+  E({
+    slug: "caffeine-cutoff", title: "Caffeine Cutoff", category: "Sleep & Fatigue", difficulty: "Basic",
+    instantMeaning: "The latest time in the day caffeine should reasonably be taken.",
+    shortDefinition: "A caffeine cutoff is a self-set latest time to consume caffeine, chosen so it has mostly cleared your system before bedtime.",
+    beginnerExplanation: "Caffeine can stay active in the body for several hours — late caffeine is a common, fixable cause of poor sleep quality.",
+    whyItMatters: "Protecting the cutoff is one of the highest-leverage, zero-cost recovery actions available.",
+    projectReacherApplication: "Log a caffeine cutoff time in the Sleep Tracker and track it against stimulant logs flagged as affecting sleep.",
+    practicalAction: ["Pick a cutoff roughly 8+ hours before your target bedtime and hold it, especially on hard training days."],
+    relatedTerms: ["caffeine", "sleep-debt"], tags: ["sleep", "caffeine"], readingTimeMin: 1, evidenceTier: "Good"
+  }),
+  E({
+    slug: "readiness-score", title: "Readiness Score", category: "Recovery", difficulty: "Basic",
+    instantMeaning: "A 0-100 estimate of how ready you are to train hard today.",
+    shortDefinition: "Readiness score is a composite performance-guidance number built from recent sleep, recovery, soreness, caffeine, hydration and fuel signals — not a medical diagnosis.",
+    beginnerExplanation: "It's a rough dashboard reading, not a rule — it exists to guide whether today is a push day, a hold-load day, or a technique-focus day.",
+    whyItMatters: "Training decisions made from real signals beat both blindly pushing every session and needlessly backing off every session.",
+    projectReacherApplication: "Shown on the Recovery Command Centre hero card, the Dashboard, and as a non-blocking chip at the top of the Train tab.",
+    practicalAction: ["Use readiness to decide between chasing a PR and holding load with clean reps — not to skip training."],
+    commonMistakes: ["Treating a moderate readiness score as a reason to skip training entirely rather than adjust intensity."],
+    relatedTerms: ["recovery-bottlenecks", "sleep-debt"], tags: ["recovery", "readiness"], readingTimeMin: 1, evidenceTier: "Implementation"
+  }),
+  E({
+    slug: "recovery-bottlenecks", title: "Recovery Bottlenecks", category: "Recovery", difficulty: "Basic",
+    instantMeaning: "The single biggest thing currently limiting your recovery.",
+    shortDefinition: "A recovery bottleneck is whichever factor — sleep, fuel, hydration, caffeine, or accumulated training load — is most limiting your recovery right now.",
+    beginnerExplanation: "Fixing the wrong thing (e.g. adding a supplement when the real issue is sleep) wastes effort — identifying the actual bottleneck matters more than the fix itself.",
+    whyItMatters: "Recovery inputs interact — the Fatigue Reason Detector exists specifically to separate these causes out.",
+    projectReacherApplication: "The Fatigue Reason Detector and AI Recovery Coach both surface a primary (and sometimes secondary) bottleneck from your logged data.",
+    practicalAction: ["Address the primary bottleneck first before layering on secondary fixes."],
+    relatedTerms: ["readiness-score", "overreaching-vs-normal-fatigue"], tags: ["recovery"], readingTimeMin: 1, evidenceTier: "Implementation"
+  }),
+  E({
+    slug: "overreaching-vs-normal-fatigue", title: "Overreaching vs Normal Fatigue", category: "Recovery", difficulty: "Intermediate",
+    instantMeaning: "Normal soreness fades; overreaching stacks up across sessions.",
+    shortDefinition: "Normal training fatigue is moderate, resolves within a session or two, and doesn't come with falling performance — overreaching is a multi-session pattern of high soreness, low motivation and declining output.",
+    beginnerExplanation: "Feeling tired after a hard session is expected. Feeling progressively worse across a week, with numbers dropping, is a different signal.",
+    whyItMatters: "Confusing the two leads either to needless deloads after one hard session, or to pushing through genuine overreaching risk.",
+    projectReacherApplication: "The Fatigue Reason Detector distinguishes 'Normal Adaptation Soreness' from 'Accumulated Fatigue / Overreaching Risk' using multi-session patterns, not single data points.",
+    practicalAction: ["Look for the pattern across 3-4 sessions, not just how today feels."],
+    relatedTerms: ["recovery-bottlenecks", "deload-readiness"], tags: ["recovery", "overreaching"], readingTimeMin: 2, evidenceTier: "Good"
+  }),
+  E({
+    slug: "under-fuelled-training", title: "Under-Fuelled Training", category: "Recovery", difficulty: "Intermediate",
+    instantMeaning: "Training hard without enough food to support it.",
+    shortDefinition: "Under-fuelled training happens when calories, carbs or pre-workout food are insufficient to support the session — showing up as flat performance, poor pump, or stalled bodyweight during a bulk.",
+    beginnerExplanation: "Even in a lean bulk aiming for a slow gain, an individual session can still be under-fuelled if pre-workout food is skipped.",
+    whyItMatters: "Fuel issues are commonly mistaken for a need to 'push through' or for a supplement problem, when the fix is simply food and timing.",
+    projectReacherApplication: "Tag meals as Pre-workout / Post-workout on the Nutrition tab so the Recovery Fuel Status card and Fatigue Detector can see compliance.",
+    practicalAction: ["30-80g carbs and 25-40g protein 60-120 minutes before training if performance or bodyweight trend suggests under-fuelling."],
+    relatedTerms: ["pre-workout-fuel", "recovery-nutrition"], tags: ["nutrition", "recovery"], readingTimeMin: 1, evidenceTier: "Good"
+  }),
+  E({
+    slug: "when-to-seek-professional-help", title: "When to Seek Professional Help", category: "Injury & Safety Basics", difficulty: "Basic",
+    instantMeaning: "Persistent pain or unexplained collapse in performance is outside app-level guidance.",
+    shortDefinition: "Persistent pain, severe fatigue, dizziness, chest symptoms, abnormal heart symptoms, severe insomnia, or unexplained performance collapse should be assessed by a qualified professional — this app does not diagnose.",
+    beginnerExplanation: "This app can flag patterns from your logged data, but it cannot examine you — some situations genuinely need a doctor, physio, or clinician.",
+    whyItMatters: "Pain is not a signal to push harder, and some fatigue patterns are medical rather than training-related.",
+    projectReacherApplication: "The Fatigue Reason Detector and AI Recovery Coach surface a professional-support message when persistent red-flag signals are logged — never a specific medical claim.",
+    practicalAction: ["Don't try to train through persistent joint/tendon pain.", "See a GP/doctor for unexplained, persistent fatigue or performance collapse."],
+    cautionNuance: "The app is not a doctor. This content does not diagnose or replace professional medical advice.",
+    relatedTerms: ["overreaching-vs-normal-fatigue"], tags: ["safety", "medical"], readingTimeMin: 1, evidenceTier: "Consensus"
+  }),
+  E({
+    slug: "recovery-nutrition", title: "Recovery Nutrition", category: "Meal Timing", difficulty: "Basic",
+    instantMeaning: "Eating in a way that actively supports recovery, not just hitting daily totals.",
+    shortDefinition: "Recovery nutrition covers the practical timing of protein and carbs around training and sleep — pre-workout fuel, post-workout recovery meals, and pre-bed protein.",
+    beginnerExplanation: "Your daily totals matter most, but when you eat relative to training and sleep can meaningfully affect how you feel and perform.",
+    whyItMatters: "Timing support is practical, not magic — it should never be framed as more important than hitting overall calories and protein.",
+    projectReacherApplication: "Meal Recovery Tags (Pre-workout, Post-workout, Pre-bed, High-carb recovery, Protein anchor) let the app track this without any new manual logging system.",
+    practicalAction: ["Tag your meals so the Fuel Status card and Weekly Recovery Debrief can track compliance."],
+    cautionNuance: "Don't overstate the anabolic window — consistency across the day matters more than any single meal's exact timing.",
+    relatedTerms: ["pre-workout-fuel", "post-workout-recovery-meal"], tags: ["nutrition", "recovery"], readingTimeMin: 1, evidenceTier: "Good"
+  }),
+  E({
+    slug: "pre-workout-fuel", title: "Pre-Workout Fuel", category: "Meal Timing", difficulty: "Basic",
+    instantMeaning: "Food eaten before training to support performance.",
+    shortDefinition: "Pre-workout fuel is roughly 30-80g carbs and 25-40g protein eaten 60-120 minutes before training, alongside water and electrolytes.",
+    beginnerExplanation: "Training on empty, or on too little food, is a common and fixable cause of a flat, underpowered session.",
+    whyItMatters: "This is one of the highest-leverage, lowest-cost performance levers — far more reliable than most supplements.",
+    projectReacherApplication: "Tag a meal 'Pre-workout' on the Nutrition tab — it feeds the Recovery Fuel Status card and readiness score.",
+    practicalAction: ["30-80g carbs, 25-40g protein, 60-120 minutes pre-training, with water/electrolytes."],
+    relatedTerms: ["recovery-nutrition", "post-workout-recovery-meal"], tags: ["nutrition", "pre-workout"], readingTimeMin: 1, evidenceTier: "Good"
+  }),
+  E({
+    slug: "post-workout-recovery-meal", title: "Post-Workout Recovery Meal", category: "Meal Timing", difficulty: "Basic",
+    instantMeaning: "Food eaten after training to support recovery.",
+    shortDefinition: "A post-workout recovery meal is roughly 30-50g protein and 60-120g carbs with fluids/electrolytes, eaten after a hard session.",
+    beginnerExplanation: "This isn't about a narrow 'anabolic window' — it's about consistently refuelling after hard sessions so the next one isn't compromised.",
+    whyItMatters: "Consistent post-workout fuelling supports glycogen replenishment and daily protein/calorie targets.",
+    projectReacherApplication: "Tag a meal 'Post-workout' — tracked in the Fuel Status card and Weekly Recovery Debrief compliance figures.",
+    practicalAction: ["30-50g protein, 60-120g carbs, plus fluids and electrolytes after hard sessions."],
+    cautionNuance: "The exact timing window is far less critical than hitting your daily totals consistently.",
+    relatedTerms: ["pre-workout-fuel", "recovery-nutrition"], tags: ["nutrition", "post-workout"], readingTimeMin: 1, evidenceTier: "Good"
+  }),
+  E({
+    slug: "creatine-monohydrate-library", title: "Creatine Monohydrate", category: "Supplements", difficulty: "Basic",
+    instantMeaning: "The single best-evidenced supplement for resistance training performance.",
+    shortDefinition: "Creatine monohydrate, 3-5g daily, is core daily support for repeated high-intensity effort and strength — not a stimulant, and not a shortcut around training.",
+    beginnerExplanation: "It's one of the most-studied, cheapest and best-evidenced supplements available for someone lifting weights regularly.",
+    whyItMatters: "For a 6-day hard training week, creatine is a sensible daily foundation supplement — unlike most of the supplement market, its evidence base is genuinely strong.",
+    projectReacherApplication: "Listed as 'core' in the Supplement Evidence Database — daily use, any timing.",
+    practicalAction: ["3-5g daily, any time, taken consistently rather than cycled."],
+    cautionNuance: "May cause a small bodyweight increase through water retention — this is expected, not fat gain.",
+    relatedTerms: ["caffeine", "beta-alanine"], tags: ["supplements", "creatine"], readingTimeMin: 1, evidenceTier: "Good"
+  }),
+  E({
+    slug: "caffeine-library", title: "Caffeine", category: "Stimulants", difficulty: "Basic",
+    instantMeaning: "A well-evidenced performance and alertness aid — with real limits.",
+    shortDefinition: "Caffeine can improve acute performance, alertness and perceived effort, but more is not always better, and timing matters because it stays active for hours.",
+    beginnerExplanation: "Used in a controlled, timing-aware way, caffeine is genuinely useful — used to force a poor-readiness session, it can become a way of masking fatigue instead of fixing it.",
+    whyItMatters: "High or late caffeine increases the risk of insomnia, anxiety, irritability and a racing heart, which then feeds back into worse recovery.",
+    projectReacherApplication: "Tracked as daily Caffeine Load on the Recovery Command Centre, with a masking warning when caffeine is high but readiness stays low.",
+    practicalAction: ["Track total caffeine across all sources (coffee, pre-workout, energy drinks) rather than just one.", "Protect a consistent daily cutoff time."],
+    cautionNuance: "Caffeine may be masking fatigue rather than fixing recovery — don't increase it to push through a low-readiness day.",
+    relatedTerms: ["caffeine-cutoff", "pre-workout-supplements"], tags: ["stimulants", "caffeine"], readingTimeMin: 2, evidenceTier: "Good"
+  }),
+  E({
+    slug: "caffeine-periodisation", title: "Caffeine Periodisation", category: "Stimulants", difficulty: "Intermediate",
+    instantMeaning: "Deliberately varying caffeine use rather than taking a maximal dose every day.",
+    shortDefinition: "Caffeine periodisation means keeping typical daily intake moderate and reserving a higher dose for genuinely important sessions, to manage tolerance and protect sleep.",
+    beginnerExplanation: "Using the same high dose every single day builds tolerance and increases sleep-disruption risk without necessarily improving performance further.",
+    whyItMatters: "This keeps caffeine a genuinely useful tool rather than a daily requirement just to feel normal.",
+    projectReacherApplication: "Use the Caffeine Load status (Low/Moderate/High/Excessive) to notice creeping daily use before it becomes routine.",
+    practicalAction: ["Keep most days moderate; save a higher dose for sessions that genuinely need it."],
+    relatedTerms: ["caffeine-library", "caffeine-cutoff"], tags: ["stimulants"], readingTimeMin: 1, evidenceTier: "Mixed"
+  }),
+  E({
+    slug: "beta-alanine-library", title: "Beta-Alanine", category: "Supplements", difficulty: "Intermediate",
+    instantMeaning: "A daily-saturation supplement for repeated high-intensity efforts, not a one-off pre-workout miracle.",
+    shortDefinition: "Beta-alanine (3.2-6.4g/day) supports muscle carnosine levels over time, helping buffer fatigue in repeated hard sets — daily consistency matters more than the timing of any single dose.",
+    beginnerExplanation: "It commonly causes a harmless tingling sensation (paraesthesia) — this is a side effect, not the mechanism of action.",
+    whyItMatters: "It's genuinely useful for high-rep, repeated-effort work (legs, arms, delts) but it is not a direct muscle-growth supplement.",
+    projectReacherApplication: "Relevant for Day 6's higher-rep arm/forearm/delt specialisation work.",
+    practicalAction: ["Take daily regardless of training day — acute pre-workout timing doesn't matter much."],
+    relatedTerms: ["creatine-monohydrate-library", "bcaas-library"], tags: ["supplements"], readingTimeMin: 1, evidenceTier: "Moderate"
+  }),
+  E({
+    slug: "bcaas-library", title: "BCAAs", category: "Supplements", difficulty: "Basic",
+    instantMeaning: "Not harmful, but not important if your protein target is already met.",
+    shortDefinition: "BCAAs (branched-chain amino acids) are low priority for a lifter already hitting their daily protein target — a complete protein source already provides them.",
+    beginnerExplanation: "BCAAs are three amino acids that are also part of any complete protein — supplementing them separately mainly matters if total protein intake is genuinely insufficient.",
+    whyItMatters: "This is one of the most over-marketed supplement categories relative to its actual evidence base for someone already eating enough protein.",
+    projectReacherApplication: "At roughly 140g protein/day, BCAAs are not treated as important in Project Reacher's supplement guidance.",
+    practicalAction: ["Prioritise hitting total daily protein through food/whey before considering BCAAs at all."],
+    cautionNuance: "Not harmful in normal doses — just not the priority supplement people often assume.",
+    relatedTerms: ["beta-alanine-library", "creatine-monohydrate-library"], tags: ["supplements", "low priority"], readingTimeMin: 1, evidenceTier: "Low"
+  }),
+  E({
+    slug: "electrolytes-sodium-library", title: "Electrolytes / Sodium", category: "Recovery", difficulty: "Basic",
+    instantMeaning: "Hydration support that matters more than most people think during hard training.",
+    shortDefinition: "Electrolytes and sodium support hydration and performance, especially with hard sessions, high sweat, caffeine use, or poor pump.",
+    beginnerExplanation: "Water alone doesn't fully replace what's lost through sweat — sodium and other electrolytes matter too, especially on hard or hot training days.",
+    whyItMatters: "Caffeine without hydration support is a common, fixable contributor to poor pump, cramping and headaches.",
+    projectReacherApplication: "Tracked in the Hydration + Electrolytes card, with a specific warning when caffeine is high and electrolytes are missing.",
+    practicalAction: ["Use electrolytes especially on high-sweat or high-caffeine training days."],
+    relatedTerms: ["caffeine-library", "recovery-nutrition"], tags: ["hydration", "supplements"], readingTimeMin: 1, evidenceTier: "Good"
+  }),
+  E({
+    slug: "melatonin-library", title: "Melatonin", category: "Supplements", difficulty: "Intermediate",
+    instantMeaning: "A circadian-timing tool, not a routine bodybuilding sleep supplement.",
+    shortDefinition: "Melatonin has moderate evidence for circadian-timing situations (e.g. shifted schedules, travel) but is not a default fix for routine short sleep or insomnia.",
+    beginnerExplanation: "It helps signal timing to the body's clock — it doesn't manufacture extra sleep opportunity out of nowhere.",
+    whyItMatters: "Reaching for melatonin nightly can mask a sleep-opportunity or sleep-hygiene problem that would be better solved directly.",
+    projectReacherApplication: "Listed with a caution flag in the Supplement Evidence Database — not part of the default nightly recovery stack.",
+    practicalAction: ["Reserve for genuine circadian-timing situations rather than routine short sleep."],
+    cautionNuance: "Short-term/circadian use only — not a routine nightly bodybuilding recovery supplement.",
+    relatedTerms: ["sleep-debt", "magnesium-glycinate-library"], tags: ["supplements", "sleep"], readingTimeMin: 1, evidenceTier: "Mixed"
+  }),
+  E({
+    slug: "magnesium-glycinate-library", title: "Magnesium Glycinate", category: "Supplements", difficulty: "Intermediate",
+    instantMeaning: "An optional pre-bed routine supplement, not a sleep-opportunity fix.",
+    shortDefinition: "Magnesium glycinate (200-350mg pre-bed) may support a sleep routine for some people, but evidence is mixed/contextual and it doesn't substitute for actually protecting sleep opportunity.",
+    beginnerExplanation: "Supplements can support a good routine — they can't create sleep time that doesn't exist in your schedule.",
+    whyItMatters: "This keeps the recovery hierarchy in the right order: fix sleep opportunity first, then consider optional routine support.",
+    projectReacherApplication: "Only surfaced by the AI Recovery Coach as an optional add-on for the Sleep Debt Protocol — never as the headline fix.",
+    practicalAction: ["Only use if already tolerated, and only after sleep opportunity itself is addressed."],
+    relatedTerms: ["melatonin-library", "sleep-debt"], tags: ["supplements", "sleep"], readingTimeMin: 1, evidenceTier: "Mixed"
+  }),
+  E({
+    slug: "peptides-education-library", title: "Peptides: Education and Caution", category: "Medical / Education Only", difficulty: "Advanced",
+    instantMeaning: "Educational information only — never a recommendation, dose, or protocol.",
+    shortDefinition: "Peptides are a broad, unevenly-regulated compound class sometimes discussed in fitness contexts; this app provides education only, never dosing, sourcing or cycle guidance.",
+    beginnerExplanation: "Quality, legality, purity and medical suitability vary enormously — this is a medical decision, not a supplement decision.",
+    whyItMatters: "Unregulated sourcing carries real health risk, and evidence for fitness-marketing claims is often much weaker than presented.",
+    projectReacherApplication: "Project Reacher's natural, evidence-first approach does not require or recommend this category — sleep, food, hydration and training load are the foundation.",
+    practicalAction: ["Discuss with a qualified healthcare professional before considering this category for any reason.", "Do not self-prescribe."],
+    cautionNuance: "Educational only. The app does not recommend this as a protocol, and does not provide dosing, sourcing, or cycles.",
+    relatedTerms: ["bpc-157-library", "when-to-seek-professional-help"], tags: ["medical", "education only"], readingTimeMin: 2, evidenceTier: "Low"
+  }),
+  E({
+    slug: "bpc-157-library", title: "BPC-157: Education Only", category: "Medical / Education Only", difficulty: "Advanced",
+    instantMeaning: "A peptide sometimes discussed for tissue/tendon recovery — education only.",
+    shortDefinition: "BPC-157 is a synthetic peptide sometimes discussed in relation to soft-tissue recovery; human evidence is limited, sourcing/purity are unverifiable outside medical supply chains, and this app does not recommend it as a protocol.",
+    beginnerExplanation: "Most of what's circulated about this compound comes from limited preclinical evidence, not established human clinical use for this purpose.",
+    whyItMatters: "Persistent tendon or joint pain deserves a proper assessment, not a self-sourced compound.",
+    projectReacherApplication: "For persistent tendon/joint discomfort, Project Reacher's Joint/Tendon Warning Protocol points toward load management and a sports physio — never toward this.",
+    practicalAction: ["See a sports physio or qualified medical professional for persistent soft-tissue pain instead."],
+    cautionNuance: "Educational only. Not FDA-approved for this use; legal status varies. Do not self-prescribe.",
+    relatedTerms: ["peptides-education-library", "when-to-seek-professional-help"], tags: ["medical", "education only"], readingTimeMin: 2, evidenceTier: "Low"
   }),
 ];

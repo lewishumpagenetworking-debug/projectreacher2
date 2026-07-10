@@ -1,6 +1,7 @@
 // Pure calculation utilities. No DOM access, no storage access — easy to reason about and reuse.
 import { MUSCLE_GROUP_MAP, PRIORITY_MUSCLES } from "./program.js";
 import { parseLogDate, isSameWeek, startOfWeek } from "./dates.js";
+import { RECOVERY_PROTOCOLS } from "./recovery-data.js";
 
 function setVolume(e) {
   return (Number(e.set1Weight) || 0) * (Number(e.set1Reps) || 0) + (Number(e.set2Weight) || 0) * (Number(e.set2Reps) || 0);
@@ -517,6 +518,11 @@ export function computeBadges(data) {
   const noMissedThisWeek = weeklyComplianceRate(workouts, data.trainingProgram, new Date()) >= 100;
   const techFailureLogged = workouts.some(w => (w.exercises || []).some(e => e.technicalFailureReached));
 
+  const sleepStreakVal = loggingStreakDays(data.sleepLogs || [], "date");
+  const wknd = weekendRecoveryStatus(data.sleepLogs || []);
+  const todayCaffeine = caffeineLoadStatus(data.stimulantLogs || []);
+  const todayHydration = hydrationStatus(data.hydrationLogs || [], data.stimulantLogs || []);
+
   return [
     { id: "first-week", name: "First Week Logged", icon: "🎖", unlocked: trainStreak >= 1 },
     { id: "five-workouts", name: "5 Workouts Completed", icon: "🏋", unlocked: workouts.length >= 5 },
@@ -528,6 +534,568 @@ export function computeBadges(data) {
     { id: "nutrition-7", name: "Nutrition Logged 7 Days", icon: "🍽", unlocked: nutritionStreak >= 7 },
     { id: "no-missed", name: "No Missed Sessions This Week", icon: "🎯", unlocked: noMissedThisWeek },
     { id: "tech-failure", name: "Technical Failure Standard", icon: "🔥", unlocked: techFailureLogged },
-    { id: "consistency-chain", name: "Consistency Chain", icon: "⛓", unlocked: trainStreak >= 3 }
+    { id: "consistency-chain", name: "Consistency Chain", icon: "⛓", unlocked: trainStreak >= 3 },
+    { id: "sleep-tracked-3", name: "Sleep Tracked 3 Days", icon: "🌙", unlocked: sleepStreakVal >= 3 },
+    { id: "weekend-recovery-banked", name: "Weekend Recovery Banked", icon: "🔋", unlocked: wknd.status === "Recovery extended" },
+    { id: "caffeine-controlled", name: "Caffeine Controlled", icon: "☕", unlocked: todayCaffeine.status === "Low" || todayCaffeine.status === "Moderate" },
+    { id: "fuel-protocol-complete", name: "Fuel Protocol Complete", icon: "🍽", unlocked: recoveryMealCompliance(data.mealLogs || []).preWorkoutComplete && recoveryMealCompliance(data.mealLogs || []).postWorkoutComplete },
+    { id: "hydration-locked", name: "Hydration Locked", icon: "💧", unlocked: todayHydration.status === "Hydrated" }
   ];
+}
+
+// =====================================================================
+// RECOVERY COMMAND CENTRE — sleep, readiness, fatigue detection, hydration,
+// caffeine load, recovery protocols, and the AI Recovery Coach read. All
+// derived live from sleepLogs/recoveryLogs/stimulantLogs/hydrationLogs/
+// mealLogs/workouts every call — nothing here is persisted, so it can never
+// drift from or corrupt the underlying save data. Frames readiness as
+// performance guidance, never as a medical diagnosis.
+// =====================================================================
+
+const SLEEP_TARGET_HOURS = 7.5;
+
+/** Cross-midnight-aware sleep duration in hours from "HH:MM" bedtime/wake time strings. */
+export function calculateSleepDuration(bedtime, wakeTime) {
+  const toMinutes = (t) => {
+    const m = String(t || "").match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    return Number(m[1]) * 60 + Number(m[2]);
+  };
+  const bed = toMinutes(bedtime);
+  const wake = toMinutes(wakeTime);
+  if (bed == null || wake == null) return null;
+  let diffMinutes = wake - bed;
+  if (diffMinutes <= 0) diffMinutes += 24 * 60;
+  return Math.round((diffMinutes / 60) * 100) / 100;
+}
+
+export function formatHoursAsHM(hours) {
+  if (hours == null) return "--";
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+/** Sleep tracker outputs: last night, 7-day/weekday/weekend averages, debt estimate, consistency, best/worst day, trend. */
+export function sleepStats(sleepLogs, referenceDate = new Date()) {
+  const dated = (sleepLogs || [])
+    .map(s => ({ s, d: parseLogDate(s.date) }))
+    .filter(x => x.d && x.s.calculatedDurationHours != null)
+    .sort((a, b) => a.d - b.d);
+  if (!dated.length) return { hasData: false };
+
+  const last = dated[dated.length - 1];
+  const windowStart = new Date(referenceDate);
+  windowStart.setDate(windowStart.getDate() - 6);
+  const last7 = dated.filter(x => x.d >= windowStart && x.d <= referenceDate);
+  const durations = last7.map(x => x.s.calculatedDurationHours);
+  const avg7 = durations.length ? average(durations) : null;
+
+  const isWeekendDay = (d) => d.getDay() === 0 || d.getDay() === 6;
+  const weekdayVals = last7.filter(x => !isWeekendDay(x.d)).map(x => x.s.calculatedDurationHours);
+  const weekendVals = last7.filter(x => isWeekendDay(x.d)).map(x => x.s.calculatedDurationHours);
+
+  const sleepDebtHours = last7.length
+    ? round1(last7.reduce((sum, x) => sum + Math.max(0, SLEEP_TARGET_HOURS - x.s.calculatedDurationHours), 0))
+    : null;
+  const consistencySpreadHours = durations.length > 1 ? round1(Math.max(...durations) - Math.min(...durations)) : null;
+
+  const best = last7.reduce((a, b) => (!a || b.s.calculatedDurationHours > a.s.calculatedDurationHours) ? b : a, null);
+  const worst = last7.reduce((a, b) => (!a || b.s.calculatedDurationHours < a.s.calculatedDurationHours) ? b : a, null);
+
+  const recentHalf = last7.slice(-3).map(x => x.s.calculatedDurationHours);
+  const priorHalf = last7.slice(0, Math.max(0, last7.length - 3)).map(x => x.s.calculatedDurationHours);
+  let trend = "stable";
+  if (recentHalf.length && priorHalf.length) {
+    const diff = average(recentHalf) - average(priorHalf);
+    if (diff > 0.5) trend = "improving";
+    else if (diff < -0.5) trend = "declining";
+  }
+
+  return {
+    hasData: true,
+    lastNight: last.s.calculatedDurationHours,
+    sevenDayAverage: avg7 != null ? round1(avg7) : null,
+    weekdayAverage: weekdayVals.length ? round1(average(weekdayVals)) : null,
+    weekendAverage: weekendVals.length ? round1(average(weekendVals)) : null,
+    sleepDebtHours,
+    consistencySpreadHours,
+    bestDay: best ? { date: best.s.date, hours: best.s.calculatedDurationHours } : null,
+    worstDay: worst ? { date: worst.s.date, hours: worst.s.calculatedDurationHours } : null,
+    trend
+  };
+}
+
+/**
+ * Weekend Recovery Extension: looks at the most recently completed Sat/Sun pair.
+ * Deliberately does NOT claim weekend sleep cancels weekday debt — see `note`.
+ */
+export function weekendRecoveryStatus(sleepLogs, referenceDate = new Date()) {
+  const dated = (sleepLogs || []).map(s => ({ s, d: parseLogDate(s.date) })).filter(x => x.d);
+  const weekStart = startOfWeek(referenceDate);
+  const sat = new Date(weekStart); sat.setDate(sat.getDate() + 5);
+  const sun = new Date(weekStart); sun.setDate(sun.getDate() + 6);
+  const pastSun = referenceDate.getTime() >= sun.getTime();
+  const targetSat = pastSun ? sat : new Date(sat.getTime() - 7 * 86400000);
+  const targetSun = pastSun ? sun : new Date(sun.getTime() - 7 * 86400000);
+
+  const satLog = dated.find(x => x.d.getTime() === targetSat.getTime());
+  const sunLog = dated.find(x => x.d.getTime() === targetSun.getTime());
+  const hours = [satLog, sunLog].filter(Boolean).map(x => x.s.calculatedDurationHours).filter(h => h != null);
+  const avg = hours.length ? average(hours) : null;
+  const battery = avg != null ? Math.max(0, Math.min(100, Math.round((avg / 9) * 100))) : 0;
+
+  let status = "No weekend sleep logged yet";
+  if (avg != null) {
+    if (avg >= 8) status = "Recovery extended";
+    else if (avg >= 6.5) status = "Partial recovery";
+    else status = "Recovery still limited";
+  }
+
+  return {
+    hasData: avg != null,
+    satHours: satLog?.s.calculatedDurationHours ?? null,
+    sunHours: sunLog?.s.calculatedDurationHours ?? null,
+    averageHours: avg != null ? round1(avg) : null,
+    battery, status,
+    note: "Weekend sleep extension is helpful, but consistent sleep remains the stronger long-term recovery strategy."
+  };
+}
+
+export function hydrationStatus(hydrationLogs, stimulantLogs, referenceDate = new Date()) {
+  const todayISO = referenceDate.toLocaleDateString("en-CA");
+  const sorted = [...(hydrationLogs || [])].filter(h => parseLogDate(h.date)).sort((a, b) => parseLogDate(a.date) - parseLogDate(b.date));
+  const today = sorted.find(h => h.date === todayISO) || sorted.at(-1) || null;
+  const todayCaffeine = (stimulantLogs || []).filter(s => s.date === todayISO).reduce((sum, s) => sum + (Number(s.caffeineMg) || 0), 0);
+
+  if (!today) return { status: "No hydration data logged", flags: [], hasData: false };
+
+  const flags = [];
+  if (todayCaffeine >= 300 && !today.electrolytesUsed) flags.push("Caffeine load is high without hydration support.");
+  if (today.pumpQuality != null && Number(today.pumpQuality) > 0 && Number(today.pumpQuality) <= 2 && !today.electrolytesUsed) flags.push("Likely fuel/hydration issue.");
+  if (today.sweatLevel === "high") flags.push("Electrolyte support may be useful today.");
+
+  let status = "Hydrated";
+  if (today.cramping || today.headache) status = "Low fluid/electrolyte risk";
+  else if (flags.length) status = "Monitor";
+
+  return { status, flags, hasData: true, waterIntake: today.waterIntake, electrolytesUsed: !!today.electrolytesUsed };
+}
+
+export function caffeineLoadStatus(stimulantLogs, referenceDate = new Date()) {
+  const todayISO = referenceDate.toLocaleDateString("en-CA");
+  const todayLogs = (stimulantLogs || []).filter(s => s.date === todayISO);
+  const totalMg = todayLogs.reduce((sum, s) => sum + (Number(s.caffeineMg) || 0), 0);
+  let status = "Low";
+  if (totalMg >= 400) status = "Excessive / caution";
+  else if (totalMg >= 300) status = "High";
+  else if (totalMg >= 150) status = "Moderate";
+  return {
+    totalMg, status, sourceCount: todayLogs.length,
+    lateFlag: todayLogs.some(s => s.sleepAffected),
+    maskingWarning: totalMg >= 300
+  };
+}
+
+export function recoveryMealCompliance(mealLogs, referenceDate = new Date()) {
+  const todayISO = referenceDate.toLocaleDateString("en-CA");
+  const todayMeals = (mealLogs || []).filter(m => m.date === todayISO);
+  const has = (tag) => todayMeals.some(m => m.recoveryTag === tag);
+  return {
+    preWorkoutComplete: has("pre-workout"),
+    postWorkoutComplete: has("post-workout"),
+    preBedComplete: has("pre-bed"),
+    highCarbRecoveryComplete: has("high-carb-recovery"),
+    proteinAnchorComplete: has("protein-anchor"),
+    hydrationTagComplete: has("hydration")
+  };
+}
+
+function readinessRecommendationFor(status) {
+  return {
+    "green": "Readiness is high — push today if the session calls for it.",
+    "amber-green": "Keep the workout as planned; only increase load if warm-ups feel strong.",
+    "amber": "Hold load — chase clean reps instead of PRs today.",
+    "red-amber": "Reduce intensity — technique focus, hold or lower load.",
+    "red": "Recovery priority today — keep movement light and technical."
+  }[status] || "Hold load — chase clean reps instead of PRs today.";
+}
+
+function nextRecoveryObjective({ sStats, latestRecovery, hydration, caffeineToday, preWorkoutDone }) {
+  if (sStats.hasData && sStats.lastNight != null && sStats.lastNight < 6) return "Protect tonight's caffeine cutoff and aim for an earlier bedtime.";
+  if (!preWorkoutDone) return "Complete a pre-workout meal: 30-80g carbs and 25-40g protein.";
+  if (caffeineToday >= 400) return "Keep caffeine under control for the rest of today.";
+  if (latestRecovery && Number(latestRecovery.sorenessScore) >= 4) return "Prioritise a post-workout recovery meal and extra sleep tonight.";
+  if (hydration.flags?.length) return hydration.flags[0];
+  return "Keep current recovery habits consistent.";
+}
+
+/** Composite 0-100 performance-readiness score. Never medically diagnostic — frames output as training guidance. */
+export function readinessScore(data, referenceDate = new Date()) {
+  const sStats = sleepStats(data.sleepLogs || [], referenceDate);
+  const recoverySorted = [...(data.recoveryLogs || [])].filter(r => parseLogDate(r.date)).sort((a, b) => parseLogDate(a.date) - parseLogDate(b.date));
+  const latestRecovery = recoverySorted.at(-1) || null;
+  const hydration = hydrationStatus(data.hydrationLogs || [], data.stimulantLogs || [], referenceDate);
+  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate);
+  const mealCompliance = recoveryMealCompliance(data.mealLogs || [], referenceDate);
+
+  const dataPoints = [sStats.hasData, !!latestRecovery, hydration.hasData, caffeine.sourceCount > 0].filter(Boolean).length;
+  const confidence = dataPoints >= 3 ? "high" : dataPoints >= 2 ? "medium" : "low";
+
+  let score = 50;
+  const reasons = [];
+
+  if (sStats.hasData && sStats.lastNight != null) {
+    if (sStats.lastNight >= 7) score += 15;
+    else if (sStats.lastNight >= 6) score += 8;
+    else if (sStats.lastNight >= 5) score += 0;
+    else { score -= 12; reasons.push("short sleep last night"); }
+    if (sStats.trend === "declining") { score -= 8; reasons.push("declining sleep trend"); }
+    else if (sStats.trend === "improving") score += 5;
+  }
+
+  if (latestRecovery) {
+    const soreness = Number(latestRecovery.sorenessScore) || 0;
+    const energy = Number(latestRecovery.energyScore) || 0;
+    const motivation = Number(latestRecovery.motivationScore) || 0;
+    const recoveryVal = Number(latestRecovery.recoveryScore) || 0;
+    score += (energy - 3) * 5;
+    score += (motivation - 3) * 4;
+    score += (recoveryVal - 3) * 5;
+    if (soreness >= 4) { score -= 10; reasons.push("high soreness"); }
+  }
+
+  const recentWorkouts = (data.workouts || []).filter(w => { const d = parseLogDate(w.date); return d && (referenceDate - d) / 86400000 <= 7; });
+  const failureSets = recentWorkouts.reduce((sum, w) => sum + (w.exercises || []).filter(e => e.technicalFailureReached).length, 0);
+  if (recentWorkouts.length >= 5 && failureSets >= 8) { score -= 8; reasons.push("high training load with repeated failure sets"); }
+
+  if (caffeine.totalMg >= 400) { score -= 10; reasons.push("high caffeine load"); }
+  else if (caffeine.totalMg >= 300) { score -= 4; }
+
+  if (hydration.hasData) {
+    if (hydration.status === "Low fluid/electrolyte risk") { score -= 6; reasons.push("hydration/electrolyte risk flagged"); }
+    else if (hydration.status === "Monitor") { score -= 3; reasons.push("hydration status needs monitoring"); }
+  }
+
+  if (!mealCompliance.preWorkoutComplete) score -= 3;
+  if (mealCompliance.postWorkoutComplete) score += 2;
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const status = score >= 80 ? "green" : score >= 60 ? "amber-green" : score >= 40 ? "amber" : score >= 20 ? "red-amber" : "red";
+  const trainingMode = {
+    green: "Push", "amber-green": "Push Carefully", amber: "Hold Load",
+    "red-amber": "Reduce Intensity", red: "Recovery Priority"
+  }[status];
+
+  const mainBottleneck = reasons[0] || (sStats.hasData || latestRecovery ? "No major bottleneck detected" : "Limited recovery data logged yet");
+  const secondaryBottleneck = reasons[1] || null;
+
+  return {
+    score, status, trainingMode, mainBottleneck, secondaryBottleneck, confidence,
+    recommendation: readinessRecommendationFor(status),
+    nextObjective: nextRecoveryObjective({ sStats, latestRecovery, hydration, caffeineToday: caffeine.totalMg, preWorkoutDone: mealCompliance.preWorkoutComplete }),
+    caffeineToday: caffeine.totalMg,
+    sleepStats: sStats
+  };
+}
+
+const FATIGUE_ACTIONS = {
+  "medical-concern": { today: "This is outside normal recovery optimisation — consider a sports physio, GP/doctor, or qualified clinician review.", "48h": "Do not push through this. Seek professional support." },
+  "sleep-debt": { today: "Protect your caffeine cutoff and prioritise sleep opportunity tonight.", "48h": "Use the weekend recovery window to extend sleep toward 8-10h." },
+  "under-fuelled": { today: "Add 30-80g carbs and 25-40g protein pre-workout.", "48h": "Review the week's calorie trend against your lean bulk target." },
+  "low-carb": { today: "Raise carbs around training today.", "48h": "Track carb timing and add a high-carb recovery meal." },
+  "dehydration": { today: "Add water and sodium/electrolytes.", "48h": "Monitor pump and performance as hydration improves." },
+  "stimulant-masking": { today: "Do not increase caffeine — treat this as a recovery/fuel issue.", "48h": "Reduce late caffeine and protect sleep." },
+  "overreaching": { today: "Hold load and reduce optional finishers.", "48h": "Keep technique focus and use the weekend sleep extension." },
+  "normal-soreness": { today: "Continue training as planned.", "48h": "Monitor the trend — no panic adjustments needed." },
+  "joint-tendon": { today: "Hold progression on the affected movement and review form.", "48h": "Consider a substitution; seek professional help if it persists." },
+  "insufficient-data": { today: "Log sleep, recovery and meals to unlock a fatigue read.", "48h": "Keep logging consistently for a more accurate picture." }
+};
+function fatigueActionText(id, when) { return (FATIGUE_ACTIONS[id] || FATIGUE_ACTIONS["insufficient-data"])[when]; }
+
+/**
+ * Fatigue Reason Detector: scores every category (A-I from the recovery framework)
+ * against currently-logged signals and returns the strongest match as primary,
+ * next-strongest as secondary. Never diagnostic — category I always routes to a
+ * "seek professional support" message, never a specific medical claim.
+ */
+export function detectFatigueReason(data, referenceDate = new Date()) {
+  const todayISO = referenceDate.toLocaleDateString("en-CA");
+  const sStats = sleepStats(data.sleepLogs || [], referenceDate);
+  const recoverySorted = [...(data.recoveryLogs || [])].filter(r => parseLogDate(r.date)).sort((a, b) => parseLogDate(a.date) - parseLogDate(b.date));
+  const latestRecovery = recoverySorted.at(-1) || null;
+  const recentRecovery = recoverySorted.slice(-4);
+  const hydration = hydrationStatus(data.hydrationLogs || [], data.stimulantLogs || [], referenceDate);
+  const latestHydration = [...(data.hydrationLogs || [])].filter(h => parseLogDate(h.date)).sort((a, b) => parseLogDate(a.date) - parseLogDate(b.date)).at(-1) || null;
+  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate);
+  const todayStim = (data.stimulantLogs || []).filter(s => s.date === todayISO);
+  const mealCompliance = recoveryMealCompliance(data.mealLogs || [], referenceDate);
+  const recentWorkouts = (data.workouts || []).filter(w => { const d = parseLogDate(w.date); return d && (referenceDate - d) / 86400000 <= 7; });
+  const recentPainFlags = recentWorkouts.flatMap(w => (w.exercises || []).filter(e => e.painFlag).map(e => e.name));
+  const failureSets = recentWorkouts.reduce((sum, w) => sum + (w.exercises || []).filter(e => e.technicalFailureReached).length, 0);
+  const bodyweightTrendVal = weeklyRateOfGain(data.bodyweightLogs || []);
+
+  const categories = [];
+
+  const persistentPain = recentPainFlags.length >= 3;
+  const severeFatigueFlag = recentRecovery.filter(r => Number(r.energyScore) <= 1 && Number(r.recoveryScore) <= 1).length >= 2;
+  if (persistentPain || severeFatigueFlag) {
+    categories.push({
+      id: "medical-concern", label: "Medical Concern / Red Flag", score: persistentPain ? 5 : 3,
+      signals: [persistentPain ? "persistent pain flagged across recent sessions" : null, severeFatigueFlag ? "severe fatigue/recovery scores repeated" : null].filter(Boolean)
+    });
+  }
+
+  { let score = 0; const signals = [];
+    if (sStats.hasData && sStats.lastNight != null && sStats.lastNight < 6) { score += 2; signals.push("sleep below 6h"); }
+    if (sStats.hasData && sStats.sevenDayAverage != null && sStats.sevenDayAverage < 6.5) { score += 2; signals.push("7-day sleep average low"); }
+    if (sStats.trend === "declining") { score += 1; signals.push("declining sleep trend"); }
+    if (latestRecovery && Number(latestRecovery.energyScore) <= 2) { score += 1; signals.push("low morning energy"); }
+    if (latestRecovery && Number(latestRecovery.motivationScore) <= 2) { score += 1; signals.push("motivation lower than normal"); }
+    if (score) categories.push({ id: "sleep-debt", label: "Sleep Debt Fatigue", score, signals }); }
+
+  { let score = 0; const signals = [];
+    if (!mealCompliance.preWorkoutComplete) { score += 1; signals.push("pre-workout meal not logged"); }
+    if (bodyweightTrendVal != null && bodyweightTrendVal <= 0) { score += 2; signals.push("bodyweight not increasing during lean bulk"); }
+    if (score) categories.push({ id: "under-fuelled", label: "Under-Fuelled Fatigue", score, signals }); }
+
+  { let score = 0; const signals = [];
+    if (latestHydration && Number(latestHydration.pumpQuality) > 0 && Number(latestHydration.pumpQuality) <= 2) { score += 2; signals.push("flat pump logged"); }
+    if (!mealCompliance.preWorkoutComplete) { score += 1; signals.push("pre-workout carbs likely missing"); }
+    if (score) categories.push({ id: "low-carb", label: "Low-Carb / Low-Glycogen Fatigue", score, signals }); }
+
+  { let score = 0; const signals = [];
+    if (latestHydration) {
+      if (latestHydration.sweatLevel === "high" && !latestHydration.electrolytesUsed) { score += 2; signals.push("high sweat without electrolytes"); }
+      if (latestHydration.cramping) { score += 2; signals.push("cramping logged"); }
+      if (latestHydration.headache) { score += 1; signals.push("headache logged"); }
+    }
+    if (caffeine.totalMg >= 300 && (!latestHydration || !latestHydration.electrolytesUsed)) { score += 1; signals.push("high caffeine without hydration support"); }
+    if (score) categories.push({ id: "dehydration", label: "Dehydration / Electrolyte Issue", score, signals }); }
+
+  { let score = 0; const signals = [];
+    if (caffeine.totalMg >= 300 && latestRecovery && Number(latestRecovery.energyScore) <= 2) { score += 2; signals.push("high caffeine but energy still low"); }
+    if (todayStim.some(s => s.sleepAffected)) { score += 1; signals.push("caffeine flagged as affecting sleep"); }
+    if (todayStim.some(s => s.crashLater)) { score += 1; signals.push("crash later reported"); }
+    if (score) categories.push({ id: "stimulant-masking", label: "Stimulant Masking", score, signals }); }
+
+  { let score = 0; const signals = [];
+    if (recentRecovery.filter(r => Number(r.sorenessScore) >= 4).length >= 2) { score += 2; signals.push("soreness high across recent logs"); }
+    if (recentRecovery.filter(r => Number(r.motivationScore) <= 2).length >= 2) { score += 1; signals.push("motivation trending down"); }
+    if (recentWorkouts.length >= 5 && failureSets >= 8) { score += 2; signals.push("high failure-set volume this week"); }
+    if (score >= 3) categories.push({ id: "overreaching", label: "Accumulated Fatigue / Overreaching Risk", score, signals }); }
+
+  { let score = 0; const signals = [];
+    if (latestRecovery && Number(latestRecovery.sorenessScore) === 3 && Number(latestRecovery.energyScore) >= 3) { score += 1; signals.push("moderate soreness with stable energy"); }
+    if (score) categories.push({ id: "normal-soreness", label: "Normal Adaptation Soreness", score, signals }); }
+
+  { let score = 0; const signals = [];
+    if (recentPainFlags.length) { score += Math.min(4, 2 + (recentPainFlags.length - 1)); signals.push(`pain flagged on ${[...new Set(recentPainFlags)].join(", ")}`); }
+    if (score) categories.push({ id: "joint-tendon", label: "Joint / Tendon Irritation", score, signals }); }
+
+  categories.sort((a, b) => b.score - a.score);
+  const primary = categories[0] || { id: "insufficient-data", label: "Not enough data yet", score: 0, signals: [] };
+  const secondary = (categories[1] && categories[1].score > 0) ? categories[1] : null;
+  const confidence = primary.score >= 4 ? "high" : primary.score >= 2 ? "medium" : "low";
+
+  return {
+    primaryCause: primary.label, primaryId: primary.id, primarySignals: primary.signals,
+    secondaryCause: secondary?.label || null, secondaryId: secondary?.id || null, secondarySignals: secondary?.signals || [],
+    confidence,
+    todayAction: fatigueActionText(primary.id, "today"),
+    next48hAction: fatigueActionText(primary.id, "48h"),
+    professionalSupportWarning: primary.id === "medical-concern"
+  };
+}
+
+/** Maps triggered signals onto the static RECOVERY_PROTOCOLS templates. Nothing about "is this active" is stored — recomputed live every call. */
+export function activeRecoveryProtocols(data, referenceDate = new Date()) {
+  const fatigue = detectFatigueReason(data, referenceDate);
+  const readiness = readinessScore(data, referenceDate);
+  const weekend = weekendRecoveryStatus(data.sleepLogs || [], referenceDate);
+  const recentWorkouts = (data.workouts || []).filter(w => { const d = parseLogDate(w.date); return d && (referenceDate - d) / 86400000 <= 7; });
+  const forearmPain = recentWorkouts.some(w => /Day 6/i.test(w.day || w.programDay || "") && (w.exercises || []).some(e => e.painFlag && /forearm|wrist|hammer|curl|extension|farmer/i.test(e.name || "")));
+  const shoulderPain = recentWorkouts.some(w => (w.exercises || []).some(e => e.painFlag && /lateral raise|shoulder press|delt/i.test(e.name || "")));
+
+  const causeIds = new Set([fatigue.primaryId, fatigue.secondaryId].filter(Boolean));
+  const activeIds = new Set();
+  if (causeIds.has("sleep-debt")) activeIds.add("sleep-debt");
+  if (causeIds.has("under-fuelled")) activeIds.add("under-fuelled");
+  if (causeIds.has("low-carb")) activeIds.add("low-carb-flat");
+  if (causeIds.has("dehydration")) activeIds.add("dehydration-electrolyte");
+  if (causeIds.has("stimulant-masking")) activeIds.add("high-caffeine-low-readiness");
+  if (causeIds.has("overreaching")) { activeIds.add("overreaching-risk"); }
+  if (causeIds.has("joint-tendon")) activeIds.add("joint-tendon-warning");
+  if (causeIds.has("normal-soreness")) activeIds.add("high-soreness");
+  if (forearmPain) activeIds.add("forearm-elbow-overload");
+  if (shoulderPain) activeIds.add("shoulder-irritation");
+  if (recentWorkouts.length >= 4 && weekend.status !== "Recovery extended") activeIds.add("weekend-recovery-extension");
+  if (["amber", "red-amber", "red"].includes(readiness.status)) activeIds.add("pre-bed-recovery");
+  if (["red-amber", "red"].includes(readiness.status)) activeIds.add("deload-consideration");
+
+  return RECOVERY_PROTOCOLS.filter(p => activeIds.has(p.id)).map(p => ({ ...p, triggered: true }));
+}
+
+function supplementSupportNoteFor(fatigueId) {
+  const map = {
+    "sleep-debt": "Magnesium glycinate or glycine pre-bed only if already tolerated — not a fix for sleep opportunity itself.",
+    "under-fuelled": "Carb powder pre/post-workout only if food is genuinely difficult to fit in.",
+    "low-carb": "Carb powder around training only if food is genuinely difficult to fit in.",
+    "dehydration": "Electrolyte/sodium support around training.",
+    "joint-tendon": "Collagen/gelatin + vitamin C is optional — not a substitute for load management."
+  };
+  return map[fatigueId] || "No specific supplement action needed — sleep, food, hydration and training load are the priority.";
+}
+
+function buildWeeklyRecoveryObjective({ caffeineAvg, highCaffeineDays, weekendSleep }) {
+  if (highCaffeineDays >= 3) return "Keep caffeine under 300mg on at least 5/7 days next week.";
+  if (!weekendSleep.length || average(weekendSleep) < 8) return "Hit 8.5h+ sleep on Saturday and Sunday next week.";
+  return "Keep current recovery habits consistent next week.";
+}
+
+/** WEEKLY RECOVERY DEBRIEF — additive summary computed from this Mon-Sun week's logs. */
+export function weeklyRecoveryDebrief(data, referenceDate = new Date()) {
+  const inWeek = (d) => { const parsed = parseLogDate(d); return parsed && isSameWeek(parsed, referenceDate); };
+  const isWeekendDate = (d) => { const p = parseLogDate(d); return p && (p.getDay() === 0 || p.getDay() === 6); };
+
+  const weekSleep = (data.sleepLogs || []).filter(s => inWeek(s.date) && s.calculatedDurationHours != null);
+  const weekRecovery = (data.recoveryLogs || []).filter(r => inWeek(r.date));
+  const weekStim = (data.stimulantLogs || []).filter(s => inWeek(s.date));
+  const weekMeals = (data.mealLogs || []).filter(m => inWeek(m.date));
+  const weekHydration = (data.hydrationLogs || []).filter(h => inWeek(h.date));
+
+  const durations = weekSleep.map(s => s.calculatedDurationHours);
+  const weekdaySleep = weekSleep.filter(s => !isWeekendDate(s.date)).map(s => s.calculatedDurationHours);
+  const weekendSleep = weekSleep.filter(s => isWeekendDate(s.date)).map(s => s.calculatedDurationHours);
+  const best = weekSleep.reduce((a, b) => (!a || b.calculatedDurationHours > a.calculatedDurationHours) ? b : a, null);
+  const worst = weekSleep.reduce((a, b) => (!a || b.calculatedDurationHours < a.calculatedDurationHours) ? b : a, null);
+  const sleepDebtEstimate = durations.length ? round1(durations.reduce((sum, h) => sum + Math.max(0, SLEEP_TARGET_HOURS - h), 0)) : null;
+
+  const caffeineByDay = {};
+  weekStim.forEach(s => { caffeineByDay[s.date] = (caffeineByDay[s.date] || 0) + (Number(s.caffeineMg) || 0); });
+  const caffeineVals = Object.values(caffeineByDay);
+  const caffeineAverage = caffeineVals.length ? round1(average(caffeineVals)) : null;
+  const highCaffeineDays = caffeineVals.filter(v => v >= 300).length;
+
+  const workoutDaysThisWeek = new Set((data.workouts || []).filter(w => inWeek(w.date)).map(w => w.date)).size;
+  const preWorkoutDays = new Set(weekMeals.filter(m => m.recoveryTag === "pre-workout").map(m => m.date)).size;
+  const postWorkoutDays = new Set(weekMeals.filter(m => m.recoveryTag === "post-workout").map(m => m.date)).size;
+
+  const preBedRoutineCompliance = weekSleep.length ? round1((weekSleep.filter(s => s.preBedRoutineCompleted).length / weekSleep.length) * 100) : null;
+  const hydrationElectrolyteCompliance = weekHydration.length ? round1((weekHydration.filter(h => h.electrolytesUsed).length / weekHydration.length) * 100) : null;
+
+  const sorenessVals = weekRecovery.map(r => Number(r.sorenessScore)).filter(v => !Number.isNaN(v));
+  const fatigue = detectFatigueReason(data, referenceDate);
+
+  return {
+    averageSleep: durations.length ? round1(average(durations)) : null,
+    weekdaySleepAverage: weekdaySleep.length ? round1(average(weekdaySleep)) : null,
+    weekendSleepAverage: weekendSleep.length ? round1(average(weekendSleep)) : null,
+    bestSleepNight: best ? { date: best.date, hours: best.calculatedDurationHours } : null,
+    worstSleepNight: worst ? { date: worst.date, hours: worst.calculatedDurationHours } : null,
+    sleepDebtEstimate,
+    caffeineAverage, highCaffeineDays,
+    preWorkoutFuelCompliance: workoutDaysThisWeek ? round1((preWorkoutDays / workoutDaysThisWeek) * 100) : null,
+    postWorkoutRecoveryCompliance: workoutDaysThisWeek ? round1((postWorkoutDays / workoutDaysThisWeek) * 100) : null,
+    preBedRoutineCompliance, hydrationElectrolyteCompliance,
+    averageSoreness: sorenessVals.length ? round1(average(sorenessVals)) : null,
+    recoveryBottleneckOfWeek: fatigue.primaryCause,
+    nextWeekObjective: buildWeeklyRecoveryObjective({ caffeineAvg: caffeineAverage, highCaffeineDays, weekendSleep })
+  };
+}
+
+function nextMonthRecoveryPriorityFor(label) {
+  return {
+    "Sleep bottleneck": "Prioritise weekday sleep consistency, not just weekend recovery.",
+    "Stimulant bottleneck": "Reduce average daily caffeine and protect the cutoff time.",
+    "Fuel bottleneck": "Review calories and pre/post-workout fuel compliance.",
+    "Volume/recovery mismatch": "Consider a planned deload before adding more volume.",
+    "Recovery improving": "Keep current habits — recovery is trending in the right direction.",
+    "Recovery stable": "Maintain current sleep, fuel and caffeine habits."
+  }[label] || "Maintain current recovery habits.";
+}
+
+/** MONTHLY RECOVERY TRAJECTORY — additive summary computed from the last 28 days of logs. */
+export function monthlyRecoveryTrajectory(data, referenceDate = new Date()) {
+  const monthAgo = new Date(referenceDate); monthAgo.setDate(monthAgo.getDate() - 28);
+  const inMonth = (d) => { const p = parseLogDate(d); return p && p >= monthAgo && p <= referenceDate; };
+  const isWeekendDate = (d) => { const p = parseLogDate(d); return p && (p.getDay() === 0 || p.getDay() === 6); };
+
+  const monthSleep = (data.sleepLogs || []).filter(s => inMonth(s.date) && s.calculatedDurationHours != null);
+  const durations = monthSleep.map(s => s.calculatedDurationHours);
+  const weekdayVals = monthSleep.filter(s => !isWeekendDate(s.date)).map(s => s.calculatedDurationHours);
+  const weekendVals = monthSleep.filter(s => isWeekendDate(s.date)).map(s => s.calculatedDurationHours);
+  const weekdayAvg = weekdayVals.length ? average(weekdayVals) : null;
+  const weekendAvg = weekendVals.length ? average(weekendVals) : null;
+
+  const monthStim = (data.stimulantLogs || []).filter(s => inMonth(s.date));
+  const caffeineByDay = {};
+  monthStim.forEach(s => { caffeineByDay[s.date] = (caffeineByDay[s.date] || 0) + (Number(s.caffeineMg) || 0); });
+  const caffeineVals = Object.values(caffeineByDay);
+  const caffeineTrend = caffeineVals.length ? round1(average(caffeineVals)) : null;
+
+  const monthRecovery = (data.recoveryLogs || []).filter(r => inMonth(r.date));
+  const recoveryScoreVals = monthRecovery.map(r => Number(r.recoveryScore)).filter(v => !Number.isNaN(v));
+  const recoveryScoreTrend = recoveryScoreVals.length ? round1(average(recoveryScoreVals)) : null;
+
+  const bwInMonth = (data.bodyweightLogs || []).filter(b => inMonth(b.date));
+  const bodyweightGain = bwInMonth.length >= 2 ? round2(Number(bwInMonth.at(-1).morningBodyweight) - Number(bwInMonth[0].morningBodyweight)) : null;
+  const targetGainForMonth = round2((data.profile?.targetWeeklyGain || 0.25) * 4);
+
+  const sessionsLogged = (data.workouts || []).filter(w => inMonth(w.date)).length;
+  const sixDaySustainable = sessionsLogged >= 16;
+
+  let label = "Recovery stable";
+  if (weekdayAvg != null && weekendAvg != null && weekendAvg - weekdayAvg >= 2.5) label = "Sleep bottleneck";
+  else if (caffeineTrend != null && caffeineTrend >= 350) label = "Stimulant bottleneck";
+  else if (bodyweightGain != null && targetGainForMonth != null && bodyweightGain < targetGainForMonth * 0.5) label = "Fuel bottleneck";
+  else if (!sixDaySustainable) label = "Volume/recovery mismatch";
+  else if (recoveryScoreTrend != null && recoveryScoreTrend >= 3.5) label = "Recovery improving";
+
+  return {
+    monthlyAverageSleep: durations.length ? round1(average(durations)) : null,
+    weekdayVsWeekendGap: (weekdayAvg != null && weekendAvg != null) ? round1(weekendAvg - weekdayAvg) : null,
+    caffeineTrend, recoveryScoreTrend, bodyweightGain, targetGainForMonth,
+    sessionsLogged, sixDaySustainable, label,
+    nextMonthPriority: nextMonthRecoveryPriorityFor(label)
+  };
+}
+
+/**
+ * AI Recovery Coach structured read. Never recommends illegal PEDs or
+ * self-prescribed peptides, never diagnoses, never tells the user to push
+ * through pain, and never recommends increasing caffeine to overcome fatigue.
+ */
+export function recoveryCoachRead(data, referenceDate = new Date()) {
+  const readiness = readinessScore(data, referenceDate);
+  const fatigue = detectFatigueReason(data, referenceDate);
+  const hydration = hydrationStatus(data.hydrationLogs || [], data.stimulantLogs || [], referenceDate);
+  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate);
+  const mealCompliance = recoveryMealCompliance(data.mealLogs || [], referenceDate);
+
+  const nutritionAction = !mealCompliance.preWorkoutComplete
+    ? "Complete a pre-workout meal: 30-80g carbs, 25-40g protein, 60-120 minutes before training."
+    : !mealCompliance.postWorkoutComplete
+      ? "Add a post-workout recovery meal: 30-50g protein, 60-120g carbs."
+      : "Nutrition timing looks on track today.";
+
+  const hydrationAction = hydration.flags.length ? hydration.flags[0] : "Hydration looks adequate today.";
+  const caffeineAction = caffeine.maskingWarning
+    ? "Caffeine may be masking fatigue rather than fixing recovery — do not increase it."
+    : "Caffeine load is controlled today.";
+  const sleepAction = (readiness.sleepStats?.hasData && readiness.sleepStats.lastNight != null && readiness.sleepStats.lastNight < 6)
+    ? "Protect tonight's caffeine cutoff and prioritise sleep opportunity."
+    : "Keep sleep consistent.";
+
+  return {
+    status: readiness.status, readinessScore: readiness.score, mainBottleneck: readiness.mainBottleneck,
+    secondaryBottleneck: readiness.secondaryBottleneck, confidence: readiness.confidence,
+    whatThisMeans: `${fatigue.primaryCause}${fatigue.secondaryCause ? " with " + fatigue.secondaryCause.toLowerCase() : ""}.`,
+    trainingRecommendation: readiness.recommendation,
+    nutritionAction, hydrationAction, caffeineAction, sleepAction,
+    supplementSupport: supplementSupportNoteFor(fatigue.primaryId),
+    professionalSupportWarning: fatigue.professionalSupportWarning
+      ? "Consider professional support: sports physio, GP/doctor, bloodwork, or qualified clinician review."
+      : null
+  };
 }

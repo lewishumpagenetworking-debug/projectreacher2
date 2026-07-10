@@ -13,7 +13,8 @@ const CATEGORY_ICONS = {
   "Micronutrients": "🧪", "Meal Timing": "⏱", "Recovery": "😴", "Sleep & Fatigue": "🌙",
   "Stimulants": "☕", "Supplements": "💊", "Body Composition": "⚖", "Measurements & Ratios": "📐",
   "Mini-Cuts / Fat Loss": "🔻", "High-Responder Tracking": "🧬", "App Metrics & Scores": "📊",
-  "Acronyms & Definitions": "🔤", "Injury & Safety Basics": "⚠", "Project Reacher System": "🪖"
+  "Acronyms & Definitions": "🔤", "Injury & Safety Basics": "⚠", "Project Reacher System": "🪖",
+  "Medical / Education Only": "🩺"
 };
 function categoryIcon(category) { return CATEGORY_ICONS[category] || "📘"; }
 

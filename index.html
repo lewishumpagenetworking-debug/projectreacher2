@@ -89,6 +89,17 @@
       </section>
 
       <section class="card">
+        <h2>Recovery Command Grid</h2>
+        <div id="dashRecoveryGrid" class="grid"></div>
+      </section>
+
+      <section class="card next-objective-card">
+        <div id="dashRecoveryNextObjective"></div>
+      </section>
+
+      <section class="card" id="dashWeekendRecoveryWindow" hidden></section>
+
+      <section class="card">
         <h2>Mission Streaks</h2>
         <div id="streakGrid" class="streak-grid"></div>
       </section>
@@ -213,6 +224,7 @@
           <h2>Today's Workout</h2>
           <select id="daySelect"></select>
         </div>
+        <div id="trainReadinessChip" class="readiness-chip-row"></div>
         <div class="workout-progress-wrap">
           <div class="workout-progress-label"><span>Session Progress</span><span id="workoutProgressText">0%</span></div>
           <div class="workout-progress-bar"><div id="workoutProgressFill" class="workout-progress-fill"></div></div>
@@ -369,6 +381,15 @@
         <div class="form-grid">
           <label>Meal Name <input id="mealName" placeholder="e.g. Lunch"></label>
           <label>Time <input id="mealTime" type="time"></label>
+          <label>Recovery Tag (optional) <select id="mealRecoveryTag">
+            <option value="">--</option>
+            <option value="pre-workout">Pre-workout</option>
+            <option value="post-workout">Post-workout</option>
+            <option value="pre-bed">Pre-bed recovery</option>
+            <option value="high-carb-recovery">High-carb recovery</option>
+            <option value="protein-anchor">Protein anchor</option>
+            <option value="hydration">Hydration/electrolytes</option>
+          </select></label>
         </div>
         <button id="estimateMealBtn">Estimate Macros</button>
         <p class="small">Estimates come from a local food-keyword lookup built into this app, not an AI model — always check and edit before saving. See More &gt; Data Health for details.</p>
@@ -472,6 +493,77 @@
 
     <!-- ================= RECOVERY ================= -->
     <section class="tab-panel" data-tab="recovery" hidden>
+      <section class="card command-hero">
+        <h2>Recovery Command Centre</h2>
+        <p class="mission-tag">Today's Recovery Status</p>
+        <div id="recoveryHeroStatus"></div>
+      </section>
+
+      <section class="card">
+        <h2>Accurate Sleep Tracker</h2>
+        <div class="form-grid">
+          <label>Bedtime <input id="sleepBedtime" type="time"></label>
+          <label>Wake Time <input id="sleepWakeTime" type="time"></label>
+        </div>
+        <div id="sleepWindowVisual" class="sleep-window-visual"></div>
+        <div class="pill-row" id="sleepPresets">
+          <span data-sleep-preset="5">5h</span>
+          <span data-sleep-preset="5.5">5.5h</span>
+          <span data-sleep-preset="6">6h</span>
+          <span data-sleep-preset="7.5">7.5h</span>
+          <span data-sleep-preset="8">8h</span>
+          <span data-sleep-preset="9">9h</span>
+          <span data-sleep-preset="10">10h</span>
+        </div>
+        <div class="form-grid">
+          <label>Time to Fall Asleep (min) <input id="sleepTimeToFallAsleep" type="number" min="0"></label>
+          <label>Night Awakenings <input id="sleepAwakenings" type="number" min="0"></label>
+          <label>Sleep Quality 1-5 <input id="sleepQuality" type="number" min="1" max="5" placeholder="1=Poor 5=Excellent"></label>
+          <label>Morning Energy 1-5 <input id="sleepMorningEnergy" type="number" min="1" max="5" placeholder="1=Drained 5=Locked in"></label>
+          <label>Nap Duration (min) <input id="sleepNapDuration" type="number" min="0"></label>
+          <label>Nap Time <input id="sleepNapTime" type="time"></label>
+          <label>Caffeine Cutoff Time <input id="sleepCaffeineCutoff" type="time"></label>
+        </div>
+        <label class="checklist-row"><input type="checkbox" id="sleepPreBedRoutine"> <span>Pre-bed routine completed</span></label>
+        <label class="checklist-row"><input type="checkbox" id="sleepWeekendExtension"> <span>Weekend recovery extension (8-10h)</span></label>
+        <textarea id="sleepNotes" placeholder="Sleep notes"></textarea>
+        <button id="saveSleepLog">Save Sleep Log</button>
+        <div id="sleepStatsOutput"></div>
+        <h3>Sleep History</h3>
+        <div id="sleepLogHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Weekend Recovery Extension</h2>
+        <div id="weekendRecoveryCard"></div>
+      </section>
+
+      <section class="card">
+        <h2>Fatigue Reason Detector</h2>
+        <div id="fatigueDetectorOutput"></div>
+      </section>
+
+      <section class="card">
+        <h2>Recovery Meal / Fuel Status</h2>
+        <div id="recoveryFuelStatus"></div>
+      </section>
+
+      <section class="card">
+        <h2>Hydration + Electrolytes</h2>
+        <div class="form-grid">
+          <label>Water Intake (L) <input id="hydWaterIntake" type="number" step="0.1"></label>
+          <label>Sweat Level <select id="hydSweatLevel"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+          <label>Pump Quality 1-5 <input id="hydPumpQuality" type="number" min="1" max="5"></label>
+        </div>
+        <label class="checklist-row"><input type="checkbox" id="hydElectrolytesUsed"> <span>Electrolytes used</span></label>
+        <label class="checklist-row"><input type="checkbox" id="hydSaltIncluded"> <span>Salt included</span></label>
+        <label class="checklist-row"><input type="checkbox" id="hydCramping"> <span>Cramping</span></label>
+        <label class="checklist-row"><input type="checkbox" id="hydHeadache"> <span>Headache</span></label>
+        <textarea id="hydNotes" placeholder="Hydration notes"></textarea>
+        <button id="saveHydrationLog">Save Hydration Log</button>
+        <div id="hydrationStatusOutput"></div>
+      </section>
+
       <section class="card">
         <h2>Daily Recovery</h2>
         <div class="form-grid">
@@ -493,15 +585,28 @@
       </section>
 
       <section class="card">
-        <h2>Stimulant Tracking</h2>
-        <p class="small">Caffeine may improve acute training output. Nicotine may mask fatigue and is not recovery — it isn't encouraged here, just tracked.</p>
+        <h2>Stimulant / Caffeine Load</h2>
+        <p class="small">Caffeine may improve acute training output. More caffeine is not always better — caffeine may be masking fatigue rather than fixing recovery. Nicotine may mask fatigue and is not recovery — it isn't encouraged here, just tracked.</p>
         <div class="form-grid">
           <label>Caffeine (mg) <input id="sCaffeineMg" type="number"></label>
           <label>Caffeine Timing <input id="sCaffeineTiming" placeholder="e.g. 45 min pre-workout"></label>
+          <label>Source <select id="sSource"><option value="">--</option><option value="coffee">Coffee</option><option value="pre-workout">Pre-workout</option><option value="energy-drink">Energy drink</option><option value="tablets">Tablets</option><option value="other">Other</option></select></label>
+          <label>Product Name (if pre-workout) <input id="sProductName" placeholder="optional"></label>
+          <label>Serving Size <input id="sServingSize" placeholder="optional"></label>
+          <label>Beta-Alanine (mg, if known) <input id="sBetaAlanineMg" type="number"></label>
+          <label>BCAA (mg, if known) <input id="sBcaaMg" type="number"></label>
+          <label>Perceived Effect 1-5 <input id="sPerceivedEffect" type="number" min="1" max="5"></label>
+          <label>Pump Quality 1-5 <input id="sPumpQuality" type="number" min="1" max="5"></label>
           <label>Nicotine Used <input id="sNicotineUsed" type="checkbox"></label>
           <label>Nicotine Amount <input id="sNicotineAmount" placeholder="optional"></label>
           <label>Nicotine Timing <input id="sNicotineTiming" placeholder="optional"></label>
         </div>
+        <label class="checklist-row"><input type="checkbox" id="sPreWorkoutMealCompleted"> <span>Pre-workout meal completed</span></label>
+        <label class="checklist-row"><input type="checkbox" id="sCrashLater"> <span>Crash later</span></label>
+        <label class="checklist-row"><input type="checkbox" id="sJittersAnxiety"> <span>Jitters / anxiety</span></label>
+        <label class="checklist-row"><input type="checkbox" id="sSleepAffected"> <span>Sleep affected</span></label>
+        <label class="checklist-row"><input type="checkbox" id="sPerformanceImproved"> <span>Performance improved</span></label>
+        <p class="small">If pre-workout is needed just to feel normal, treat this as a recovery issue, not a supplement issue.</p>
         <textarea id="sNotes" placeholder="Notes"></textarea>
         <button id="saveStimulants">Save Stimulant Log</button>
       </section>
@@ -509,6 +614,28 @@
       <section class="card">
         <h2>Stimulant History</h2>
         <div id="stimulantHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Recovery Protocol Builder</h2>
+        <div id="recoveryProtocols"></div>
+      </section>
+
+      <section class="card">
+        <h2>AI Recovery Coach</h2>
+        <div id="aiRecoveryCoach"></div>
+      </section>
+
+      <section class="card">
+        <h2>Supplement Evidence Database</h2>
+        <p class="small">Sequenced behind sleep, calories, protein, carbs, hydration and training load — supplements never replace those fundamentals.</p>
+        <div id="supplementDatabaseList"></div>
+      </section>
+
+      <section class="card">
+        <h2>Medical / Peptide Education</h2>
+        <div class="warning-banner">Educational only. Discuss with a qualified healthcare professional. This app does not recommend self-prescribing, dosing, sourcing, or cycle protocols, and does not recommend illegal or unregulated performance-enhancing drugs.</div>
+        <div id="medicalEducationList"></div>
       </section>
     </section>
 

@@ -3,9 +3,11 @@ import {
   sevenDayAverage, weeklyRateOfGain, gainRateStatus, macroTargets, perKg,
   suggestedCalorieAdjustment, ratios, weeklyVolumeByMuscleGroup, volumeStatus, recoveryWarnings,
   workoutsInWeek, dailyMealTotals, remainingMacros, macroAdherence, armForearmDeltWarnings,
-  trainingStreakWeeks, loggingStreakDays, weeklyComplianceRate, computeBadges
+  trainingStreakWeeks, loggingStreakDays, weeklyComplianceRate, computeBadges,
+  readinessScore, sleepStats, weekendRecoveryStatus, caffeineLoadStatus, recoveryMealCompliance, formatHoursAsHM
 } from "./calculations.js";
 import { DEFAULT_TRAINING_PROGRAM, MUSCLE_GROUPS } from "./program.js";
+import { SUPPLEMENT_DATABASE } from "./recovery-data.js";
 
 function pct(n) { return Math.max(0, Math.min(100, n)); }
 
@@ -17,6 +19,7 @@ export function renderDashboard(data) {
 
   renderHeroMission(data, currentWeight);
   renderProgressCommandGrid(data);
+  renderRecoveryDashboardCards(data);
   renderStreaks(data);
   renderBadges(data);
   renderNextObjective(data);
@@ -109,6 +112,60 @@ function renderProgressCommandGrid(data) {
       <span class="tile-value">${esc(t.value)}</span>
       <div class="tile-bar-wrap"><div class="tile-bar-fill ${t.good ? "fill-good" : ""}" style="width:${t.pctValue}%"></div></div>
     </div>`).join("");
+}
+
+function glowClassFor(status) {
+  if (status === "green" || status === "amber-green") return "recovery-glow-green";
+  if (status === "amber") return "recovery-glow-amber";
+  return "recovery-glow-red";
+}
+
+function renderRecoveryDashboardCards(data) {
+  const el = $("dashRecoveryGrid");
+  if (!el) return;
+  const referenceDate = new Date();
+  const readiness = readinessScore(data, referenceDate);
+  const sStats = sleepStats(data.sleepLogs || [], referenceDate);
+  const weekend = weekendRecoveryStatus(data.sleepLogs || [], referenceDate);
+  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate);
+  const mealCompliance = recoveryMealCompliance(data.mealLogs || [], referenceDate);
+
+  const activeSupplements = (data.supplements || []).filter(s => s.active);
+  const supplementNote = activeSupplements.length
+    ? activeSupplements.slice(0, 3).map(s => {
+        const evidence = SUPPLEMENT_DATABASE.find(e => e.name.toLowerCase().includes(s.supplementName.toLowerCase().split(" ")[0]));
+        return `${s.supplementName}${evidence ? ` (${evidence.evidenceLevel})` : ""}`;
+      }).join(", ")
+    : "None marked active";
+
+  const cards = [
+    { id: "dashRecoveryStatus", cls: `command-tile ${glowClassFor(readiness.status)}`, label: "Recovery Status", value: readiness.score, sub: `${readiness.trainingMode} · ${readiness.mainBottleneck}` },
+    { id: "dashSleepDebtCard", cls: "command-tile", label: "Sleep Debt", value: sStats.hasData && sStats.sleepDebtHours != null ? `${sStats.sleepDebtHours}h` : "--", sub: `Last night ${sStats.hasData ? formatHoursAsHM(sStats.lastNight) : "--"} · 7d avg ${sStats.sevenDayAverage != null ? formatHoursAsHM(sStats.sevenDayAverage) : "--"}` },
+    { id: "dashFuelReadiness", cls: "command-tile", label: "Fuel Readiness", value: mealCompliance.preWorkoutComplete ? "Ready" : "Pending", sub: `Pre-workout ${mealCompliance.preWorkoutComplete ? "complete" : "not logged"} · Post-workout ${mealCompliance.postWorkoutComplete ? "complete" : "not logged"}` },
+    { id: "dashCaffeineLoad", cls: "command-tile", label: "Caffeine Load", value: `${caffeine.totalMg}mg`, sub: `${caffeine.status}${caffeine.maskingWarning ? " · may be masking fatigue" : ""}` },
+    { id: "dashSupplementSupport", cls: "command-tile", label: "Supplement Support", value: activeSupplements.length, sub: supplementNote }
+  ];
+  el.innerHTML = cards.map(c => `
+    <div class="${c.cls}" id="${c.id}">
+      <span class="tile-label">${esc(c.label)}</span>
+      <span class="tile-value">${esc(String(c.value))}</span>
+      <span class="tile-sub">${esc(c.sub)}</span>
+    </div>`).join("");
+
+  const nextObjEl = $("dashRecoveryNextObjective");
+  if (nextObjEl) nextObjEl.innerHTML = `<p class="mission-tag">Next Recovery Objective</p><p class="small">${esc(readiness.nextObjective)}</p>`;
+
+  const weekendCard = $("dashWeekendRecoveryWindow");
+  if (weekendCard) {
+    const isWeekendWindow = [5, 6, 0].includes(referenceDate.getDay());
+    weekendCard.hidden = !isWeekendWindow;
+    if (isWeekendWindow) {
+      weekendCard.innerHTML = `
+        <p class="mission-tag">Weekend Recovery Window</p>
+        <div class="recovery-battery-wrap"><div class="recovery-battery"><div class="recovery-battery-fill" style="width:${weekend.battery}%"></div></div></div>
+        <p class="small">${esc(weekend.status)} · Target 8-10h Saturday and Sunday.</p>`;
+    }
+  }
 }
 
 function renderStreaks(data) {
