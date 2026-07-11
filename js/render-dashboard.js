@@ -4,7 +4,8 @@ import {
   suggestedCalorieAdjustment, ratios, weeklyVolumeByMuscleGroup, volumeStatus, recoveryWarnings,
   workoutsInWeek, dailyMealTotals, remainingMacros, macroAdherence, armForearmDeltWarnings,
   trainingStreakWeeks, loggingStreakDays, weeklyComplianceRate, computeBadges,
-  readinessScore, sleepStats, weekendRecoveryStatus, caffeineLoadStatus, recoveryMealCompliance, formatHoursAsHM
+  readinessScore, sleepStats, weekendRecoveryStatus, caffeineLoadStatus, recoveryMealCompliance, formatHoursAsHM,
+  dailyChecklist, monthlyChecklist
 } from "./calculations.js";
 import { DEFAULT_TRAINING_PROGRAM, MUSCLE_GROUPS } from "./program.js";
 import { SUPPLEMENT_DATABASE } from "./recovery-data.js";
@@ -18,6 +19,7 @@ export function renderDashboard(data) {
   $("currentWeight").textContent = `${fmt(currentWeight)}kg`;
 
   renderHeroMission(data, currentWeight);
+  renderDailyMonthlyChecklist(data);
   renderProgressCommandGrid(data);
   renderRecoveryDashboardCards(data);
   renderStreaks(data);
@@ -112,6 +114,37 @@ function renderProgressCommandGrid(data) {
       <span class="tile-value">${esc(t.value)}</span>
       <div class="tile-bar-wrap"><div class="tile-bar-fill ${t.good ? "fill-good" : ""}" style="width:${t.pctValue}%"></div></div>
     </div>`).join("");
+}
+
+function checklistRowHtml(item) {
+  return `
+    <div class="checklist-row deep-link-row" data-goto-tab="${esc(item.tab)}" data-goto-anchor="${esc(item.anchor)}">
+      <span>${item.done ? "✅" : "⬜"}</span><span>${esc(item.label)}</span>
+      <span class="badge ${item.done ? "status-on-target" : ""}">${item.done ? "Done" : "Pending"}</span>
+    </div>`;
+}
+
+function renderDailyMonthlyChecklist(data) {
+  const daily = dailyChecklist(data);
+  const nextEl = $("dailyFlowNextStep");
+  if (nextEl) {
+    nextEl.innerHTML = daily.nextStep
+      ? `<div class="next-objective-card"><p class="mission-tag">Next Step</p><p class="small">${esc(daily.nextStep.label)}</p>
+         <button type="button" class="secondary" data-goto-tab="${esc(daily.nextStep.tab)}" data-goto-anchor="${esc(daily.nextStep.anchor)}">Go</button></div>`
+      : `<div class="ok-banner">All sequenced steps complete for today.</div>`;
+  }
+  const listEl = $("dailyChecklist");
+  if (listEl) {
+    listEl.innerHTML = `
+      <div class="workout-progress-wrap">
+        <div class="workout-progress-label"><span>Daily Sequence</span><span>${daily.completedCount}/${daily.totalCount} · ${daily.pct}%</span></div>
+        <div class="workout-progress-bar"><div class="workout-progress-fill" style="width:${daily.pct}%"></div></div>
+      </div>
+      ${daily.items.map(checklistRowHtml).join("")}`;
+  }
+  const monthly = monthlyChecklist(data);
+  const monthlyEl = $("monthlyChecklist");
+  if (monthlyEl) monthlyEl.innerHTML = monthly.items.map(checklistRowHtml).join("");
 }
 
 function glowClassFor(status) {

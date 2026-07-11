@@ -73,6 +73,17 @@
         <button type="button" class="hero-cta" id="heroStartWorkoutBtn" data-goto-tab="train">Start / Resume Workout</button>
       </section>
 
+      <section class="card">
+        <h2>Today's Sequenced Flow</h2>
+        <div id="dailyFlowNextStep"></div>
+        <div id="dailyChecklist"></div>
+      </section>
+
+      <section class="card">
+        <h2>Monthly Checklist</h2>
+        <div id="monthlyChecklist"></div>
+      </section>
+
       <section class="card" id="draftBannerCard" hidden>
         <h2>Active Workout Draft</h2>
         <div id="dashDraftStatus"></div>
@@ -271,6 +282,11 @@
       <section class="card">
         <h2>PR Tracker</h2>
         <div id="prTracker"></div>
+      </section>
+
+      <section class="card" id="farmersCarryAnalyticsCard" hidden>
+        <h2>Farmer's Carry Analytics</h2>
+        <div id="farmersCarryAnalytics"></div>
       </section>
 
       <section class="card">
@@ -664,6 +680,15 @@
         </div>
         <textarea id="pNotes" placeholder="Profile notes"></textarea>
         <button id="saveProfile">Save Profile</button>
+      </section>
+
+      <section class="card">
+        <h2>Gym Profile</h2>
+        <p class="small">Used for Farmer's Carry distance tracking. 1 length = one full walk of your gym's functional track.</p>
+        <div class="form-grid">
+          <label>Functional Track Length (m) <input id="pTrackLength" type="number" min="10" max="25" step="1"></label>
+        </div>
+        <button id="saveGymProfile" class="secondary">Save Gym Profile</button>
       </section>
 
       <section class="card">

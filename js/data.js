@@ -29,7 +29,8 @@ export const DEFAULT_PROFILE = {
   trainingStyle: "2 hard working sets per exercise",
   sleepConstraint: "Fixed 5-6 hours/night (non-negotiable)",
   notes: "",
-  visualModeEnabled: false
+  visualModeEnabled: false,
+  functionalTrackLengthMetres: 15
 };
 
 // Merge defaults under an existing record without ever discarding a field the user already has,
@@ -172,6 +173,7 @@ export function migrateData() {
       RPE: null, technicalFailureReached: false,
       formQuality: null, targetMuscleConnection: null,
       increaseNextWeek: false, progressionRecommendation: "",
+      trackLengthMetres: null, calculatedDistanceMetres: null, weightPerHand: null,
       createdAt: w.date || null, updatedAt: w.date || null
     }));
   });

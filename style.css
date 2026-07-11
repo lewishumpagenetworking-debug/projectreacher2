@@ -1078,3 +1078,9 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .readiness-chip.chip-amber { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
 .readiness-chip.chip-red { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
 .readiness-chip-note { font-size: 12px; color: var(--muted); }
+
+.deep-link-row { cursor: pointer; transition: background var(--t-fast) var(--ease); border-radius: 8px; padding-left: 4px; padding-right: 4px; }
+.deep-link-row:active { background: var(--accent-soft); }
+@media (hover: hover) {
+  .deep-link-row:hover { background: rgba(255, 154, 31, 0.06); }
+}

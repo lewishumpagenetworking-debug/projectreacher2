@@ -10,11 +10,11 @@ const eid = (name) => `ex_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_").repla
 function exercise({
   name, category, primaryMuscle, secondaryMuscles = [], movementPattern, equipment,
   repRangeMin, repRangeMax, targetRIRSet1, targetRIRSet2, failureRule, notes = "",
-  active = true, optional = false, volumeGroup = null
+  active = true, optional = false, volumeGroup = null, distanceBased = false
 }) {
   return {
     id: eid(name), name, category, primaryMuscle, secondaryMuscles, movementPattern, equipment,
-    repRangeMin, repRangeMax, targetRIRSet1, targetRIRSet2, failureRule, notes, active, optional, volumeGroup
+    repRangeMin, repRangeMax, targetRIRSet1, targetRIRSet2, failureRule, notes, active, optional, volumeGroup, distanceBased
   };
 }
 
@@ -59,7 +59,7 @@ export const EXERCISE_DATABASE = [
   // Optional future exercises
   exercise({ name: "Straight Arm Pulldown", category: "isolation", primaryMuscle: "lats", movementPattern: "shoulder extension", equipment: "cable", repRangeMin: 12, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
   exercise({ name: "Cable Fly", category: "isolation", primaryMuscle: "chest", movementPattern: "horizontal adduction", equipment: "cable", repRangeMin: 12, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
-  exercise({ name: "Farmer's Carry", category: "compound", primaryMuscle: "traps", secondaryMuscles: ["forearms", "core"], movementPattern: "carry", equipment: "dumbbell", repRangeMin: null, repRangeMax: null, targetRIRSet1: null, targetRIRSet2: null, failureRule: "2 sets, 20-45 sec.", notes: "Optional loaded hold finisher — grip / full forearm density / support strength. Sub: Trap Bar Hold / Heavy Dumbbell Static Hold.", optional: true, volumeGroup: "grip" }),
+  exercise({ name: "Farmer's Carry", category: "compound", primaryMuscle: "traps", secondaryMuscles: ["forearms", "grip", "upper back", "core", "obliques", "glutes"], movementPattern: "carry", equipment: "dumbbell", repRangeMin: 4, repRangeMax: 6, targetRIRSet1: null, targetRIRSet2: null, failureRule: "2 sets, 4-6 lengths of the functional track per set.", notes: "Optional loaded hold finisher — grip / full forearm density / support strength. Distance-based: tracked in lengths of your configured Functional Track Length, not reps. Sub: Trap Bar Hold / Heavy Dumbbell Static Hold.", optional: true, volumeGroup: "grip", distanceBased: true }),
   exercise({ name: "Trap Bar Hold", category: "isolation", primaryMuscle: "traps", secondaryMuscles: ["forearms"], movementPattern: "isometric carry", equipment: "trap bar", repRangeMin: null, repRangeMax: null, targetRIRSet1: null, targetRIRSet2: null, failureRule: "2 sets, 20-45 sec.", notes: "Loaded hold finisher alternative to Farmer's Carry.", active: false, optional: true, volumeGroup: "grip" }),
   exercise({ name: "Incline Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "dumbbell", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
   exercise({ name: "Spider Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "ez bar", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
@@ -448,17 +448,17 @@ const EXERCISE_GUIDES = {
     todayFocusCue: "Full controlled extension"
   },
   farmer_s_carry: {
-    targetMuscleCue: "Grip / whole forearm density",
-    setupCues: ["Tall posture", "Shoulders packed"],
-    executionCues: ["Hold or carry without straps unless strap usage is being tracked"],
-    tempoDescription: "Sustained hold/carry for the prescribed duration",
+    targetMuscleCue: "Forearms, grip, traps, upper back, core, obliques and glutes",
+    setupCues: ["Chest up", "Brace core", "Grip hard", "Shoulders down and back"],
+    executionCues: ["Walk naturally with controlled steps", "Eyes forward", "No swinging the weights"],
+    tempoDescription: "Controlled walking pace for the full distance of each set",
     eccentricSeconds: null, pauseBottomSeconds: null, concentricSeconds: null, pauseTopSeconds: null,
-    rangeOfMotionStandard: "Isometric/carry — no set range, just sustained grip and posture",
-    validRepCriteria: ["Strong grip maintained for the intended duration", "Posture maintained throughout"],
-    commonMistakes: ["Posture collapse", "Short effort", "Relying on momentum"],
+    rangeOfMotionStandard: "Distance-based — tracked in lengths of your Functional Track Length, not reps",
+    validRepCriteria: ["Chest up and shoulders back for the full distance", "Grip held without setting down early", "No swinging or momentum"],
+    commonMistakes: ["Posture collapse", "Swinging the weights", "Short, rushed steps", "Setting the load down before the length is complete"],
     safetyNotes: [],
-    progressionCriteria: ["Hold/carry duration maintained or extended with posture intact"],
-    todayFocusCue: "Grip and posture for the full duration"
+    progressionCriteria: ["Increase lengths first within the target range", "Once the top of the lengths range is hit with good form, increase kettlebell/dumbbell weight and reset lengths to the bottom of the range"],
+    todayFocusCue: "Controlled steps, tall posture, hard grip — no swinging"
   },
   manual_neck_isometrics: {
     targetMuscleCue: "Neck",
@@ -540,7 +540,7 @@ export const DEFAULT_TRAINING_PROGRAM = {
     progExercise("Seated DB Lateral Raise", "12-20", "Side delts / shoulder width for shoulder-to-waist ratio. Set 1: 0-1 RIR | Set 2: technical failure. Strict, low momentum. Sub: Machine Lateral Raise / Lean-Away Cable Lateral Raise / Strict Cable Lateral Raise"),
     progExercise("Wrist Curl", "12-20", "Forearm flexors. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Cable Wrist Curl / DB Wrist Curl"),
     progExercise("Reverse Wrist Curl", "12-20", "Forearm extensors / forearm balance. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Cable Reverse Wrist Curl / DB Reverse Wrist Curl"),
-    progExercise("Farmer's Carry", "2 x 20-45 sec", "Optional loaded hold finisher — grip / full forearm density / support strength. Remove this row in the Program Editor if the session runs long. Sub: Trap Bar Hold / Heavy Dumbbell Static Hold")
+    progExercise("Farmer's Carry", "2 x 4-6 lengths", "Optional loaded hold finisher — grip / full forearm density / support strength. Distance-based (lengths of your Functional Track Length, set in More > Gym Profile), not reps. Remove this row in the Program Editor if the session runs long. Sub: Trap Bar Hold / Heavy Dumbbell Static Hold")
   ]
 };
 

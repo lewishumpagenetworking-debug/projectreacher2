@@ -34,10 +34,12 @@ export function renderProfileForm(data) {
   $("pPhase").value = p.currentPhase ?? "";
   $("pWeeklyGain").value = p.targetWeeklyGain ?? "";
   $("pNotes").value = p.notes ?? "";
+  if ($("pTrackLength")) $("pTrackLength").value = p.functionalTrackLengthMetres ?? 15;
 }
 
 export function saveProfile() {
   const data = getData();
+  const clampedTrackLength = Math.min(25, Math.max(10, Number($("pTrackLength")?.value || data.profile.functionalTrackLengthMetres || 15)));
   Object.assign(data.profile, {
     age: Number($("pAge").value || data.profile.age),
     height: $("pHeight").value || data.profile.height,
@@ -49,7 +51,8 @@ export function saveProfile() {
     targetBodyFatMax: Number($("pBfMax").value || data.profile.targetBodyFatMax),
     currentPhase: $("pPhase").value || data.profile.currentPhase,
     targetWeeklyGain: Number($("pWeeklyGain").value || data.profile.targetWeeklyGain),
-    notes: $("pNotes").value
+    notes: $("pNotes").value,
+    functionalTrackLengthMetres: clampedTrackLength
   });
   saveData(data);
   window.dispatchEvent(new CustomEvent("reacher:refresh"));

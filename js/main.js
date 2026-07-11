@@ -4,7 +4,7 @@ import { renderDashboard } from "./render-dashboard.js";
 import {
   renderDaySelect, renderWorkoutForm, saveWorkout, renderWorkoutHistory,
   renderMiniVolumeChart, renderHistoricalSummary, renderPrTracker, setupTrainEventDelegation,
-  startMission
+  startMission, renderFarmersCarryAnalytics
 } from "./render-train.js";
 import {
   saveBodyweight, renderBodyweight, saveCheckin, renderCheckinHistory,
@@ -37,6 +37,7 @@ export function refreshAll() {
   renderMiniVolumeChart(data);
   renderHistoricalSummary(data);
   renderPrTracker(data);
+  renderFarmersCarryAnalytics(data);
   renderBodyweight(data);
   renderCheckinHistory(data);
   renderMeasurementsHistory(data);
@@ -136,6 +137,7 @@ function setupEventListeners() {
   $("saveHydrationLog")?.addEventListener("click", saveHydrationLog);
 
   $("saveProfile").addEventListener("click", saveProfile);
+  $("saveGymProfile")?.addEventListener("click", saveProfile);
   $("generateWeeklyCheckin").addEventListener("click", generateWeeklyCheckin);
   $("generateMonthlyReview").addEventListener("click", generateMonthlyReview);
   $("visualModeToggle").addEventListener("change", toggleVisualMode);

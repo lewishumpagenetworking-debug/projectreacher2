@@ -197,12 +197,73 @@ export function recommendProgression(entry, exerciseDef, previousEntry = null) {
   }
 
   if (s1 >= repRangeMax && s2 >= repRangeMax && (formQuality == null || formQuality >= 4)) {
+    if (exerciseDef.distanceBased) {
+      return { increaseNextWeek: true, recommendation: "Both sets hit the top of the lengths range with good form — increase weight next session and reset lengths to the bottom of the range." };
+    }
     return { increaseNextWeek: true, recommendation: "Both sets hit the top of the rep range with good form — increase load next session." };
   }
   if (repRangeMin != null && (s1 < repRangeMin || s2 < repRangeMin)) {
-    return { increaseNextWeek: false, recommendation: "Reps fell below target range — watch for fatigue or excessive load across sessions." };
+    return {
+      increaseNextWeek: false,
+      recommendation: exerciseDef.distanceBased
+        ? "Lengths fell below target range — watch for fatigue or excessive weight across sessions."
+        : "Reps fell below target range — watch for fatigue or excessive load across sessions."
+    };
   }
-  return { increaseNextWeek: false, recommendation: "Within target range — repeat load, aim for more reps next session." };
+  return {
+    increaseNextWeek: false,
+    recommendation: exerciseDef.distanceBased
+      ? "Within target lengths range — repeat weight, aim for more lengths next session before increasing weight."
+      : "Within target range — repeat load, aim for more reps next session."
+  };
+}
+
+/** Farmer's Carry-only distance analytics — reads calculatedDistanceMetres logged on each entry. No other exercise is affected. */
+export function farmersCarryAnalytics(workouts, referenceDate = new Date()) {
+  const entries = [];
+  (workouts || []).forEach(w => {
+    (w.exercises || []).forEach(e => {
+      if (e.name === "Farmer's Carry" && e.calculatedDistanceMetres != null) {
+        const d = parseLogDate(w.date);
+        if (d) entries.push({ dateObj: d, ...e });
+      }
+    });
+  });
+  if (!entries.length) return { hasData: false };
+
+  entries.sort((a, b) => a.dateObj - b.dateObj);
+
+  const distances = entries.map(e => e.calculatedDistanceMetres || 0);
+  const loads = entries.map(e => Math.max(Number(e.set1Weight) || 0, Number(e.set2Weight) || 0));
+  const volumes = entries.map(e => (e.calculatedDistanceMetres || 0) * Math.max(Number(e.set1Weight) || 0, Number(e.set2Weight) || 0));
+
+  const monthKey = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}`;
+  const yearKey = String(referenceDate.getFullYear());
+  const sameMonth = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` === monthKey;
+  const sameYear = (d) => String(d.getFullYear()) === yearKey;
+
+  const recentHalf = entries.slice(-3).map(e => e.calculatedDistanceMetres || 0);
+  const priorHalf = entries.slice(0, Math.max(0, entries.length - 3)).map(e => e.calculatedDistanceMetres || 0);
+  let trend = "stable";
+  if (recentHalf.length && priorHalf.length) {
+    const diff = average(recentHalf) - average(priorHalf);
+    if (diff > 1) trend = "improving";
+    else if (diff < -1) trend = "declining";
+  }
+
+  return {
+    hasData: true,
+    sessionsLogged: entries.length,
+    longestCarryDistance: round1(Math.max(...distances)),
+    heaviestCarry: Math.max(...loads),
+    highestVolume: round1(Math.max(...volumes)),
+    estimatedTotalLoad: round1(volumes.reduce((a, b) => a + b, 0)),
+    monthlyCarryDistance: round1(entries.filter(e => sameMonth(e.dateObj)).reduce((sum, e) => sum + (e.calculatedDistanceMetres || 0), 0)),
+    yearlyCarryDistance: round1(entries.filter(e => sameYear(e.dateObj)).reduce((sum, e) => sum + (e.calculatedDistanceMetres || 0), 0)),
+    averageDistance: round1(average(distances)),
+    averageLoad: round1(average(loads)),
+    trend
+  };
 }
 
 /**
@@ -1098,4 +1159,58 @@ export function recoveryCoachRead(data, referenceDate = new Date()) {
       ? "Consider professional support: sports physio, GP/doctor, bloodwork, or qualified clinician review."
       : null
   };
+}
+
+// =====================================================================
+// DAILY / MONTHLY CHECKLIST + SEQUENCED DAILY FLOW
+// Purely derived from existing collections on every call — there is no
+// separate "checklist state" stored anywhere, so any log saved from any
+// tab is reflected here on the very next render (this is the "two-way
+// sync": the dashboard never holds a stale copy of anything).
+// =====================================================================
+
+/** Today's sequenced flow: each step's "done" state is read live from today's logs. */
+export function dailyChecklist(data, referenceDate = new Date()) {
+  const todayISO = referenceDate.toLocaleDateString("en-CA");
+  const sleepDone = (data.sleepLogs || []).some(s => s.date === todayISO);
+  const preWorkoutDone = (data.mealLogs || []).some(m => m.date === todayISO && m.recoveryTag === "pre-workout");
+  const trainedToday = (data.workouts || []).some(w => w.date === todayISO);
+  const postWorkoutDone = (data.mealLogs || []).some(m => m.date === todayISO && m.recoveryTag === "post-workout");
+  const recoveryDone = (data.recoveryLogs || []).some(r => r.date === todayISO);
+  const hydrationDone = (data.hydrationLogs || []).some(h => h.date === todayISO);
+  const activeSupplements = (data.supplements || []).filter(s => s.active);
+  const supplementsDone = activeSupplements.length === 0 ||
+    activeSupplements.every(s => (data.supplementLogs || []).some(l => l.date === todayISO && l.supplementId === s.id && l.taken));
+
+  const items = [
+    { id: "sleep", label: "Log last night's sleep", done: sleepDone, tab: "recovery", anchor: "sleepBedtime" },
+    { id: "pre-workout", label: "Pre-workout fuel", done: preWorkoutDone, tab: "nutrition", anchor: "mealName" },
+    { id: "train", label: "Train today", done: trainedToday, tab: "train", anchor: "daySelect" },
+    { id: "post-workout", label: "Post-workout recovery meal", done: postWorkoutDone, tab: "nutrition", anchor: "mealName" },
+    { id: "recovery-log", label: "Log recovery (soreness / energy / motivation)", done: recoveryDone, tab: "recovery", anchor: "rSleepDuration" },
+    { id: "hydration", label: "Log hydration / electrolytes", done: hydrationDone, tab: "recovery", anchor: "hydWaterIntake" },
+    { id: "supplements", label: "Take active supplements", done: supplementsDone, tab: "nutrition", anchor: "supplementChecklist" }
+  ];
+  const completedCount = items.filter(i => i.done).length;
+  return {
+    items, completedCount, totalCount: items.length,
+    pct: Math.round((completedCount / items.length) * 100),
+    nextStep: items.find(i => !i.done) || null
+  };
+}
+
+/** This calendar month's checklist — measurements, photos, monthly review. */
+export function monthlyChecklist(data, referenceDate = new Date()) {
+  const monthKey = referenceDate.toLocaleDateString("en-CA").slice(0, 7);
+  const measurementsDone = (data.measurements || []).some(m => (m.date || "").startsWith(monthKey));
+  const photosDone = (data.progressPhotos || []).some(p => (p.date || "").startsWith(monthKey));
+  const reviewDone = (data.monthlyReviews || []).some(r => r.month === monthKey);
+
+  const items = [
+    { id: "measurements", label: "Log monthly measurements", done: measurementsDone, tab: "body", anchor: "mWeight" },
+    { id: "photos", label: "Log progress photos", done: photosDone, tab: "body", anchor: "photoFront" },
+    { id: "review", label: "Generate monthly review", done: reviewDone, tab: "more", anchor: "generateMonthlyReview" }
+  ];
+  const completedCount = items.filter(i => i.done).length;
+  return { items, completedCount, totalCount: items.length, pct: Math.round((completedCount / items.length) * 100) };
 }
