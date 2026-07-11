@@ -1084,3 +1084,24 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 @media (hover: hover) {
   .deep-link-row:hover { background: rgba(255, 154, 31, 0.06); }
 }
+
+/* ---- AI Specialists chat ---- */
+.ai-chat-messages {
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+  padding-right: 2px;
+}
+.ai-message {
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: #0d0e10;
+}
+.ai-message-user { border-left: 3px solid var(--accent); }
+.ai-message-assistant { border-left: 3px solid var(--good); background: linear-gradient(160deg, rgba(51, 209, 122, 0.05), transparent 60%), #0d0e10; }
+.ai-message p { margin: 4px 0; }
+.ai-message button { margin-top: 6px; font-size: 12px; padding: 6px 10px; min-height: 32px; }

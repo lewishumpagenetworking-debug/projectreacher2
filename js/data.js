@@ -33,6 +33,21 @@ export const DEFAULT_PROFILE = {
   functionalTrackLengthMetres: 15
 };
 
+// AI Specialists: consent + data-category permissions gate what the Context Builder is
+// allowed to include when talking to Claude. Everything defaults OFF — the user must
+// explicitly opt in per category. This object holds no secrets; the Anthropic API key
+// itself is deliberately NOT stored here (see js/claude-client.js) so it can never end
+// up in an exported/imported backup file.
+export const DEFAULT_AI_SETTINGS = {
+  consentGiven: false,
+  dataCategoryPermissions: {
+    training: false, nutrition: false, recovery: false, sleep: false,
+    bodyweight: false, appearance: false, supplements: false
+  },
+  preferredModel: "claude-sonnet-5",
+  auditLoggingEnabled: true
+};
+
 // Merge defaults under an existing record without ever discarding a field the user already has,
 // including falsy-but-meaningful values like 0, false, or "".
 function withDefaults(item, defaults) {
@@ -64,7 +79,18 @@ function emptyData() {
     historical: legacyHistoricalData,
     libraryFavorites: [],
     libraryRecentlyViewed: [],
-    activeWorkoutDraft: null
+    activeWorkoutDraft: null,
+    skinLogs: [],
+    hairLogs: [],
+    productExperiments: [],
+    appearanceCheckins: [],
+    aiConversationsPerformance: [],
+    aiConversationsAppearance: [],
+    aiConversationsShared: [],
+    aiSavedInsights: [],
+    aiProposedChanges: [],
+    aiAuditLog: [],
+    aiSettings: { ...DEFAULT_AI_SETTINGS, dataCategoryPermissions: { ...DEFAULT_AI_SETTINGS.dataCategoryPermissions } }
   };
 }
 
@@ -115,7 +141,10 @@ export function migrateData() {
   // collection still has an id, then layer on the new optional fields additively.
   ["checkins", "measurements", "workouts", "bodyweightLogs", "nutritionLogs", "recoveryLogs",
    "stimulantLogs", "supplementLogs", "mealLogs", "progressPhotos", "prs", "monthlyReviews",
-   "motivationalVisuals", "sleepLogs", "hydrationLogs"].forEach(key => {
+   "motivationalVisuals", "sleepLogs", "hydrationLogs",
+   "skinLogs", "hairLogs", "productExperiments", "appearanceCheckins",
+   "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared",
+   "aiSavedInsights", "aiProposedChanges", "aiAuditLog"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -180,6 +209,14 @@ export function migrateData() {
 
   if (!data.profile) { data.profile = { ...DEFAULT_PROFILE }; changed = true; }
   else { data.profile = withDefaults(data.profile, DEFAULT_PROFILE); }
+
+  if (!data.aiSettings) {
+    data.aiSettings = { ...DEFAULT_AI_SETTINGS, dataCategoryPermissions: { ...DEFAULT_AI_SETTINGS.dataCategoryPermissions } };
+    changed = true;
+  } else {
+    data.aiSettings = withDefaults(data.aiSettings, DEFAULT_AI_SETTINGS);
+    data.aiSettings.dataCategoryPermissions = withDefaults(data.aiSettings.dataCategoryPermissions || {}, DEFAULT_AI_SETTINGS.dataCategoryPermissions);
+  }
 
   if (!data.trainingProgram) { data.trainingProgram = structuredClone(DEFAULT_TRAINING_PROGRAM); changed = true; }
 
@@ -263,7 +300,9 @@ export function exportData() {
 const COLLECTION_KEYS = [
   "checkins", "measurements", "workouts", "bodyweightLogs", "nutritionLogs", "recoveryLogs",
   "stimulantLogs", "supplementLogs", "mealLogs", "progressPhotos", "monthlyReviews", "motivationalVisuals",
-  "sleepLogs", "hydrationLogs"
+  "sleepLogs", "hydrationLogs",
+  "skinLogs", "hairLogs", "productExperiments", "appearanceCheckins",
+  "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared", "aiSavedInsights"
 ];
 
 function normalizeSetSignature(e) {
@@ -481,6 +520,19 @@ export function importAndMergeData(importedRaw, currentState) {
   record("motivationalVisuals", mergeMotivationalVisuals(current.motivationalVisuals, imported.motivationalVisuals));
   record("sleepLogs", mergeByIdGeneric(current.sleepLogs, imported.sleepLogs, detectDuplicateById));
   record("hydrationLogs", mergeByIdGeneric(current.hydrationLogs, imported.hydrationLogs, detectDuplicateById));
+  record("skinLogs", mergeByIdGeneric(current.skinLogs, imported.skinLogs, detectDuplicateById));
+  record("hairLogs", mergeByIdGeneric(current.hairLogs, imported.hairLogs, detectDuplicateById));
+  record("productExperiments", mergeByIdGeneric(current.productExperiments, imported.productExperiments, detectDuplicateById));
+  record("appearanceCheckins", mergeByIdGeneric(current.appearanceCheckins, imported.appearanceCheckins, detectDuplicateById));
+  record("aiConversationsPerformance", mergeByIdGeneric(current.aiConversationsPerformance, imported.aiConversationsPerformance, detectDuplicateById));
+  record("aiConversationsAppearance", mergeByIdGeneric(current.aiConversationsAppearance, imported.aiConversationsAppearance, detectDuplicateById));
+  record("aiConversationsShared", mergeByIdGeneric(current.aiConversationsShared, imported.aiConversationsShared, detectDuplicateById));
+  record("aiSavedInsights", mergeByIdGeneric(current.aiSavedInsights, imported.aiSavedInsights, detectDuplicateById));
+
+  // aiSettings: current device's consent/permissions always win (consent must never be
+  // silently granted by an import) — only additive/unset fields are backfilled from the import.
+  merged.aiSettings = withDefaults(current.aiSettings || {}, imported.aiSettings || {});
+  // aiProposedChanges / aiAuditLog are deliberately per-device working state, never imported.
 
   merged.profile = withDefaults(current.profile || {}, imported.profile || {});
 

@@ -139,7 +139,7 @@ export function renderMeasurementsHistory(data) {
   }
 }
 
-function resizeImage(file, maxWidth = 800, quality = 0.6) {
+export function resizeImage(file, maxWidth = 800, quality = 0.6) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {

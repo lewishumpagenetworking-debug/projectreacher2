@@ -10,6 +10,11 @@ import {
   saveBodyweight, renderBodyweight, saveCheckin, renderCheckinHistory,
   saveMeasurements, renderMeasurementsHistory, savePhotoCheckin, renderPhotos
 } from "./render-body.js";
+import {
+  saveSkinLog, saveHairLog, saveProductExperiment, saveAppearanceCheckin,
+  renderAppearance, setupAppearanceEventDelegation
+} from "./render-appearance.js";
+import { renderAiSpecialists, setupAiEventDelegation } from "./render-ai.js";
 import { saveNutrition, renderNutrition, renderSupplements } from "./render-nutrition.js";
 import {
   saveRecovery, renderRecoveryHistory, saveStimulants, renderStimulantHistory,
@@ -42,6 +47,8 @@ export function refreshAll() {
   renderCheckinHistory(data);
   renderMeasurementsHistory(data);
   renderPhotos(data);
+  renderAppearance(data);
+  renderAiSpecialists(data);
   renderNutrition(data);
   renderSupplements(data);
   renderRecoveryHistory(data);
@@ -78,7 +85,11 @@ const COLLECTION_LABELS = {
   bodyweightLogs: "Bodyweight logs", nutritionLogs: "Nutrition logs", recoveryLogs: "Recovery logs",
   stimulantLogs: "Stimulant logs", supplementLogs: "Supplement logs", mealLogs: "Meal logs",
   progressPhotos: "Progress photos", monthlyReviews: "Monthly reviews", motivationalVisuals: "Motivational visuals",
-  sleepLogs: "Sleep logs", hydrationLogs: "Hydration logs"
+  sleepLogs: "Sleep logs", hydrationLogs: "Hydration logs",
+  skinLogs: "Skin logs", hairLogs: "Hair logs", productExperiments: "Product experiments",
+  appearanceCheckins: "Appearance check-ins", aiConversationsPerformance: "Performance Coach conversations",
+  aiConversationsAppearance: "Appearance Director conversations", aiConversationsShared: "Shared AI conversations",
+  aiSavedInsights: "Saved AI insights"
 };
 
 function formatImportSummary(summary) {
@@ -126,6 +137,11 @@ function setupEventListeners() {
   $("saveCheckin").addEventListener("click", saveCheckin);
   $("saveMeasurements").addEventListener("click", saveMeasurements);
   $("savePhotos").addEventListener("click", savePhotoCheckin);
+
+  $("saveSkinLog")?.addEventListener("click", saveSkinLog);
+  $("saveHairLog")?.addEventListener("click", saveHairLog);
+  $("saveProductExperiment")?.addEventListener("click", saveProductExperiment);
+  $("saveAppearanceCheckin")?.addEventListener("click", saveAppearanceCheckin);
 
   $("saveNutrition").addEventListener("click", saveNutrition);
   $("estimateMealBtn").addEventListener("click", estimateMeal);
@@ -251,6 +267,8 @@ setupVisualsEventDelegation();
 setupMetricInfoDelegation();
 setupLibraryEventDelegation();
 setupRecoveryEventDelegation();
+setupAppearanceEventDelegation();
+setupAiEventDelegation();
 refreshAll();
 renderHistoricalImport();
 
