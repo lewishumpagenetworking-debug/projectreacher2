@@ -1,5 +1,5 @@
 import { $, esc } from "./dom.js";
-import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore } from "./calculations.js";
+import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore, farmersCarryAnalytics } from "./calculations.js";
 import { getData, saveData, uid } from "./data.js";
 import { metricLabel } from "./metric-info.js";
 import { showMissionStart, celebrateSetRow, celebrateExerciseComplete, showOperationComplete, formatVolumeComparison } from "./reward-system.js";
@@ -30,6 +30,18 @@ function totalVolume(entry) {
 function formatSet(e) {
   if (!e) return "no data yet";
   return `${e.set1Weight ?? "-"}kg×${e.set1Reps ?? "-"}, ${e.set2Weight ?? "-"}kg×${e.set2Reps ?? "-"}`;
+}
+
+/** Farmer's Carry-only display: shows weight-per-hand × lengths and the resulting distance. */
+function formatDistanceSet(e, trackLength) {
+  if (!e) return "no data yet";
+  const dist = e.calculatedDistanceMetres != null ? `${e.calculatedDistanceMetres}m` : calcDistance(e, trackLength) + "m";
+  return `${e.set1Weight ?? "-"}kg/hand×${e.set1Reps ?? "-"} lengths, ${e.set2Weight ?? "-"}kg/hand×${e.set2Reps ?? "-"} lengths (${dist} total)`;
+}
+
+function calcDistance(entry, trackLength) {
+  const lengths = (Number(entry?.set1Reps) || 0) + (Number(entry?.set2Reps) || 0) + (Number(entry?.optionalSet3Reps) || 0);
+  return Math.round(lengths * (trackLength || 15) * 10) / 10;
 }
 
 export function renderDaySelect(data) {
@@ -88,17 +100,21 @@ function renderGuideContent(def) {
 export function renderWorkoutForm(data) {
   const day = $("daySelect").value || Object.keys(data.trainingProgram)[0];
   const exercises = data.trainingProgram[day] || [];
+  const trackLength = data.profile?.functionalTrackLengthMetres || 15;
 
   $("workoutList").innerHTML = exercises.map((x, i) => {
     const exerciseDef = data.exercises.find(e => e.name === x.name);
+    const isDistanceBased = !!exerciseDef?.distanceBased;
     const history = getExerciseHistory(data.workouts, x.name);
     const isExpanded = expandedExercises.has(x.name);
     const recBadge = history.lastSession?.progressionRecommendation
       ? `<span class="badge ${history.lastSession.increaseNextWeek ? "status-on-target" : ""}">${history.lastSession.increaseNextWeek ? "⬆ Increase" : "Hold"}</span>`
       : "";
+    const lastDisplay = isDistanceBased ? formatDistanceSet(history.lastSession, trackLength) : formatSet(history.lastSession);
+    const bestDisplay = isDistanceBased ? formatDistanceSet(history.previousBest, trackLength) : formatSet(history.previousBest);
 
     return `
-    <div class="exercise" data-exercise="${esc(x.name)}">
+    <div class="exercise" data-exercise="${esc(x.name)}" ${isDistanceBased ? `data-distance-based="true" data-track-length="${trackLength}"` : ""}>
       <div class="exercise-header">
         <div class="exercise-header-info" data-toggle-guide="${esc(x.name)}">
           <h3>${i + 1}. ${esc(x.name)}</h3>
@@ -107,7 +123,7 @@ export function renderWorkoutForm(data) {
             <span class="exercise-state-tag tag-complete" hidden>Exercise Complete</span>
             ${exerciseDef?.primaryMuscle ? `<span class="exercise-state-tag tag-muscle">${esc(exerciseDef.primaryMuscle)}</span>` : ""}
           </div>
-          <div class="small">Target: ${esc(x.repRange)} · Last: ${formatSet(history.lastSession)} · Best: ${formatSet(history.previousBest)}</div>
+          <div class="small">Target: ${esc(x.repRange)} · Last: ${lastDisplay} · Best: ${bestDisplay}</div>
           ${recBadge ? `<div class="badge-row">${recBadge}</div>` : ""}
         </div>
         <button type="button" class="technique-btn" data-toggle-guide="${esc(x.name)}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? "Hide" : "See"} technique guide for ${esc(x.name)}">
@@ -115,16 +131,29 @@ export function renderWorkoutForm(data) {
           <span class="technique-btn-label">${isExpanded ? "Hide Technique" : "See Technique"}</span>
         </button>
       </div>
+      ${isDistanceBased ? `<p class="small distance-helper">1 length = current gym track length (${trackLength}m, change in More &gt; Gym Profile). <strong class="calc-distance-readout">Total distance: 0m</strong></p>` : ""}
       <div class="set-row">
         <label>Warm-up<input class="warmup" placeholder="Optional"></label>
-        ${metricLabel("weight", "Set 1 Weight", `<input class="set1w" type="number" step="0.5" placeholder="kg">`)}
-        ${metricLabel("reps", "Set 1 Reps", `<input class="set1r" type="number" placeholder="reps">`)}
+        ${isDistanceBased
+          ? metricLabel("weight", "Set 1 Weight Per Hand", `<input class="set1w" type="number" step="0.5" placeholder="kg per hand">`)
+          : metricLabel("weight", "Set 1 Weight", `<input class="set1w" type="number" step="0.5" placeholder="kg">`)}
+        ${isDistanceBased
+          ? metricLabel("reps", "Set 1 Lengths", `<input class="set1r" type="number" placeholder="lengths">`)
+          : metricLabel("reps", "Set 1 Reps", `<input class="set1r" type="number" placeholder="reps">`)}
         ${metricLabel("rir", "Set 1 RIR", `<input class="set1rir" type="number" min="0" max="5" placeholder="~1 for compounds">`)}
-        ${metricLabel("weight", "Set 2 Weight", `<input class="set2w" type="number" step="0.5" placeholder="kg">`)}
-        ${metricLabel("reps", "Set 2 Reps", `<input class="set2r" type="number" placeholder="reps">`)}
+        ${isDistanceBased
+          ? metricLabel("weight", "Set 2 Weight Per Hand", `<input class="set2w" type="number" step="0.5" placeholder="kg per hand">`)
+          : metricLabel("weight", "Set 2 Weight", `<input class="set2w" type="number" step="0.5" placeholder="kg">`)}
+        ${isDistanceBased
+          ? metricLabel("reps", "Set 2 Lengths", `<input class="set2r" type="number" placeholder="lengths">`)
+          : metricLabel("reps", "Set 2 Reps", `<input class="set2r" type="number" placeholder="reps">`)}
         ${metricLabel("rir", "Set 2 RIR", `<input class="set2rir" type="number" min="0" max="5" placeholder="0 = failure">`)}
-        ${metricLabel("weight", "Optional Set 3 Weight", `<input class="set3w" type="number" step="0.5" placeholder="kg">`)}
-        ${metricLabel("reps", "Optional Set 3 Reps", `<input class="set3r" type="number" placeholder="reps">`)}
+        ${isDistanceBased
+          ? metricLabel("weight", "Optional Set 3 Weight Per Hand", `<input class="set3w" type="number" step="0.5" placeholder="kg per hand">`)
+          : metricLabel("weight", "Optional Set 3 Weight", `<input class="set3w" type="number" step="0.5" placeholder="kg">`)}
+        ${isDistanceBased
+          ? metricLabel("reps", "Optional Set 3 Lengths", `<input class="set3r" type="number" placeholder="lengths">`)
+          : metricLabel("reps", "Optional Set 3 Reps", `<input class="set3r" type="number" placeholder="reps">`)}
         ${metricLabel("rpe", "RPE", `<input class="rpe" type="number" min="1" max="10">`)}
         <label>Technical Failure Reached<input class="techfail" type="checkbox"></label>
         ${metricLabel("formQuality", "Form Quality 1-5", `<input class="formq" type="number" min="1" max="5">`)}
@@ -140,6 +169,21 @@ export function renderWorkoutForm(data) {
   applyDraftAfterRender(data, day);
   initializeRewardState();
   renderTrainReadinessChip(data);
+  updateAllDistanceReadouts();
+}
+
+/** Farmer's Carry-only: recomputes the "Total distance" readout from lengths × track length. */
+function updateDistanceReadout(card) {
+  if (!card || card.dataset.distanceBased !== "true") return;
+  const trackLength = Number(card.dataset.trackLength) || 15;
+  const lengths = (Number(card.querySelector(".set1r")?.value) || 0) + (Number(card.querySelector(".set2r")?.value) || 0) + (Number(card.querySelector(".set3r")?.value) || 0);
+  const distance = Math.round(lengths * trackLength * 10) / 10;
+  const readout = card.querySelector(".calc-distance-readout");
+  if (readout) readout.textContent = `Total distance: ${distance}m`;
+}
+
+function updateAllDistanceReadouts() {
+  document.querySelectorAll('#workoutList .exercise[data-distance-based="true"]').forEach(updateDistanceReadout);
 }
 
 /** Small, non-blocking readiness chip at the top of the Train tab — never interrupts logging. */
@@ -526,6 +570,12 @@ export function saveWorkout() {
       const exerciseDef = data.exercises.find(e => e.name === name);
       const history = getExerciseHistory(data.workouts, name);
       const entry = { exerciseId: exerciseDef?.id || null, name, ...readEntryFromCard(el), createdAt: now, updatedAt: now };
+      if (exerciseDef?.distanceBased) {
+        const trackLength = data.profile?.functionalTrackLengthMetres || 15;
+        entry.trackLengthMetres = trackLength;
+        entry.calculatedDistanceMetres = calcDistance(entry, trackLength);
+        entry.weightPerHand = entry.set1Weight;
+      }
       const rec = recommendProgression(entry, exerciseDef, history.lastSession);
       entry.increaseNextWeek = rec.increaseNextWeek;
       entry.progressionRecommendation = rec.recommendation;
@@ -636,11 +686,13 @@ export function setupTrainEventDelegation() {
     if (!e.target.closest("#workoutList")) return;
     scheduleDraftAutosave();
     handleWorkoutInputReward(e.target);
+    updateDistanceReadout(e.target.closest(".exercise"));
   });
   document.addEventListener("change", (e) => {
     if (!e.target.closest("#workoutList")) return;
     scheduleDraftAutosave();
     handleWorkoutInputReward(e.target);
+    updateDistanceReadout(e.target.closest(".exercise"));
   });
 }
 
@@ -718,4 +770,25 @@ export function renderPrTracker(data) {
       saveData(d);
     });
   });
+}
+
+/** Farmer's Carry-only distance analytics card — hidden entirely until the exercise has been logged at least once. */
+export function renderFarmersCarryAnalytics(data) {
+  const card = $("farmersCarryAnalyticsCard");
+  const el = $("farmersCarryAnalytics");
+  if (!card || !el) return;
+  const stats = farmersCarryAnalytics(data.workouts);
+  if (!stats.hasData) { card.hidden = true; return; }
+  card.hidden = false;
+  el.innerHTML = `
+    <div class="badge-row">
+      <span class="badge">Longest carry: ${stats.longestCarryDistance}m</span>
+      <span class="badge">Heaviest carry: ${stats.heaviestCarry}kg/hand</span>
+      <span class="badge">Highest volume: ${stats.highestVolume}</span>
+      <span class="badge">Estimated total load: ${stats.estimatedTotalLoad}</span>
+    </div>
+    <p class="small">This month: ${stats.monthlyCarryDistance}m · This year: ${stats.yearlyCarryDistance}m</p>
+    <p class="small">Average distance: ${stats.averageDistance}m · Average load: ${stats.averageLoad}kg/hand · Sessions logged: ${stats.sessionsLogged}</p>
+    <p class="small">Trend: <strong>${esc(stats.trend)}</strong></p>
+  `;
 }

@@ -254,6 +254,15 @@ export function setupMealEventDelegation() {
     const gotoTab = e.target.closest("[data-goto-tab]");
     if (gotoTab) {
       document.querySelector(`.nav-btn[data-tab="${gotoTab.dataset.gotoTab}"]`)?.click();
+      const anchorId = gotoTab.dataset.gotoAnchor;
+      if (anchorId) {
+        setTimeout(() => {
+          const target = document.getElementById(anchorId);
+          if (!target) return;
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+          target.focus?.({ preventScroll: true });
+        }, 60);
+      }
     }
   });
 
