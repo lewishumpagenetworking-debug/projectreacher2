@@ -1,7 +1,7 @@
 import { $ } from "./dom.js";
 
 const TAB_TITLES = {
-  dashboard: "Dashboard", train: "Train", body: "Body",
+  dashboard: "Dashboard", train: "Train", body: "Body", appearance: "Appearance",
   nutrition: "Nutrition", recovery: "Recovery", library: "Library", more: "More"
 };
 

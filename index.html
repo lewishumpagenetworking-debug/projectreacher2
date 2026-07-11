@@ -35,6 +35,7 @@
         <button class="nav-btn active" data-tab="dashboard"><span class="drawer-icon">📊</span> Dashboard</button>
         <button class="nav-btn" data-tab="train"><span class="drawer-icon">🏋️</span> Train</button>
         <button class="nav-btn" data-tab="body"><span class="drawer-icon">⚖️</span> Body</button>
+        <button class="nav-btn" data-tab="appearance"><span class="drawer-icon">✨</span> Appearance</button>
         <button class="nav-btn" data-tab="nutrition"><span class="drawer-icon">🍽️</span> Nutrition</button>
         <button class="nav-btn" data-tab="recovery"><span class="drawer-icon">😴</span> Recovery</button>
         <button class="nav-btn" data-tab="library"><span class="drawer-icon">📚</span> Library</button>
@@ -50,6 +51,7 @@
       <button class="nav-btn active" data-tab="dashboard">Dashboard</button>
       <button class="nav-btn" data-tab="train">Train</button>
       <button class="nav-btn" data-tab="body">Body</button>
+      <button class="nav-btn" data-tab="appearance">Appearance</button>
       <button class="nav-btn" data-tab="nutrition">Nutrition</button>
       <button class="nav-btn" data-tab="recovery">Recovery</button>
       <button class="nav-btn" data-tab="library">Library</button>
@@ -235,6 +237,7 @@
           <h2>Today's Workout</h2>
           <select id="daySelect"></select>
         </div>
+        <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="performanceCoachChatInput">Ask Performance Coach</button>
         <div id="trainReadinessChip" class="readiness-chip-row"></div>
         <div class="workout-progress-wrap">
           <div class="workout-progress-label"><span>Session Progress</span><span id="workoutProgressText">0%</span></div>
@@ -387,12 +390,74 @@
       </section>
     </section>
 
+    <!-- ================= APPEARANCE ================= -->
+    <section class="tab-panel" data-tab="appearance" hidden>
+      <section class="card">
+        <h2>Appearance Overview</h2>
+        <p class="small">Skin, hair, grooming and product experiments — tracked the same non-diagnostic way as the rest of Project Reacher. This data is only used by the Appearance Director if you grant it permission in AI Settings.</p>
+        <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="appearanceDirectorChatInput">Ask Appearance Director</button>
+      </section>
+
+      <section class="card">
+        <h2>Skin Log</h2>
+        <div class="form-grid">
+          <label>Skin Condition 1-5 <input id="skinCondition" type="number" min="1" max="5" placeholder="1=Poor 5=Excellent"></label>
+          <label>Oiliness 1-5 <input id="skinOiliness" type="number" min="1" max="5"></label>
+          <label>Hydration 1-5 <input id="skinHydration" type="number" min="1" max="5"></label>
+          <label>Breakouts (count) <input id="skinBreakouts" type="number" min="0"></label>
+          <label>Possible Triggers <input id="skinTriggers" placeholder="e.g. dairy, poor sleep, new product"></label>
+        </div>
+        <textarea id="skinNotes" placeholder="Notes"></textarea>
+        <button id="saveSkinLog">Save Skin Log</button>
+        <div id="skinLogHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Hair Log</h2>
+        <div class="form-grid">
+          <label>Hair Condition 1-5 <input id="hairCondition" type="number" min="1" max="5"></label>
+          <label>Scalp Condition 1-5 <input id="hairScalpCondition" type="number" min="1" max="5"></label>
+          <label>Shedding Level 1-5 <input id="hairShedding" type="number" min="1" max="5"></label>
+          <label>Styling Notes <input id="hairStylingNotes" placeholder="optional"></label>
+        </div>
+        <textarea id="hairNotes" placeholder="Notes"></textarea>
+        <button id="saveHairLog">Save Hair Log</button>
+        <div id="hairLogHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Product Experiments</h2>
+        <p class="small">Track a product trial so you can later see whether it correlates with any real change — not a guarantee of effect.</p>
+        <div class="form-grid">
+          <label>Product Name <input id="productName" placeholder="e.g. Salicylic acid cleanser"></label>
+          <label>Category <select id="productCategory"><option value="skincare">Skincare</option><option value="haircare">Haircare</option><option value="grooming">Grooming</option></select></label>
+          <label>Start Date <input id="productStartDate" type="date"></label>
+          <label>Stated Purpose <input id="productPurpose" placeholder="e.g. reduce breakouts"></label>
+        </div>
+        <button id="saveProductExperiment">Start Experiment</button>
+        <div id="productExperimentHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Appearance Check-In</h2>
+        <p class="small">Optional photos, resized and stored locally like progress photos — never uploaded anywhere.</p>
+        <div class="form-grid">
+          <label>Skin Photo <input id="appearanceSkinPhoto" type="file" accept="image/*"></label>
+          <label>Hair Photo <input id="appearanceHairPhoto" type="file" accept="image/*"></label>
+        </div>
+        <textarea id="appearanceCheckinNotes" placeholder="Notes"></textarea>
+        <button id="saveAppearanceCheckin">Save Appearance Check-In</button>
+        <div id="appearanceCheckinHistory"></div>
+      </section>
+    </section>
+
     <!-- ================= NUTRITION ================= -->
     <section class="tab-panel" data-tab="nutrition" hidden>
       <div id="visual-meals"></div>
 
       <section class="card">
         <h2>Log a Meal</h2>
+        <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="performanceCoachChatInput">Ask Performance Coach</button>
         <label>What did you eat? <textarea id="mealDescription" placeholder="e.g. 2 chicken breasts, rice, olive oil and Greek yogurt"></textarea></label>
         <div class="form-grid">
           <label>Meal Name <input id="mealName" placeholder="e.g. Lunch"></label>
@@ -511,6 +576,7 @@
     <section class="tab-panel" data-tab="recovery" hidden>
       <section class="card command-hero">
         <h2>Recovery Command Centre</h2>
+        <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="performanceCoachChatInput">Ask Performance Coach</button>
         <p class="mission-tag">Today's Recovery Status</p>
         <div id="recoveryHeroStatus"></div>
       </section>
@@ -749,6 +815,94 @@
         <h2>App Updates</h2>
         <p class="small">If a feature you know was added (like Day 6) isn't showing up, your browser may be holding onto an old cached copy of the app. This clears that cache and reloads the latest version — <strong>your saved data is not touched or deleted</strong>, only the app's own code files.</p>
         <button type="button" id="clearCacheBtn" class="secondary">Clear Cache &amp; Reload App</button>
+      </section>
+
+      <!-- ============ AI SPECIALISTS ============ -->
+      <section class="card">
+        <h2>AI Specialists</h2>
+        <p class="small">Claude-powered coaching layer. Read-only by default: it can analyse, explain and propose changes, but never edits your program, nutrition, supplements or appearance routine automatically — every write requires your explicit accept in Proposed Changes.</p>
+      </section>
+
+      <section class="card">
+        <h2>Claude Integration</h2>
+        <div class="warning-banner">Project Reacher is a static site with no backend server. This connects directly from your browser to Anthropic's API using your own API key, stored only in this browser's local storage. Anyone with access to this device/browser could read that key. This is a deliberate trade-off you're choosing, not the server-side setup Anthropic recommends for production apps.</div>
+        <div class="form-grid">
+          <label>Anthropic API Key <input id="claudeApiKeyInput" type="password" placeholder="sk-ant-..." autocomplete="off"></label>
+          <label>Preferred Model <select id="claudeModelSelect"></select></label>
+        </div>
+        <div class="actions">
+          <button type="button" id="claudeConnectBtn">Connect / Save Key</button>
+          <button type="button" id="claudeTestBtn" class="secondary">Test Connection</button>
+          <button type="button" id="claudeDisconnectBtn" class="danger">Disconnect</button>
+        </div>
+        <div id="claudeConnectionStatus" class="small"></div>
+        <h3>Token Usage (this device)</h3>
+        <div id="claudeUsageDisplay" class="small"></div>
+        <button type="button" id="claudeResetUsageBtn" class="secondary">Reset Usage Counter</button>
+      </section>
+
+      <section class="card">
+        <h2>AI Settings</h2>
+        <label class="checklist-row"><input type="checkbox" id="aiConsentToggle"> <span>I consent to my data being sent to Claude when I use an AI Specialist</span></label>
+        <p class="small">Nothing is sent until you send a chat message. Enable only the categories below you're comfortable sharing — each AI tool call is blocked unless its category is permitted.</p>
+        <div class="form-grid">
+          <label class="checklist-row"><input type="checkbox" id="aiPermTraining"> <span>Training</span></label>
+          <label class="checklist-row"><input type="checkbox" id="aiPermNutrition"> <span>Nutrition</span></label>
+          <label class="checklist-row"><input type="checkbox" id="aiPermRecovery"> <span>Recovery</span></label>
+          <label class="checklist-row"><input type="checkbox" id="aiPermSleep"> <span>Sleep</span></label>
+          <label class="checklist-row"><input type="checkbox" id="aiPermBodyweight"> <span>Bodyweight / Measurements</span></label>
+          <label class="checklist-row"><input type="checkbox" id="aiPermAppearance"> <span>Appearance</span></label>
+          <label class="checklist-row"><input type="checkbox" id="aiPermSupplements"> <span>Supplements</span></label>
+        </div>
+        <label class="checklist-row"><input type="checkbox" id="aiAuditToggle"> <span>Keep an audit log of AI activity on this device</span></label>
+        <button type="button" id="saveAiSettingsBtn">Save AI Settings</button>
+        <h3>Audit Log</h3>
+        <div id="aiAuditLogView" class="small"></div>
+        <button type="button" id="clearAuditLogBtn" class="secondary">Clear Audit Log</button>
+      </section>
+
+      <section class="card">
+        <h2>Reacher Performance Coach</h2>
+        <p class="small">Hypertrophy, progressive overload, technique, recovery, nutrition, supplements, bodyweight, sleep, fatigue and performance analysis.</p>
+        <div id="performanceCoachMessages" class="ai-chat-messages"></div>
+        <textarea id="performanceCoachChatInput" placeholder="Ask the Performance Coach..."></textarea>
+        <div class="actions">
+          <button type="button" id="performanceCoachSendBtn">Send</button>
+          <button type="button" id="performanceCoachClearBtn" class="secondary">Clear Conversation</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Appearance Director</h2>
+        <p class="small">Skin, hair, puffiness, grooming, hairstyle suitability, product experiments, diet-skin correlations and healthy presentation.</p>
+        <div id="appearanceDirectorMessages" class="ai-chat-messages"></div>
+        <textarea id="appearanceDirectorChatInput" placeholder="Ask the Appearance Director..."></textarea>
+        <div class="actions">
+          <button type="button" id="appearanceDirectorSendBtn">Send</button>
+          <button type="button" id="appearanceDirectorClearBtn" class="secondary">Clear Conversation</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Shared Conversation</h2>
+        <p class="small">One conversation covering both performance and appearance together.</p>
+        <div id="sharedMessages" class="ai-chat-messages"></div>
+        <textarea id="sharedChatInput" placeholder="Ask anything..."></textarea>
+        <div class="actions">
+          <button type="button" id="sharedSendBtn">Send</button>
+          <button type="button" id="sharedClearBtn" class="secondary">Clear Conversation</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Proposed Changes</h2>
+        <p class="small">Nothing here is applied automatically. Accepting a proposal marks it reviewed and takes you to the right screen to make the change yourself.</p>
+        <div id="proposedChangesList"></div>
+      </section>
+
+      <section class="card">
+        <h2>Saved Insights</h2>
+        <div id="savedInsightsList"></div>
       </section>
     </section>
 
