@@ -28,7 +28,49 @@ const FOOD_DB = [
   { key: "avocado", keywords: ["avocado"], unit: "each", perUnit: { calories: 240, protein: 3, carbs: 13, fat: 22, fibre: 10 } },
   { key: "toast", keywords: ["toast", "bread"], unit: "slice", perUnit: { calories: 90, protein: 3.5, carbs: 15, fat: 1.5, fibre: 1.5 } },
   { key: "cheese", keywords: ["cheese"], unit: "serving", perUnit: { calories: 110, protein: 7, carbs: 1, fat: 9, fibre: 0 } },
-  { key: "pasta", keywords: ["pasta"], unit: "serving", perUnit: { calories: 220, protein: 8, carbs: 43, fat: 1.3, fibre: 2.5 } }
+  { key: "pasta", keywords: ["pasta"], unit: "serving", perUnit: { calories: 220, protein: 8, carbs: 43, fat: 1.3, fibre: 2.5 } },
+
+  // Fruit
+  { key: "apple", keywords: ["apple", "apples"], unit: "each", perUnit: { calories: 95, protein: 0.5, carbs: 25, fat: 0.3, fibre: 4.4 } },
+  { key: "orange", keywords: ["orange", "oranges"], unit: "each", perUnit: { calories: 62, protein: 1.2, carbs: 15.4, fat: 0.2, fibre: 3.1 } },
+  { key: "strawberries", keywords: ["strawberries", "strawberry"], unit: "cup", perUnit: { calories: 49, protein: 1, carbs: 11.7, fat: 0.5, fibre: 3 } },
+  { key: "blueberries", keywords: ["blueberries", "blueberry"], unit: "cup", perUnit: { calories: 84, protein: 1.1, carbs: 21.4, fat: 0.5, fibre: 3.6 } },
+  { key: "grapes", keywords: ["grapes"], unit: "cup", perUnit: { calories: 104, protein: 1.1, carbs: 27.3, fat: 0.2, fibre: 1.4 } },
+  { key: "pear", keywords: ["pear", "pears"], unit: "each", perUnit: { calories: 101, protein: 0.6, carbs: 27, fat: 0.2, fibre: 5.5 } },
+  { key: "mango", keywords: ["mango", "mangoes"], unit: "each", perUnit: { calories: 202, protein: 2.8, carbs: 50, fat: 1.3, fibre: 5.4 } },
+  { key: "pineapple", keywords: ["pineapple"], unit: "cup", perUnit: { calories: 82, protein: 0.9, carbs: 21.6, fat: 0.2, fibre: 2.3 } },
+  { key: "watermelon", keywords: ["watermelon"], unit: "cup", perUnit: { calories: 46, protein: 0.9, carbs: 11.5, fat: 0.2, fibre: 0.6 } },
+  { key: "kiwi", keywords: ["kiwi", "kiwis", "kiwi fruit"], unit: "each", perUnit: { calories: 42, protein: 0.8, carbs: 10.1, fat: 0.4, fibre: 2.1 } },
+  { key: "raisins", keywords: ["raisins"], unit: "small box", perUnit: { calories: 42, protein: 0.4, carbs: 11, fat: 0, fibre: 0.5 } },
+
+  // Vegetables and starches
+  { key: "broccoli", keywords: ["broccoli"], unit: "cup", perUnit: { calories: 31, protein: 2.5, carbs: 6, fat: 0.3, fibre: 2.4 } },
+  { key: "spinach", keywords: ["spinach"], unit: "cup", perUnit: { calories: 7, protein: 0.9, carbs: 1.1, fat: 0.1, fibre: 0.7 } },
+  { key: "brown_rice", keywords: ["brown rice"], unit: "cup", perUnit: { calories: 216, protein: 5, carbs: 45, fat: 1.8, fibre: 3.5 } },
+  { key: "quinoa", keywords: ["quinoa"], unit: "cup", perUnit: { calories: 222, protein: 8, carbs: 39, fat: 3.6, fibre: 5.2 } },
+  { key: "cereal", keywords: ["cereal"], unit: "bowl", perUnit: { calories: 210, protein: 5, carbs: 42, fat: 3, fibre: 3 } },
+  { key: "granola", keywords: ["granola"], unit: "serving", perUnit: { calories: 250, protein: 6, carbs: 35, fat: 10, fibre: 4 } },
+
+  // Protein sources
+  { key: "turkey_breast", keywords: ["turkey breast", "turkey"], unit: "100g", perUnit: { calories: 135, protein: 30, carbs: 0, fat: 1, fibre: 0 } },
+  { key: "tuna", keywords: ["tuna"], unit: "tin", perUnit: { calories: 130, protein: 29, carbs: 0, fat: 1, fibre: 0 } },
+  { key: "tofu", keywords: ["tofu"], unit: "serving", perUnit: { calories: 180, protein: 20, carbs: 3, fat: 11, fibre: 2 } },
+  { key: "bacon", keywords: ["bacon"], unit: "rasher", perUnit: { calories: 43, protein: 3, carbs: 0.1, fat: 3.3, fibre: 0 } },
+  { key: "cottage_cheese", keywords: ["cottage cheese"], unit: "cup", perUnit: { calories: 220, protein: 25, carbs: 8, fat: 9.5, fibre: 0 } },
+
+  // Nuts, dairy, extras
+  { key: "almonds", keywords: ["almonds"], unit: "handful (28g)", perUnit: { calories: 164, protein: 6, carbs: 6, fat: 14, fibre: 3.5 } },
+  { key: "cashews", keywords: ["cashews"], unit: "handful (28g)", perUnit: { calories: 157, protein: 5.2, carbs: 8.6, fat: 12.4, fibre: 0.9 } },
+  { key: "hummus", keywords: ["hummus"], unit: "serving (2 tbsp)", perUnit: { calories: 70, protein: 2, carbs: 6, fat: 5, fibre: 2 } },
+  { key: "plain_yogurt", keywords: ["plain yogurt", "plain yoghurt", "natural yogurt", "natural yoghurt"], unit: "serving", perUnit: { calories: 100, protein: 9, carbs: 7, fat: 4, fibre: 0 } },
+  { key: "butter", keywords: ["butter"], unit: "tbsp", perUnit: { calories: 102, protein: 0.1, carbs: 0, fat: 11.5, fibre: 0 } },
+
+  // Addendum-required additions: dates, dried fruit, liquid egg whites, sardines, casein
+  { key: "dates", keywords: ["dates", "date"], unit: "each", perUnit: { calories: 23, protein: 0.2, carbs: 6, fat: 0, fibre: 0.6 } },
+  { key: "dried_fruit", keywords: ["dried fruit", "raisins", "sultanas", "dried apricots"], unit: "small handful (30g)", perUnit: { calories: 85, protein: 0.7, carbs: 22, fat: 0.1, fibre: 2 } },
+  { key: "liquid_egg_whites", keywords: ["egg whites", "liquid egg whites"], unit: "100ml", perUnit: { calories: 52, protein: 11, carbs: 0.7, fat: 0.2, fibre: 0 } },
+  { key: "sardines", keywords: ["sardines", "sardine"], unit: "tin", perUnit: { calories: 190, protein: 23, carbs: 0, fat: 11, fibre: 0 } },
+  { key: "casein", keywords: ["casein"], unit: "scoop", perUnit: { calories: 120, protein: 24, carbs: 3, fat: 1, fibre: 0 } }
 ];
 
 const QUANTITY_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, couple: 2, few: 3, half: 0.5 };

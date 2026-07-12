@@ -1,5 +1,5 @@
 import { $, esc } from "./dom.js";
-import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore, farmersCarryAnalytics } from "./calculations.js";
+import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore, farmersCarryAnalytics, exerciseProgressionStatus, recoveryMealCompliance, preWorkoutReadinessToday } from "./calculations.js";
 import { getData, saveData, uid } from "./data.js";
 import { metricLabel } from "./metric-info.js";
 import { showMissionStart, celebrateSetRow, celebrateExerciseComplete, showOperationComplete, formatVolumeComparison } from "./reward-system.js";
@@ -101,15 +101,26 @@ export function renderWorkoutForm(data) {
   const day = $("daySelect").value || Object.keys(data.trainingProgram)[0];
   const exercises = data.trainingProgram[day] || [];
   const trackLength = data.profile?.functionalTrackLengthMetres || 15;
+  const readiness = readinessScore(data);
+  const rawMealCompliance = recoveryMealCompliance(data.mealLogs);
+  const mealCompliance = { ...rawMealCompliance, preWorkoutComplete: rawMealCompliance.preWorkoutComplete || !!preWorkoutReadinessToday(data.preWorkoutLogs) };
 
   $("workoutList").innerHTML = exercises.map((x, i) => {
     const exerciseDef = data.exercises.find(e => e.name === x.name);
     const isDistanceBased = !!exerciseDef?.distanceBased;
     const history = getExerciseHistory(data.workouts, x.name);
     const isExpanded = expandedExercises.has(x.name);
-    const recBadge = history.lastSession?.progressionRecommendation
-      ? `<span class="badge ${history.lastSession.increaseNextWeek ? "status-on-target" : ""}">${history.lastSession.increaseNextWeek ? "⬆ Increase" : "Hold"}</span>`
+    // Always live-computed from the last logged entry's raw fields (never trusts a
+    // possibly-null stored snapshot) — this is what makes a fully-qualifying session
+    // logged before this feature existed (e.g. a historical Hammer Curl PR) surface
+    // its earned "Increase Load" status on the very next exposure automatically.
+    const nextSession = history.lastSession
+      ? exerciseProgressionStatus(history.lastSession, exerciseDef, { previousEntry: history.previousWeek, readiness, mealCompliance })
+      : null;
+    const recBadge = nextSession
+      ? `<span class="badge ${nextSession.status === "Increase Load" ? "status-on-target" : ["Pain Review", "Reduce Load"].includes(nextSession.status) ? "status-under" : ""}">NEXT SESSION: ${esc(nextSession.status)}</span>`
       : "";
+    const reasonLine = nextSession ? `<p class="small">Reason: ${esc(nextSession.reason)}</p>` : "";
     const lastDisplay = isDistanceBased ? formatDistanceSet(history.lastSession, trackLength) : formatSet(history.lastSession);
     const bestDisplay = isDistanceBased ? formatDistanceSet(history.previousBest, trackLength) : formatSet(history.previousBest);
 
@@ -125,6 +136,7 @@ export function renderWorkoutForm(data) {
           </div>
           <div class="small">Target: ${esc(x.repRange)} · Last: ${lastDisplay} · Best: ${bestDisplay}</div>
           ${recBadge ? `<div class="badge-row">${recBadge}</div>` : ""}
+          ${reasonLine}
         </div>
         <button type="button" class="technique-btn" data-toggle-guide="${esc(x.name)}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? "Hide" : "See"} technique guide for ${esc(x.name)}">
           <span class="technique-btn-icon">${isExpanded ? "▴" : "🎯"}</span>
@@ -538,6 +550,7 @@ function buildCompletionSummary(workout, exercises, data, prs) {
   }, 0);
   const totalVol = exercises.reduce((sum, e) => sum + totalVolume({ exercises: [e] }), 0);
   const progressionCandidates = exercises.filter(e => e.increaseNextWeek).map(e => e.name);
+  const progressionStatuses = exercises.map(e => ({ name: e.name, status: e.progressionStatus || "Insufficient Data" }));
   const musclesTrained = [...new Set(exercises.map(e => {
     const def = data.exercises.find(d => d.name === e.name);
     return def?.primaryMuscle;
@@ -552,6 +565,7 @@ function buildCompletionSummary(workout, exercises, data, prs) {
     setCount,
     totalVolume: totalVol,
     progressionCandidates,
+    progressionStatuses,
     musclesTrained,
     prs,
     nextObjective
@@ -565,6 +579,12 @@ export function saveWorkout() {
   let summary = null;
   try {
     const prs = [];
+    const readiness = readinessScore(data);
+    const rawMealCompliance = recoveryMealCompliance(data.mealLogs);
+    const mealCompliance = {
+      ...rawMealCompliance,
+      preWorkoutComplete: rawMealCompliance.preWorkoutComplete || !!preWorkoutReadinessToday(data.preWorkoutLogs)
+    };
     const exercises = [...document.querySelectorAll("#workoutList .exercise")].map(el => {
       const name = el.dataset.exercise;
       const exerciseDef = data.exercises.find(e => e.name === name);
@@ -579,6 +599,9 @@ export function saveWorkout() {
       const rec = recommendProgression(entry, exerciseDef, history.lastSession);
       entry.increaseNextWeek = rec.increaseNextWeek;
       entry.progressionRecommendation = rec.recommendation;
+
+      const statusResult = exerciseProgressionStatus(entry, exerciseDef, { previousEntry: history.lastSession, readiness, mealCompliance });
+      entry.progressionStatus = statusResult.status;
 
       const newVol = totalVolume({ exercises: [entry] });
       const prevBestVol = history.previousBest ? totalVolume({ exercises: [history.previousBest] }) : 0;

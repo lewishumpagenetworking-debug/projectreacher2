@@ -35,6 +35,7 @@ export function renderProfileForm(data) {
   $("pWeeklyGain").value = p.targetWeeklyGain ?? "";
   $("pNotes").value = p.notes ?? "";
   if ($("pTrackLength")) $("pTrackLength").value = p.functionalTrackLengthMetres ?? 15;
+  if ($("pCaffeineCutoff")) $("pCaffeineCutoff").value = p.caffeineCutoffHours ?? 8;
 }
 
 export function saveProfile() {
@@ -52,7 +53,8 @@ export function saveProfile() {
     currentPhase: $("pPhase").value || data.profile.currentPhase,
     targetWeeklyGain: Number($("pWeeklyGain").value || data.profile.targetWeeklyGain),
     notes: $("pNotes").value,
-    functionalTrackLengthMetres: clampedTrackLength
+    functionalTrackLengthMetres: clampedTrackLength,
+    caffeineCutoffHours: $("pCaffeineCutoff")?.value === "" ? data.profile.caffeineCutoffHours : Number($("pCaffeineCutoff")?.value ?? data.profile.caffeineCutoffHours)
   });
   saveData(data);
   window.dispatchEvent(new CustomEvent("reacher:refresh"));

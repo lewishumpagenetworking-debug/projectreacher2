@@ -18,7 +18,7 @@ import { renderAiSpecialists, setupAiEventDelegation } from "./render-ai.js";
 import { saveNutrition, renderNutrition, renderSupplements } from "./render-nutrition.js";
 import {
   saveRecovery, renderRecoveryHistory, saveStimulants, renderStimulantHistory,
-  saveSleepLog, saveHydrationLog, renderRecoveryCommandCentre, setupRecoveryEventDelegation
+  saveSleepLog, saveHydrationLog, renderRecoveryCommandCentre, setupRecoveryEventDelegation, saveIntervention
 } from "./render-recovery.js";
 import {
   renderProfileForm, saveProfile, generateWeeklyCheckin, renderWeeklyCheckinSummary,
@@ -27,10 +27,10 @@ import {
 } from "./render-more.js";
 import { renderHistoricalImport } from "./historical.js";
 import { initSync, onSyncStatusChange, syncNow, cloudSignIn, cloudSignUp, cloudSignOut } from "./sync.js";
-import { estimateMeal, saveMeal, renderMealTracking, syncMealsToDailyNutrition, setupMealEventDelegation } from "./render-meals.js";
+import { estimateMeal, saveMeal, renderMealTracking, syncMealsToDailyNutrition, setupMealEventDelegation, saveFoodTemplateFromCurrentMeal, savePreWorkoutLog, savePostWorkoutLog, renderPreWorkoutReadinessGate, renderPrePostWorkoutHistory, renderTrainingNutritionCorrelation, logPreWorkoutReadinessChoice } from "./render-meals.js";
 import { setupNavDrawer, updateMobilePageTitle } from "./nav-drawer.js";
 import { renderAllVisuals, setupVisualsEventDelegation } from "./render-visuals.js";
-import { setupMetricInfoDelegation } from "./metric-info.js";
+import { setupMetricInfoDelegation, hydrateStaticMetricLabels } from "./metric-info.js";
 import { renderLibrary, setupLibraryEventDelegation } from "./render-library.js";
 
 export function refreshAll() {
@@ -60,6 +60,9 @@ export function refreshAll() {
   renderProgramEditor(data);
   renderDataHealth(data);
   renderMealTracking(data);
+  renderPreWorkoutReadinessGate(data);
+  renderPrePostWorkoutHistory(data);
+  renderTrainingNutritionCorrelation(data);
   renderVisualModeToggle(data);
   renderAllVisuals(data);
   renderLibrary(data);
@@ -89,7 +92,9 @@ const COLLECTION_LABELS = {
   skinLogs: "Skin logs", hairLogs: "Hair logs", productExperiments: "Product experiments",
   appearanceCheckins: "Appearance check-ins", aiConversationsPerformance: "Performance Coach conversations",
   aiConversationsAppearance: "Appearance Director conversations", aiConversationsShared: "Shared AI conversations",
-  aiSavedInsights: "Saved AI insights"
+  aiSavedInsights: "Saved AI insights",
+  foodTemplates: "Food templates", preWorkoutLogs: "Pre-workout logs", postWorkoutLogs: "Post-workout logs",
+  interventions: "Interventions"
 };
 
 function formatImportSummary(summary) {
@@ -125,6 +130,14 @@ function setupDeleteDelegation() {
   });
 }
 
+function setupReadinessGateDelegation() {
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-readiness-choice]");
+    if (!btn) return;
+    logPreWorkoutReadinessChoice(btn.dataset.readinessChoice);
+  });
+}
+
 function setupEventListeners() {
   $("daySelect").addEventListener("change", () => {
     const data = getData();
@@ -145,12 +158,17 @@ function setupEventListeners() {
 
   $("saveNutrition").addEventListener("click", saveNutrition);
   $("estimateMealBtn").addEventListener("click", estimateMeal);
-  $("saveMealBtn").addEventListener("click", saveMeal);
+  $("saveMealBtn").addEventListener("click", () => saveMeal(false));
+  $("saveMealDraftBtn")?.addEventListener("click", () => saveMeal(true));
+  $("saveFoodTemplateBtn")?.addEventListener("click", saveFoodTemplateFromCurrentMeal);
+  $("savePreWorkoutLogBtn")?.addEventListener("click", savePreWorkoutLog);
+  $("savePostWorkoutLogBtn")?.addEventListener("click", savePostWorkoutLog);
   $("syncMealsToDailyBtn").addEventListener("click", syncMealsToDailyNutrition);
   $("saveRecovery").addEventListener("click", saveRecovery);
   $("saveStimulants").addEventListener("click", saveStimulants);
   $("saveSleepLog")?.addEventListener("click", saveSleepLog);
   $("saveHydrationLog")?.addEventListener("click", saveHydrationLog);
+  $("saveInterventionBtn")?.addEventListener("click", saveIntervention);
 
   $("saveProfile").addEventListener("click", saveProfile);
   $("saveGymProfile")?.addEventListener("click", saveProfile);
@@ -261,10 +279,12 @@ setupNav();
 setupNavDrawer();
 setupEventListeners();
 setupDeleteDelegation();
+setupReadinessGateDelegation();
 setupMealEventDelegation();
 setupTrainEventDelegation();
 setupVisualsEventDelegation();
 setupMetricInfoDelegation();
+hydrateStaticMetricLabels();
 setupLibraryEventDelegation();
 setupRecoveryEventDelegation();
 setupAppearanceEventDelegation();
