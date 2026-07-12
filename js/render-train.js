@@ -101,17 +101,26 @@ export function renderWorkoutForm(data) {
   const day = $("daySelect").value || Object.keys(data.trainingProgram)[0];
   const exercises = data.trainingProgram[day] || [];
   const trackLength = data.profile?.functionalTrackLengthMetres || 15;
+  const readiness = readinessScore(data);
+  const rawMealCompliance = recoveryMealCompliance(data.mealLogs);
+  const mealCompliance = { ...rawMealCompliance, preWorkoutComplete: rawMealCompliance.preWorkoutComplete || !!preWorkoutReadinessToday(data.preWorkoutLogs) };
 
   $("workoutList").innerHTML = exercises.map((x, i) => {
     const exerciseDef = data.exercises.find(e => e.name === x.name);
     const isDistanceBased = !!exerciseDef?.distanceBased;
     const history = getExerciseHistory(data.workouts, x.name);
     const isExpanded = expandedExercises.has(x.name);
-    const nextSessionStatus = history.lastSession?.progressionStatus
-      || (history.lastSession?.progressionRecommendation ? (history.lastSession.increaseNextWeek ? "Increase Load" : "Hold Load") : null);
-    const recBadge = nextSessionStatus
-      ? `<span class="badge ${nextSessionStatus === "Increase Load" ? "status-on-target" : ["Pain Review", "Reduce Load"].includes(nextSessionStatus) ? "status-under" : ""}">NEXT SESSION: ${esc(nextSessionStatus)}</span>`
+    // Always live-computed from the last logged entry's raw fields (never trusts a
+    // possibly-null stored snapshot) — this is what makes a fully-qualifying session
+    // logged before this feature existed (e.g. a historical Hammer Curl PR) surface
+    // its earned "Increase Load" status on the very next exposure automatically.
+    const nextSession = history.lastSession
+      ? exerciseProgressionStatus(history.lastSession, exerciseDef, { previousEntry: history.previousWeek, readiness, mealCompliance })
+      : null;
+    const recBadge = nextSession
+      ? `<span class="badge ${nextSession.status === "Increase Load" ? "status-on-target" : ["Pain Review", "Reduce Load"].includes(nextSession.status) ? "status-under" : ""}">NEXT SESSION: ${esc(nextSession.status)}</span>`
       : "";
+    const reasonLine = nextSession ? `<p class="small">Reason: ${esc(nextSession.reason)}</p>` : "";
     const lastDisplay = isDistanceBased ? formatDistanceSet(history.lastSession, trackLength) : formatSet(history.lastSession);
     const bestDisplay = isDistanceBased ? formatDistanceSet(history.previousBest, trackLength) : formatSet(history.previousBest);
 
@@ -127,6 +136,7 @@ export function renderWorkoutForm(data) {
           </div>
           <div class="small">Target: ${esc(x.repRange)} · Last: ${lastDisplay} · Best: ${bestDisplay}</div>
           ${recBadge ? `<div class="badge-row">${recBadge}</div>` : ""}
+          ${reasonLine}
         </div>
         <button type="button" class="technique-btn" data-toggle-guide="${esc(x.name)}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? "Hide" : "See"} technique guide for ${esc(x.name)}">
           <span class="technique-btn-icon">${isExpanded ? "▴" : "🎯"}</span>

@@ -63,7 +63,14 @@ const FOOD_DB = [
   { key: "cashews", keywords: ["cashews"], unit: "handful (28g)", perUnit: { calories: 157, protein: 5.2, carbs: 8.6, fat: 12.4, fibre: 0.9 } },
   { key: "hummus", keywords: ["hummus"], unit: "serving (2 tbsp)", perUnit: { calories: 70, protein: 2, carbs: 6, fat: 5, fibre: 2 } },
   { key: "plain_yogurt", keywords: ["plain yogurt", "plain yoghurt", "natural yogurt", "natural yoghurt"], unit: "serving", perUnit: { calories: 100, protein: 9, carbs: 7, fat: 4, fibre: 0 } },
-  { key: "butter", keywords: ["butter"], unit: "tbsp", perUnit: { calories: 102, protein: 0.1, carbs: 0, fat: 11.5, fibre: 0 } }
+  { key: "butter", keywords: ["butter"], unit: "tbsp", perUnit: { calories: 102, protein: 0.1, carbs: 0, fat: 11.5, fibre: 0 } },
+
+  // Addendum-required additions: dates, dried fruit, liquid egg whites, sardines, casein
+  { key: "dates", keywords: ["dates", "date"], unit: "each", perUnit: { calories: 23, protein: 0.2, carbs: 6, fat: 0, fibre: 0.6 } },
+  { key: "dried_fruit", keywords: ["dried fruit", "raisins", "sultanas", "dried apricots"], unit: "small handful (30g)", perUnit: { calories: 85, protein: 0.7, carbs: 22, fat: 0.1, fibre: 2 } },
+  { key: "liquid_egg_whites", keywords: ["egg whites", "liquid egg whites"], unit: "100ml", perUnit: { calories: 52, protein: 11, carbs: 0.7, fat: 0.2, fibre: 0 } },
+  { key: "sardines", keywords: ["sardines", "sardine"], unit: "tin", perUnit: { calories: 190, protein: 23, carbs: 0, fat: 11, fibre: 0 } },
+  { key: "casein", keywords: ["casein"], unit: "scoop", perUnit: { calories: 120, protein: 24, carbs: 3, fat: 1, fibre: 0 } }
 ];
 
 const QUANTITY_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, couple: 2, few: 3, half: 0.5 };

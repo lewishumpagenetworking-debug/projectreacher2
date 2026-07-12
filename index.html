@@ -252,11 +252,13 @@
         <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="performanceCoachChatInput">Ask Performance Coach</button>
         <div id="trainReadinessChip" class="readiness-chip-row"></div>
         <div id="preWorkoutReadinessGate" class="warning-banner" hidden>
-          <p class="small">Log your pre-workout fuel status before you start — this feeds your training-nutrition pattern and progression status.</p>
+          <p class="small"><strong>PRE-WORKOUT READINESS</strong> — choose one before you start. This doesn't block training; it's logged and included in performance analysis.</p>
           <div class="badge-row">
-            <button type="button" class="secondary" data-readiness-choice="fuelled">Fully Fuelled</button>
-            <button type="button" class="secondary" data-readiness-choice="partial">Partially Fuelled</button>
-            <button type="button" class="secondary" data-readiness-choice="fasted">Training Fasted</button>
+            <button type="button" class="secondary" data-readiness-choice="fuel-complete">Fuel Complete</button>
+            <button type="button" class="secondary" data-readiness-choice="training-fasted">Training Fasted Intentionally</button>
+            <button type="button" class="secondary" data-readiness-choice="food-unavailable">Food Unavailable</button>
+            <button type="button" class="secondary" data-readiness-choice="digestive-tolerance">Skipping — Digestive Tolerance</button>
+            <button type="button" class="secondary" data-readiness-choice="continue-incomplete">Continue Without Complete Data</button>
           </div>
         </div>
         <div class="workout-progress-wrap">
@@ -529,6 +531,16 @@
         <label>What did you eat? <textarea id="mealDescription" placeholder="e.g. 2 chicken breasts, rice, olive oil and Greek yogurt"></textarea></label>
         <div class="form-grid">
           <label>Meal Name <input id="mealName" placeholder="e.g. Lunch"></label>
+          <label>Quantity <input id="mealQuantity" type="number" step="0.1" placeholder="e.g. 2"></label>
+          <label>Unit <select id="mealUnit">
+            <option value="">--</option>
+            <option value="g">g</option>
+            <option value="ml">ml</option>
+            <option value="each">each</option>
+            <option value="serving">serving</option>
+            <option value="cup">cup</option>
+            <option value="tbsp">tbsp</option>
+          </select></label>
           <label>Time <input id="mealTime" type="time"></label>
           <label>Recovery Tag (optional) <select id="mealRecoveryTag">
             <option value="">--</option>
@@ -559,7 +571,7 @@
         <div id="mealValidationMessage" class="small" hidden></div>
         <div class="badge-row">
           <button id="saveMealBtn">Save Meal</button>
-          <button id="saveMealDraftBtn" type="button" class="secondary">Save as Draft</button>
+          <button id="saveMealDraftBtn" type="button" class="secondary">Save as Incomplete Draft</button>
           <button id="saveFoodTemplateBtn" type="button" class="secondary">Save as Reusable Template</button>
         </div>
       </section>
@@ -567,6 +579,7 @@
       <section class="card">
         <div class="section-title"><h2>Today's Meals</h2><span id="mealDailyBadge" class="badge"></span></div>
         <div class="badge-row"><span id="mealConfidenceBadge" class="badge"></span></div>
+        <p id="mealConfidenceProvisionalNote" class="small status-under" hidden></p>
         <div id="mealDailyTotals"></div>
         <div id="mealRemaining"></div>
         <div id="todayMealLog"></div>
@@ -824,6 +837,7 @@
         <h2>Log an Intervention</h2>
         <div class="form-grid">
           <label>Issue <input id="interventionIssue" placeholder="What's the problem?"></label>
+          <label>Target Metric <input id="interventionTargetMetric" placeholder="e.g. bodyweight, Hammer Curl load"></label>
           <label>Start Date <input id="interventionStartDate" type="date"></label>
           <label>Reassess Date <input id="interventionReassessDate" type="date"></label>
         </div>

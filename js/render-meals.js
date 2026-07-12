@@ -44,6 +44,8 @@ export async function estimateMeal() {
   $("mealCarbs").value = lastEstimate.carbs;
   $("mealFat").value = lastEstimate.fat;
   $("mealFibre").value = lastEstimate.fibre;
+  if ($("mealQuantity") && !$("mealQuantity").value) $("mealQuantity").value = "1";
+  if ($("mealUnit") && !$("mealUnit").value) $("mealUnit").value = "serving";
 
   const pill = $("mealConfidencePill");
   pill.textContent = lastEstimate.confidenceScore;
@@ -84,6 +86,8 @@ export function saveFoodTemplateFromCurrentMeal() {
     name,
     rawDescription: $("mealDescription").value || name,
     calories, protein, carbs, fat, fibre,
+    quantity: $("mealQuantity")?.value || "1",
+    unit: $("mealUnit")?.value || "serving",
     createdAt: new Date().toISOString()
   });
   saveData(data);
@@ -103,6 +107,8 @@ function applyFoodTemplate(id) {
   $("mealCarbs").value = t.carbs;
   $("mealFat").value = t.fat;
   $("mealFibre").value = t.fibre;
+  if ($("mealQuantity")) $("mealQuantity").value = t.quantity || "1";
+  if ($("mealUnit")) $("mealUnit").value = t.unit || "serving";
 
   lastEstimate = {
     foodsDetected: [t.name], calories: t.calories, protein: t.protein, carbs: t.carbs, fat: t.fat, fibre: t.fibre,
@@ -131,20 +137,23 @@ export function renderFoodTemplates(data) {
 export function saveMeal(asDraft = false) {
   const data = getData();
   const now = new Date();
-  const calories = Number($("mealCalories").value || 0);
-  const protein = Number($("mealProtein").value || 0);
-  const carbs = Number($("mealCarbs").value || 0);
-  const fat = Number($("mealFat").value || 0);
+  const mealName = $("mealName").value.trim();
+  const quantity = $("mealQuantity")?.value === "" ? null : $("mealQuantity")?.value;
+  const unit = $("mealUnit")?.value || null;
+  const calories = $("mealCalories").value === "" ? null : Number($("mealCalories").value);
+  const protein = $("mealProtein").value === "" ? null : Number($("mealProtein").value);
+  const carbs = $("mealCarbs").value === "" ? null : Number($("mealCarbs").value);
+  const fat = $("mealFat").value === "" ? null : Number($("mealFat").value);
   const fibre = Number($("mealFibre").value || 0);
 
   const validationEl = $("mealValidationMessage");
   if (!asDraft) {
-    const validation = validateMealEntry({ calories, protein, carbs, fat });
+    const validation = validateMealEntry({ mealName, quantity, unit, calories, protein, carbs, fat });
     if (!validation.reconciled) {
       if (validationEl) {
         validationEl.hidden = false;
         validationEl.className = "small status-under";
-        validationEl.textContent = `${validation.message} Fix the numbers, or use "Save as Draft" to log it now and reconcile later — drafts don't count toward today's totals until fixed.`;
+        validationEl.textContent = `${validation.message} Fix the entry, or choose "Save as Incomplete Draft" to log it now — drafts don't count toward today's totals until completed.`;
       } else {
         alert(validation.message);
       }
@@ -161,16 +170,16 @@ export function saveMeal(asDraft = false) {
     id: uid(),
     date: todayISO(),
     time: $("mealTime").value || now.toTimeString().slice(0, 5),
-    mealName: $("mealName").value || "Meal",
+    mealName: mealName || "Meal",
     rawDescription: $("mealDescription").value,
     foodsDetected: lastEstimate?.foodsDetected || [],
-    calories, protein, carbs, fat, fibre,
+    calories: calories ?? 0, protein: protein ?? 0, carbs: carbs ?? 0, fat: fat ?? 0, fibre,
     confidenceScore: lastEstimate?.confidenceScore || "Manual",
     assumptions: lastEstimate?.assumptions || [],
     userCorrected,
     correctionNotes: "",
     recoveryTag: $("mealRecoveryTag")?.value || null,
-    quantity: null, unit: null,
+    quantity, unit,
     isDraft: asDraft,
     source: lastEstimate ? (lastEstimate.source || "estimator") : "manual",
     createdAt: now.toISOString(),
@@ -178,12 +187,13 @@ export function saveMeal(asDraft = false) {
   });
   saveData(data);
 
-  ["mealDescription", "mealName", "mealTime", "mealCalories", "mealProtein", "mealCarbs", "mealFat", "mealFibre"].forEach(id => $(id).value = "");
+  ["mealDescription", "mealName", "mealTime", "mealQuantity", "mealCalories", "mealProtein", "mealCarbs", "mealFat", "mealFibre"].forEach(id => { if ($(id)) $(id).value = ""; });
   if ($("mealRecoveryTag")) $("mealRecoveryTag").value = "";
+  if ($("mealUnit")) $("mealUnit").value = "";
   $("mealEstimateResult").hidden = true;
   lastEstimate = null;
   refreshAll();
-  alert(asDraft ? "Meal saved as a draft — it won't count toward today's totals until the macros are reconciled and re-saved." : "Meal saved.");
+  alert(asDraft ? "Meal saved as an incomplete draft — it won't count toward today's totals until completed and re-saved." : "Meal saved.");
 }
 
 function currentWeight(data) {
@@ -214,6 +224,11 @@ function renderTodayMeals(data) {
     confidenceBadge.textContent = `Data Confidence: ${confidence.status}`;
     confidenceBadge.title = confidence.reason;
     confidenceBadge.className = `badge ${confidence.status === "High" ? "status-on-target" : confidence.status === "Medium" ? "" : "status-under"}`;
+  }
+  const provisionalEl = $("mealConfidenceProvisionalNote");
+  if (provisionalEl) {
+    provisionalEl.textContent = confidence.provisionalMessage || "";
+    provisionalEl.hidden = !confidence.provisionalMessage;
   }
 
   const totalsEl = $("mealDailyTotals");
@@ -367,7 +382,7 @@ export function logPreWorkoutReadinessChoice(readinessChoice) {
   } else {
     data.preWorkoutLogs.push({
       id: uid(), date: today, time: now.toTimeString().slice(0, 5),
-      readinessChoice, mealCompleted: readinessChoice === "fuelled",
+      readinessChoice, mealCompleted: readinessChoice === "fuel-complete",
       carbsG: null, proteinG: null, minutesBeforeTraining: null, notes: "",
       createdAt: now.toISOString(), updatedAt: now.toISOString()
     });
@@ -391,7 +406,7 @@ export function savePreWorkoutLog() {
   } else {
     data.preWorkoutLogs.push({
       id: uid(), date: today, time: now.toTimeString().slice(0, 5),
-      readinessChoice: "fuelled", mealCompleted: true,
+      readinessChoice: "fuel-complete", mealCompleted: true,
       carbsG, proteinG, minutesBeforeTraining, notes,
       createdAt: now.toISOString(), updatedAt: now.toISOString()
     });
@@ -422,6 +437,14 @@ export function savePostWorkoutLog() {
   alert("Post-workout recovery meal logged.");
 }
 
+export const READINESS_CHOICE_LABELS = {
+  "fuel-complete": "Fuel Complete",
+  "training-fasted": "Training Fasted Intentionally",
+  "food-unavailable": "Food Unavailable",
+  "digestive-tolerance": "Skipping — Digestive Tolerance",
+  "continue-incomplete": "Continue Without Complete Data"
+};
+
 export function renderPreWorkoutReadinessGate(data) {
   const gate = $("preWorkoutReadinessGate");
   if (!gate) return;
@@ -434,7 +457,7 @@ export function renderPrePostWorkoutHistory(data) {
   if (preEl) {
     preEl.innerHTML = data.preWorkoutLogs.slice().reverse().slice(0, 10).map(p => `
       <div class="history-item">
-        <strong>${esc(p.date)}</strong>${p.time ? " · " + esc(p.time) : ""} · ${esc(p.readinessChoice || "logged")}
+        <strong>${esc(p.date)}</strong>${p.time ? " · " + esc(p.time) : ""} · ${esc(READINESS_CHOICE_LABELS[p.readinessChoice] || p.readinessChoice || "logged")}
         ${p.carbsG != null || p.proteinG != null ? `<br>${p.carbsG ?? "-"}g carbs · ${p.proteinG ?? "-"}g protein${p.minutesBeforeTraining != null ? ` · ${p.minutesBeforeTraining} min before` : ""}` : ""}
         ${p.notes ? `<br>${esc(p.notes)}` : ""}
         <div class="actions"><button class="danger" data-delete="preWorkoutLogs" data-id="${p.id}">Delete</button></div>

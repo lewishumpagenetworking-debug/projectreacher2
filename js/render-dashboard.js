@@ -9,6 +9,7 @@ import {
   exercisesReadyToIncrease, nutritionConfidenceStatus, preWorkoutReadinessToday, detectFatigueReason
 } from "./calculations.js";
 import { runContingencyEngine } from "./contingency-engine.js";
+import { READINESS_CHOICE_LABELS } from "./render-meals.js";
 import { DEFAULT_TRAINING_PROGRAM, MUSCLE_GROUPS } from "./program.js";
 import { SUPPLEMENT_DATABASE } from "./recovery-data.js";
 
@@ -66,7 +67,7 @@ function renderClosedLoopIntelligence(data) {
   const referenceDate = new Date();
   const todayISO = referenceDate.toLocaleDateString("en-CA");
 
-  const readyToIncrease = exercisesReadyToIncrease(data.workouts || []);
+  const readyToIncrease = exercisesReadyToIncrease(data.workouts || [], data.exercises || []);
   const nextProgression = readyToIncrease[0] || null;
   const nutritionConfidence = nutritionConfidenceStatus(data.mealLogs || [], todayISO);
   const preWorkout = preWorkoutReadinessToday(data.preWorkoutLogs || [], referenceDate);
@@ -79,17 +80,18 @@ function renderClosedLoopIntelligence(data) {
 
   el.innerHTML = `
     <div class="badge-row">
-      <span class="badge">Next Progression: ${nextProgression ? esc(nextProgression) : "None ready yet"}</span>
+      <span class="badge">Next Progression: ${nextProgression ? esc(nextProgression.name) : "None ready yet"}</span>
       <span class="badge">Ready to Increase: ${readyToIncrease.length}</span>
       <span class="badge ${nutritionConfidence.status === "High" ? "status-on-target" : nutritionConfidence.status === "Low" || nutritionConfidence.status === "Incomplete Day" ? "status-under" : ""}">Nutrition Confidence: ${esc(nutritionConfidence.status)}</span>
-      <span class="badge">Pre-Workout Fuel: ${preWorkout ? esc(preWorkout.readinessChoice) : "Not logged today"}</span>
+      <span class="badge">Pre-Workout Fuel: ${preWorkout ? esc(READINESS_CHOICE_LABELS[preWorkout.readinessChoice] || preWorkout.readinessChoice) : "Not logged today"}</span>
       <span class="badge ${direction.direction === "Push" ? "status-on-target" : direction.direction === "Prioritise Recovery" ? "status-under" : ""}">Recovery Direction: ${esc(direction.direction)}</span>
       <span class="badge">Caffeine: ${esc(caffeine.label)}</span>
       <span class="badge">Current Constraint: ${esc(currentConstraint)}</span>
       <span class="badge">Active Intervention: ${activeIntervention ? esc(activeIntervention.issue) : "None"}</span>
       <span class="badge">Reassessment Date: ${activeIntervention?.reassessDate ? esc(activeIntervention.reassessDate) : "--"}</span>
     </div>
-    ${readyToIncrease.length ? `<p class="small">Ready to increase: ${readyToIncrease.map(esc).join(", ")}</p>` : ""}
+    ${nextProgression ? `<p class="small"><strong>${esc(nextProgression.name)}</strong> — Status: Increase Load. Reason: ${esc(nextProgression.reason)}</p>` : ""}
+    ${readyToIncrease.length > 1 ? `<p class="small">Also ready to increase: ${readyToIncrease.slice(1).map(r => esc(r.name)).join(", ")}</p>` : ""}
   `;
 }
 

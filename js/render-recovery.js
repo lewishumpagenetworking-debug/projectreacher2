@@ -463,14 +463,16 @@ export function saveIntervention() {
     issue,
     hypothesis: $("interventionHypothesis")?.value || "",
     intervention: $("interventionAction")?.value || "",
+    targetMetric: $("interventionTargetMetric")?.value || "",
     startDate: $("interventionStartDate")?.value || new Date().toLocaleDateString("en-CA"),
     reassessDate: $("interventionReassessDate")?.value || null,
     status: "Open",
     result: "",
+    outcome: "Inconclusive",
     createdAt: now, updatedAt: now
   });
   saveData(data);
-  ["interventionIssue", "interventionHypothesis", "interventionAction", "interventionStartDate", "interventionReassessDate"]
+  ["interventionIssue", "interventionHypothesis", "interventionAction", "interventionTargetMetric", "interventionStartDate", "interventionReassessDate"]
     .forEach(id => { if ($(id)) $(id).value = ""; });
   refreshAll();
   alert("Intervention logged.");
@@ -489,6 +491,7 @@ export function renderInterventionHistory(data) {
   const el = $("interventionHistory");
   if (!el) return;
   const statuses = ["Open", "In Progress", "Resolved", "Abandoned"];
+  const outcomes = ["Inconclusive", "Successful", "Unsuccessful"];
   el.innerHTML = data.interventions.slice().reverse().map(i => `
     <div class="history-item">
       <div class="section-title"><strong>${esc(i.issue)}</strong>
@@ -498,8 +501,12 @@ export function renderInterventionHistory(data) {
       </div>
       ${i.hypothesis ? `<p class="small"><strong>Hypothesis:</strong> ${esc(i.hypothesis)}</p>` : ""}
       ${i.intervention ? `<p class="small"><strong>Intervention:</strong> ${esc(i.intervention)}</p>` : ""}
+      ${i.targetMetric ? `<p class="small"><strong>Target metric:</strong> ${esc(i.targetMetric)}</p>` : ""}
       <p class="small">Started ${esc(i.startDate)}${i.reassessDate ? ` · Reassess ${esc(i.reassessDate)}` : ""}</p>
       <textarea data-intervention="${i.id}" data-field="result" placeholder="Result / outcome">${esc(i.result || "")}</textarea>
+      <label>Outcome <select data-intervention="${i.id}" data-field="outcome">
+        ${outcomes.map(o => `<option value="${o}" ${(i.outcome || "Inconclusive") === o ? "selected" : ""}>${o}</option>`).join("")}
+      </select></label>
       <div class="actions"><button class="danger" data-delete="interventions" data-id="${i.id}">Delete</button></div>
     </div>`).join("") || "<p class='small'>No interventions logged yet.</p>";
 }
