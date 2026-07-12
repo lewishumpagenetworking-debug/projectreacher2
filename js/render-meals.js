@@ -1,8 +1,9 @@
 import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
 import { estimateMealMacros } from "./food-estimator.js";
-import { macroTargets, dailyMealTotals, remainingMacros, macroAdherence, monthlyMealSummary, loggingStreakDays } from "./calculations.js";
+import { macroTargets, dailyMealTotals, remainingMacros, macroAdherence, monthlyMealSummary, loggingStreakDays, validateMealEntry, nutritionConfidenceStatus, preWorkoutReadinessToday, trainingNutritionCorrelation } from "./calculations.js";
 import { lineChart, stackedBarRows } from "./charts.js";
+import { hasApiKey, estimateMealMacrosViaClaude } from "./claude-client.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 const todayISO = () => new Date().toLocaleDateString("en-CA");
@@ -11,10 +12,32 @@ let selectedMonth = todayISO().slice(0, 7);
 let activeFilter = "all";
 let lastEstimate = null;
 
-export function estimateMeal() {
+export async function estimateMeal() {
   const description = $("mealDescription").value;
   if (!description.trim()) { alert("Describe what you ate first."); return; }
-  lastEstimate = estimateMealMacros(description);
+
+  const btn = $("estimateMealBtn");
+  const originalLabel = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = "Estimating..."; }
+
+  try {
+    if (hasApiKey()) {
+      try {
+        const data = getData();
+        lastEstimate = await estimateMealMacrosViaClaude(description, data.aiSettings?.preferredModel || "claude-sonnet-5");
+      } catch (err) {
+        lastEstimate = estimateMealMacros(description);
+        lastEstimate.assumptions = [
+          `Claude estimate unavailable (${err.message}) — used the built-in local estimator instead.`,
+          ...lastEstimate.assumptions
+        ];
+      }
+    } else {
+      lastEstimate = estimateMealMacros(description);
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
 
   $("mealCalories").value = lastEstimate.calories;
   $("mealProtein").value = lastEstimate.protein;
@@ -28,13 +51,84 @@ export function estimateMeal() {
 
   $("mealAssumptions").innerHTML = [
     lastEstimate.foodsDetected.length ? `<strong>Detected:</strong> ${esc(lastEstimate.foodsDetected.join(", "))}` : "",
-    ...lastEstimate.assumptions.map(a => esc(a))
+    ...lastEstimate.assumptions.map(a => esc(a)),
+    lastEstimate.source === "claude" ? "<em>Estimated by Claude.</em>" : "<em>Estimated by the local food-keyword lookup.</em>"
   ].filter(Boolean).join("<br>");
+
+  const clarifyEl = $("mealClarifyingQuestion");
+  if (clarifyEl) {
+    if (lastEstimate.clarifyingQuestion) {
+      clarifyEl.hidden = false;
+      clarifyEl.textContent = `To improve this estimate: ${lastEstimate.clarifyingQuestion}`;
+    } else {
+      clarifyEl.hidden = true;
+    }
+  }
 
   $("mealEstimateResult").hidden = false;
 }
 
-export function saveMeal() {
+export function saveFoodTemplateFromCurrentMeal() {
+  const name = ($("mealName").value || "").trim() || ($("mealDescription").value || "").trim().slice(0, 40);
+  if (!name) { alert("Enter a meal name or description before saving a template."); return; }
+  const calories = Number($("mealCalories").value || 0);
+  const protein = Number($("mealProtein").value || 0);
+  const carbs = Number($("mealCarbs").value || 0);
+  const fat = Number($("mealFat").value || 0);
+  const fibre = Number($("mealFibre").value || 0);
+  if (!calories && !protein && !carbs && !fat) { alert("Estimate or enter macros before saving a template."); return; }
+
+  const data = getData();
+  data.foodTemplates.push({
+    id: uid(),
+    name,
+    rawDescription: $("mealDescription").value || name,
+    calories, protein, carbs, fat, fibre,
+    createdAt: new Date().toISOString()
+  });
+  saveData(data);
+  refreshAll();
+  alert(`Saved "${name}" as a reusable food template.`);
+}
+
+function applyFoodTemplate(id) {
+  const data = getData();
+  const t = (data.foodTemplates || []).find(x => x.id === id);
+  if (!t) return;
+
+  $("mealName").value = t.name;
+  $("mealDescription").value = t.rawDescription || t.name;
+  $("mealCalories").value = t.calories;
+  $("mealProtein").value = t.protein;
+  $("mealCarbs").value = t.carbs;
+  $("mealFat").value = t.fat;
+  $("mealFibre").value = t.fibre;
+
+  lastEstimate = {
+    foodsDetected: [t.name], calories: t.calories, protein: t.protein, carbs: t.carbs, fat: t.fat, fibre: t.fibre,
+    confidenceScore: "High", assumptions: [`Loaded from your saved template "${t.name}".`], clarifyingQuestion: null, source: "template"
+  };
+
+  const pill = $("mealConfidencePill");
+  if (pill) { pill.textContent = "High"; pill.className = "confidence-pill confidence-high"; }
+  const assumptionsEl = $("mealAssumptions");
+  if (assumptionsEl) assumptionsEl.innerHTML = esc(lastEstimate.assumptions[0]);
+  const clarifyEl = $("mealClarifyingQuestion");
+  if (clarifyEl) clarifyEl.hidden = true;
+  $("mealEstimateResult").hidden = false;
+}
+
+export function renderFoodTemplates(data) {
+  const select = $("foodTemplateSelect");
+  if (!select) return;
+  const templates = data.foodTemplates || [];
+  const current = select.value;
+  select.innerHTML = `<option value="">-- Use a saved food template --</option>` +
+    templates.map(t => `<option value="${t.id}">${esc(t.name)} (${t.calories}kcal, P${t.protein}/C${t.carbs}/F${t.fat})</option>`).join("");
+  if (templates.some(t => t.id === current)) select.value = current;
+}
+
+export function saveMeal(asDraft = false) {
   const data = getData();
   const now = new Date();
   const calories = Number($("mealCalories").value || 0);
@@ -42,6 +136,22 @@ export function saveMeal() {
   const carbs = Number($("mealCarbs").value || 0);
   const fat = Number($("mealFat").value || 0);
   const fibre = Number($("mealFibre").value || 0);
+
+  const validationEl = $("mealValidationMessage");
+  if (!asDraft) {
+    const validation = validateMealEntry({ calories, protein, carbs, fat });
+    if (!validation.reconciled) {
+      if (validationEl) {
+        validationEl.hidden = false;
+        validationEl.className = "small status-under";
+        validationEl.textContent = `${validation.message} Fix the numbers, or use "Save as Draft" to log it now and reconcile later — drafts don't count toward today's totals until fixed.`;
+      } else {
+        alert(validation.message);
+      }
+      return;
+    }
+  }
+  if (validationEl) validationEl.hidden = true;
 
   const userCorrected = lastEstimate
     ? (calories !== lastEstimate.calories || protein !== lastEstimate.protein || carbs !== lastEstimate.carbs || fat !== lastEstimate.fat || fibre !== lastEstimate.fibre)
@@ -60,6 +170,9 @@ export function saveMeal() {
     userCorrected,
     correctionNotes: "",
     recoveryTag: $("mealRecoveryTag")?.value || null,
+    quantity: null, unit: null,
+    isDraft: asDraft,
+    source: lastEstimate ? (lastEstimate.source || "estimator") : "manual",
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
   });
@@ -70,7 +183,7 @@ export function saveMeal() {
   $("mealEstimateResult").hidden = true;
   lastEstimate = null;
   refreshAll();
-  alert("Meal saved.");
+  alert(asDraft ? "Meal saved as a draft — it won't count toward today's totals until the macros are reconciled and re-saved." : "Meal saved.");
 }
 
 function currentWeight(data) {
@@ -82,6 +195,7 @@ export function renderMealTracking(data) {
   renderMonthSelect(data);
   renderMonthlyOverview(data);
   renderMealHistory(data);
+  renderFoodTemplates(data);
 }
 
 function renderTodayMeals(data) {
@@ -93,6 +207,14 @@ function renderTodayMeals(data) {
 
   const badge = $("mealDailyBadge");
   if (badge) { badge.textContent = adherence.macroStatus; badge.className = `badge status-${adherence.macroStatus === "On target" ? "on-target" : "under"}`; }
+
+  const confidence = nutritionConfidenceStatus(data.mealLogs, today);
+  const confidenceBadge = $("mealConfidenceBadge");
+  if (confidenceBadge) {
+    confidenceBadge.textContent = `Data Confidence: ${confidence.status}`;
+    confidenceBadge.title = confidence.reason;
+    confidenceBadge.className = `badge ${confidence.status === "High" ? "status-on-target" : confidence.status === "Medium" ? "" : "status-under"}`;
+  }
 
   const totalsEl = $("mealDailyTotals");
   if (totalsEl) {
@@ -151,6 +273,7 @@ function mealHistoryItem(m) {
       <span class="badge">F${m.fat}</span>
       <span class="badge">Fibre${m.fibre}</span>
       ${m.recoveryTag ? `<span class="badge status-on-target">${esc(m.recoveryTag.replace(/-/g, " "))}</span>` : ""}
+      ${m.isDraft ? `<span class="badge status-under">Draft — not counted in totals</span>` : ""}
     </div>
     <div class="actions">
       <button class="secondary" data-duplicate-meal="${m.id}">Add Again Today</button>
@@ -231,6 +354,121 @@ export function syncMealsToDailyNutrition() {
   alert("Today's nutrition total updated from meal log.");
 }
 
+// ==================== PRE / POST WORKOUT NUTRITION ====================
+
+export function logPreWorkoutReadinessChoice(readinessChoice) {
+  const data = getData();
+  const today = todayISO();
+  const now = new Date();
+  const existing = data.preWorkoutLogs.find(p => p.date === today);
+  if (existing) {
+    existing.readinessChoice = readinessChoice;
+    existing.updatedAt = now.toISOString();
+  } else {
+    data.preWorkoutLogs.push({
+      id: uid(), date: today, time: now.toTimeString().slice(0, 5),
+      readinessChoice, mealCompleted: readinessChoice === "fuelled",
+      carbsG: null, proteinG: null, minutesBeforeTraining: null, notes: "",
+      createdAt: now.toISOString(), updatedAt: now.toISOString()
+    });
+  }
+  saveData(data);
+  refreshAll();
+}
+
+export function savePreWorkoutLog() {
+  const data = getData();
+  const now = new Date();
+  const today = todayISO();
+  const carbsG = $("preWorkoutCarbs")?.value === "" ? null : Number($("preWorkoutCarbs")?.value);
+  const proteinG = $("preWorkoutProtein")?.value === "" ? null : Number($("preWorkoutProtein")?.value);
+  const minutesBeforeTraining = $("preWorkoutMinutesBefore")?.value === "" ? null : Number($("preWorkoutMinutesBefore")?.value);
+  const notes = $("preWorkoutNotes")?.value || "";
+
+  const existing = data.preWorkoutLogs.find(p => p.date === today);
+  if (existing) {
+    Object.assign(existing, { carbsG, proteinG, minutesBeforeTraining, notes, mealCompleted: true, updatedAt: now.toISOString() });
+  } else {
+    data.preWorkoutLogs.push({
+      id: uid(), date: today, time: now.toTimeString().slice(0, 5),
+      readinessChoice: "fuelled", mealCompleted: true,
+      carbsG, proteinG, minutesBeforeTraining, notes,
+      createdAt: now.toISOString(), updatedAt: now.toISOString()
+    });
+  }
+  saveData(data);
+  ["preWorkoutCarbs", "preWorkoutProtein", "preWorkoutMinutesBefore", "preWorkoutNotes"].forEach(id => { if ($(id)) $(id).value = ""; });
+  refreshAll();
+  alert("Pre-workout fuel logged.");
+}
+
+export function savePostWorkoutLog() {
+  const data = getData();
+  const now = new Date();
+  const proteinG = $("postWorkoutProtein")?.value === "" ? null : Number($("postWorkoutProtein")?.value);
+  const carbsG = $("postWorkoutCarbs")?.value === "" ? null : Number($("postWorkoutCarbs")?.value);
+  const appetite = $("postWorkoutAppetite")?.value === "" ? null : Number($("postWorkoutAppetite")?.value);
+  const digestion = $("postWorkoutDigestion")?.value === "" ? null : Number($("postWorkoutDigestion")?.value);
+  const notes = $("postWorkoutNotes")?.value || "";
+
+  data.postWorkoutLogs.push({
+    id: uid(), date: todayISO(), time: now.toTimeString().slice(0, 5),
+    proteinG, carbsG, appetite, digestion, notes,
+    createdAt: now.toISOString(), updatedAt: now.toISOString()
+  });
+  saveData(data);
+  ["postWorkoutProtein", "postWorkoutCarbs", "postWorkoutAppetite", "postWorkoutDigestion", "postWorkoutNotes"].forEach(id => { if ($(id)) $(id).value = ""; });
+  refreshAll();
+  alert("Post-workout recovery meal logged.");
+}
+
+export function renderPreWorkoutReadinessGate(data) {
+  const gate = $("preWorkoutReadinessGate");
+  if (!gate) return;
+  const today = preWorkoutReadinessToday(data.preWorkoutLogs);
+  gate.hidden = !!today;
+}
+
+export function renderPrePostWorkoutHistory(data) {
+  const preEl = $("preWorkoutHistory");
+  if (preEl) {
+    preEl.innerHTML = data.preWorkoutLogs.slice().reverse().slice(0, 10).map(p => `
+      <div class="history-item">
+        <strong>${esc(p.date)}</strong>${p.time ? " · " + esc(p.time) : ""} · ${esc(p.readinessChoice || "logged")}
+        ${p.carbsG != null || p.proteinG != null ? `<br>${p.carbsG ?? "-"}g carbs · ${p.proteinG ?? "-"}g protein${p.minutesBeforeTraining != null ? ` · ${p.minutesBeforeTraining} min before` : ""}` : ""}
+        ${p.notes ? `<br>${esc(p.notes)}` : ""}
+        <div class="actions"><button class="danger" data-delete="preWorkoutLogs" data-id="${p.id}">Delete</button></div>
+      </div>`).join("") || "<p class='small'>No pre-workout logs yet.</p>";
+  }
+  const postEl = $("postWorkoutHistory");
+  if (postEl) {
+    postEl.innerHTML = data.postWorkoutLogs.slice().reverse().slice(0, 10).map(p => `
+      <div class="history-item">
+        <strong>${esc(p.date)}</strong>${p.time ? " · " + esc(p.time) : ""} · ${p.proteinG ?? "-"}g protein · ${p.carbsG ?? "-"}g carbs
+        ${p.appetite != null ? ` · Appetite ${p.appetite}/5` : ""}${p.digestion != null ? ` · Digestion ${p.digestion}/5` : ""}
+        ${p.notes ? `<br>${esc(p.notes)}` : ""}
+        <div class="actions"><button class="danger" data-delete="postWorkoutLogs" data-id="${p.id}">Delete</button></div>
+      </div>`).join("") || "<p class='small'>No post-workout logs yet.</p>";
+  }
+}
+
+export function renderTrainingNutritionCorrelation(data) {
+  const el = $("trainingNutritionCorrelation");
+  if (!el) return;
+  const result = trainingNutritionCorrelation(data);
+  if (!result.hasData) {
+    el.innerHTML = `<p class="small">${esc(result.note || "Log pre-workout readiness on a few more sessions to unlock training-nutrition pattern analysis.")}</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="badge-row">
+      <span class="badge">Fuelled avg volume: ${result.averageVolumeFuelled}kg</span>
+      <span class="badge">Under-fuelled avg volume: ${result.averageVolumeUnderfuelled}kg</span>
+      <span class="badge">${result.sessionsAnalysed} sessions analysed</span>
+    </div>
+    <p class="small">${esc(result.pattern)}</p>`;
+}
+
 export function setupMealEventDelegation() {
   document.addEventListener("click", (e) => {
     const dup = e.target.closest("[data-duplicate-meal]");
@@ -267,4 +505,7 @@ export function setupMealEventDelegation() {
   });
 
   $("mealSearch")?.addEventListener("input", () => renderMealHistory(getData()));
+  $("foodTemplateSelect")?.addEventListener("change", (e) => {
+    if (e.target.value) applyFoodTemplate(e.target.value);
+  });
 }

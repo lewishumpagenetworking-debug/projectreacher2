@@ -105,7 +105,12 @@ export function saveMeasurements() {
     flexedArm: $("flexedArm").value,
     relaxedArm: $("relaxedArm").value,
     pumpedNote: $("pumpedNote").value,
-    notes: $("measurementNotes").value
+    notes: $("measurementNotes").value,
+    measurementMethods: {
+      shoulders: $("shouldersMethod")?.value || "circumference",
+      chest: $("chestMethod")?.value || "circumference",
+      waist: $("waistMethod")?.value || "circumference"
+    }
   });
   saveData(data);
   refreshAll();
@@ -135,7 +140,8 @@ export function renderMeasurementsHistory(data) {
       <span class="badge">Target arms 38-41cm</span>
       <span class="badge">Target chest 105-110cm</span>
       <span class="badge">Target neck 40-43cm</span>
-    </div>`;
+    </div>
+    ${r.methodWarning ? `<p class="small status-under">${esc(r.methodWarning)}</p>` : ""}`;
   }
 }
 

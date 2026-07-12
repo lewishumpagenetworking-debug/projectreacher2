@@ -3,9 +3,10 @@ import { getData, saveData, uid } from "./data.js";
 import {
   calculateSleepDuration, formatHoursAsHM, sleepStats, weekendRecoveryStatus,
   hydrationStatus, caffeineLoadStatus, recoveryMealCompliance, readinessScore,
-  detectFatigueReason, activeRecoveryProtocols, recoveryCoachRead
+  detectFatigueReason, activeRecoveryProtocols, recoveryCoachRead, currentBodyweightKg, caffeineGradualReductionPlan
 } from "./calculations.js";
 import { SUPPLEMENT_DATABASE, MEDICAL_EDUCATION_DATABASE, MEDICAL_DISCLAIMERS } from "./recovery-data.js";
+import { runContingencyEngine } from "./contingency-engine.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -62,11 +63,13 @@ export function saveStimulants() {
     nicotineUsed: $("sNicotineUsed").checked,
     nicotineAmount: $("sNicotineAmount").value,
     nicotineTiming: $("sNicotineTiming").value,
+    redFlagSymptoms: [...document.querySelectorAll(".sRedFlag:checked")].map(cb => cb.value),
     notes: $("sNotes").value
   });
   saveData(data);
   ["sCaffeineMg", "sCaffeineTiming", "sProductName", "sServingSize", "sBetaAlanineMg", "sBcaaMg", "sPerceivedEffect", "sPumpQuality", "sNicotineAmount", "sNicotineTiming", "sNotes"]
     .forEach(id => { if ($(id)) $(id).value = ""; });
+  document.querySelectorAll(".sRedFlag:checked").forEach(cb => cb.checked = false);
   ["sPreWorkoutMealCompleted", "sCrashLater", "sJittersAnxiety", "sSleepAffected", "sPerformanceImproved", "sNicotineUsed"]
     .forEach(id => { if ($(id)) $(id).checked = false; });
   if ($("sSource")) $("sSource").value = "";
@@ -370,13 +373,43 @@ function renderMedicalEducationDatabase() {
   `).join("");
 }
 
+function renderCaffeineStatusCard(data, caffeine) {
+  const statusEl = $("caffeineStatusCard");
+  if (statusEl) {
+    const cutoffHours = data.profile?.caffeineCutoffHours ?? 8;
+    statusEl.innerHTML = `
+      <div class="badge-row">
+        <span class="badge ${caffeine.status === "Low" ? "status-on-target" : caffeine.status === "Moderate" ? "" : "status-under"}">${esc(caffeine.label)}</span>
+        <span class="badge">${caffeine.totalMg}mg today</span>
+        ${caffeine.mgPerKg != null ? `<span class="badge">${caffeine.mgPerKg}mg/kg</span>` : ""}
+        <span class="badge">Cutoff: ${cutoffHours}h before bed</span>
+      </div>
+      <p class="small">${esc(caffeine.message)}</p>
+      ${caffeine.redFlagEscalation ? `<div class="warning-banner">${esc(caffeine.redFlagEscalation)}</div>` : ""}
+    `;
+  }
+  const planEl = $("caffeineReductionPlan");
+  if (planEl) {
+    const plan = caffeineGradualReductionPlan(data.stimulantLogs || []);
+    if (!plan.hasData || !plan.needed) {
+      planEl.innerHTML = `<p class="small">${esc(plan.note || "")}</p>`;
+    } else {
+      planEl.innerHTML = `
+        <p class="small"><strong>Gradual Reduction Plan</strong> — current 14-day average: ${plan.currentAverage}mg/day.</p>
+        <p class="small">${esc(plan.note)}</p>
+        <div class="badge-row">${plan.steps.map(s => `<span class="badge">Week ${s.week}: ~${s.targetMg}mg</span>`).join("")}</div>
+      `;
+    }
+  }
+}
+
 export function renderRecoveryCommandCentre(data) {
   if (!$("recoveryHeroStatus")) return;
   const referenceDate = new Date();
   const sStats = sleepStats(data.sleepLogs || [], referenceDate);
   const weekend = weekendRecoveryStatus(data.sleepLogs || [], referenceDate);
   const hydration = hydrationStatus(data.hydrationLogs || [], data.stimulantLogs || [], referenceDate);
-  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate);
+  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate, currentBodyweightKg(data));
   const mealCompliance = recoveryMealCompliance(data.mealLogs || [], referenceDate);
   const readiness = readinessScore(data, referenceDate);
   const fatigue = detectFatigueReason(data, referenceDate);
@@ -384,6 +417,7 @@ export function renderRecoveryCommandCentre(data) {
   const coach = recoveryCoachRead(data, referenceDate);
 
   renderRecoveryHero(data, readiness, sStats, hydration, caffeine, fatigue);
+  renderCaffeineStatusCard(data, caffeine);
   updateSleepWindowVisual();
   renderSleepStatsOutput(sStats);
   renderSleepHistory(data);
@@ -395,6 +429,79 @@ export function renderRecoveryCommandCentre(data) {
   renderAiRecoveryCoach(coach);
   renderSupplementDatabase();
   renderMedicalEducationDatabase();
+  renderContingencyEngineOutput(data);
+  renderInterventionHistory(data);
+}
+
+// ==================== CONTINGENCY ENGINE + INTERVENTION HISTORY ====================
+
+export function renderContingencyEngineOutput(data) {
+  const el = $("contingencyEngineOutput");
+  if (!el) return;
+  const triggered = runContingencyEngine(data);
+  if (!triggered.length) { el.innerHTML = "<p class='small'>No contingency rules triggered right now.</p>"; return; }
+  el.innerHTML = triggered.map(r => `
+    <div class="history-item">
+      <div class="section-title"><strong>${esc(r.title)}</strong><span class="badge ${r.severity === "high" ? "status-under" : ""}">${esc(r.severity)}</span></div>
+      <p class="small">${esc(r.issue)}</p>
+      <p class="small"><strong>Hypothesis:</strong> ${esc(r.hypothesis)}</p>
+      <p class="small"><strong>Suggested intervention:</strong> ${esc(r.suggestedIntervention)}</p>
+      <button type="button" class="secondary"
+        data-log-intervention-issue="${esc(r.issue)}"
+        data-log-intervention-hypothesis="${esc(r.hypothesis)}"
+        data-log-intervention-action="${esc(r.suggestedIntervention)}">Log as Intervention</button>
+    </div>`).join("");
+}
+
+export function saveIntervention() {
+  const data = getData();
+  const issue = $("interventionIssue")?.value.trim();
+  if (!issue) { alert("Describe the issue before logging an intervention."); return; }
+  const now = new Date().toISOString();
+  data.interventions.push({
+    id: uid(),
+    issue,
+    hypothesis: $("interventionHypothesis")?.value || "",
+    intervention: $("interventionAction")?.value || "",
+    startDate: $("interventionStartDate")?.value || new Date().toLocaleDateString("en-CA"),
+    reassessDate: $("interventionReassessDate")?.value || null,
+    status: "Open",
+    result: "",
+    createdAt: now, updatedAt: now
+  });
+  saveData(data);
+  ["interventionIssue", "interventionHypothesis", "interventionAction", "interventionStartDate", "interventionReassessDate"]
+    .forEach(id => { if ($(id)) $(id).value = ""; });
+  refreshAll();
+  alert("Intervention logged.");
+}
+
+export function updateInterventionField(id, field, value) {
+  const data = getData();
+  const item = data.interventions.find(i => i.id === id);
+  if (!item) return;
+  item[field] = value;
+  item.updatedAt = new Date().toISOString();
+  saveData(data);
+}
+
+export function renderInterventionHistory(data) {
+  const el = $("interventionHistory");
+  if (!el) return;
+  const statuses = ["Open", "In Progress", "Resolved", "Abandoned"];
+  el.innerHTML = data.interventions.slice().reverse().map(i => `
+    <div class="history-item">
+      <div class="section-title"><strong>${esc(i.issue)}</strong>
+        <select data-intervention="${i.id}" data-field="status">
+          ${statuses.map(s => `<option value="${s}" ${i.status === s ? "selected" : ""}>${s}</option>`).join("")}
+        </select>
+      </div>
+      ${i.hypothesis ? `<p class="small"><strong>Hypothesis:</strong> ${esc(i.hypothesis)}</p>` : ""}
+      ${i.intervention ? `<p class="small"><strong>Intervention:</strong> ${esc(i.intervention)}</p>` : ""}
+      <p class="small">Started ${esc(i.startDate)}${i.reassessDate ? ` · Reassess ${esc(i.reassessDate)}` : ""}</p>
+      <textarea data-intervention="${i.id}" data-field="result" placeholder="Result / outcome">${esc(i.result || "")}</textarea>
+      <div class="actions"><button class="danger" data-delete="interventions" data-id="${i.id}">Delete</button></div>
+    </div>`).join("") || "<p class='small'>No interventions logged yet.</p>";
 }
 
 export function setupRecoveryEventDelegation() {
@@ -415,5 +522,19 @@ export function setupRecoveryEventDelegation() {
       if ($("sleepWakeTime") && !$("sleepWakeTime").value) $("sleepWakeTime").value = wake;
       updateSleepWindowVisual();
     }
+
+    const logBtn = e.target.closest("[data-log-intervention-issue]");
+    if (logBtn) {
+      if ($("interventionIssue")) $("interventionIssue").value = logBtn.dataset.logInterventionIssue || "";
+      if ($("interventionHypothesis")) $("interventionHypothesis").value = logBtn.dataset.logInterventionHypothesis || "";
+      if ($("interventionAction")) $("interventionAction").value = logBtn.dataset.logInterventionAction || "";
+      $("interventionIssue")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  });
+
+  document.addEventListener("change", (e) => {
+    const field = e.target.closest("[data-intervention]");
+    if (!field) return;
+    updateInterventionField(field.dataset.intervention, field.dataset.field, field.value);
   });
 }

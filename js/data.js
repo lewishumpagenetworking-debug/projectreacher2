@@ -30,7 +30,8 @@ export const DEFAULT_PROFILE = {
   sleepConstraint: "Fixed 5-6 hours/night (non-negotiable)",
   notes: "",
   visualModeEnabled: false,
-  functionalTrackLengthMetres: 15
+  functionalTrackLengthMetres: 15,
+  caffeineCutoffHours: 8
 };
 
 // AI Specialists: consent + data-category permissions gate what the Context Builder is
@@ -90,7 +91,11 @@ function emptyData() {
     aiSavedInsights: [],
     aiProposedChanges: [],
     aiAuditLog: [],
-    aiSettings: { ...DEFAULT_AI_SETTINGS, dataCategoryPermissions: { ...DEFAULT_AI_SETTINGS.dataCategoryPermissions } }
+    aiSettings: { ...DEFAULT_AI_SETTINGS, dataCategoryPermissions: { ...DEFAULT_AI_SETTINGS.dataCategoryPermissions } },
+    foodTemplates: [],
+    preWorkoutLogs: [],
+    postWorkoutLogs: [],
+    interventions: []
   };
 }
 
@@ -144,7 +149,8 @@ export function migrateData() {
    "motivationalVisuals", "sleepLogs", "hydrationLogs",
    "skinLogs", "hairLogs", "productExperiments", "appearanceCheckins",
    "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared",
-   "aiSavedInsights", "aiProposedChanges", "aiAuditLog"].forEach(key => {
+   "aiSavedInsights", "aiProposedChanges", "aiAuditLog",
+   "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -165,7 +171,8 @@ export function migrateData() {
 
   data.measurements = data.measurements.map(m => withDefaults(m, {
     weight: null, calves: null, notes: "",
-    rforearm: null, lforearm: null, flexedArm: null, relaxedArm: null, pumpedNote: ""
+    rforearm: null, lforearm: null, flexedArm: null, relaxedArm: null, pumpedNote: "",
+    measurementMethods: { shoulders: "circumference", chest: "circumference", waist: "circumference" }
   }));
 
   // Recovery Command Centre — additive fields only. Every field below defaults to
@@ -175,10 +182,13 @@ export function migrateData() {
   data.stimulantLogs = data.stimulantLogs.map(s => withDefaults(s, {
     source: null, productName: "", servingSize: "", betaAlanineMg: null, bcaaMg: null,
     preWorkoutMealCompleted: null, perceivedEffect: null, pumpQuality: null,
-    crashLater: null, jittersAnxiety: null, sleepAffected: null, performanceImproved: null
+    crashLater: null, jittersAnxiety: null, sleepAffected: null, performanceImproved: null,
+    redFlagSymptoms: []
   }));
 
-  data.mealLogs = data.mealLogs.map(m => withDefaults(m, { recoveryTag: null }));
+  data.mealLogs = data.mealLogs.map(m => withDefaults(m, {
+    recoveryTag: null, quantity: null, unit: null, isDraft: false, source: "manual", assumptions: []
+  }));
 
   data.sleepLogs = data.sleepLogs.map(s => withDefaults(s, {
     bedtime: null, wakeTime: null, calculatedDurationHours: null, timeToFallAsleepMinutes: null,
@@ -203,6 +213,7 @@ export function migrateData() {
       formQuality: null, targetMuscleConnection: null,
       increaseNextWeek: false, progressionRecommendation: "",
       trackLengthMetres: null, calculatedDistanceMetres: null, weightPerHand: null,
+      progressionStatus: null,
       createdAt: w.date || null, updatedAt: w.date || null
     }));
   });
@@ -302,7 +313,8 @@ const COLLECTION_KEYS = [
   "stimulantLogs", "supplementLogs", "mealLogs", "progressPhotos", "monthlyReviews", "motivationalVisuals",
   "sleepLogs", "hydrationLogs",
   "skinLogs", "hairLogs", "productExperiments", "appearanceCheckins",
-  "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared", "aiSavedInsights"
+  "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared", "aiSavedInsights",
+  "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions"
 ];
 
 function normalizeSetSignature(e) {
@@ -528,6 +540,10 @@ export function importAndMergeData(importedRaw, currentState) {
   record("aiConversationsAppearance", mergeByIdGeneric(current.aiConversationsAppearance, imported.aiConversationsAppearance, detectDuplicateById));
   record("aiConversationsShared", mergeByIdGeneric(current.aiConversationsShared, imported.aiConversationsShared, detectDuplicateById));
   record("aiSavedInsights", mergeByIdGeneric(current.aiSavedInsights, imported.aiSavedInsights, detectDuplicateById));
+  record("foodTemplates", mergeByIdGeneric(current.foodTemplates, imported.foodTemplates, (list, c) => list.find(x => (x.name || "").toLowerCase() === (c.name || "").toLowerCase())));
+  record("preWorkoutLogs", mergeByIdGeneric(current.preWorkoutLogs, imported.preWorkoutLogs, detectDuplicateById));
+  record("postWorkoutLogs", mergeByIdGeneric(current.postWorkoutLogs, imported.postWorkoutLogs, detectDuplicateById));
+  record("interventions", mergeByIdGeneric(current.interventions, imported.interventions, detectDuplicateById));
 
   // aiSettings: current device's consent/permissions always win (consent must never be
   // silently granted by an import) — only additive/unset fields are backfilled from the import.

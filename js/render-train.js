@@ -1,5 +1,5 @@
 import { $, esc } from "./dom.js";
-import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore, farmersCarryAnalytics } from "./calculations.js";
+import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore, farmersCarryAnalytics, exerciseProgressionStatus, recoveryMealCompliance, preWorkoutReadinessToday } from "./calculations.js";
 import { getData, saveData, uid } from "./data.js";
 import { metricLabel } from "./metric-info.js";
 import { showMissionStart, celebrateSetRow, celebrateExerciseComplete, showOperationComplete, formatVolumeComparison } from "./reward-system.js";
@@ -107,8 +107,10 @@ export function renderWorkoutForm(data) {
     const isDistanceBased = !!exerciseDef?.distanceBased;
     const history = getExerciseHistory(data.workouts, x.name);
     const isExpanded = expandedExercises.has(x.name);
-    const recBadge = history.lastSession?.progressionRecommendation
-      ? `<span class="badge ${history.lastSession.increaseNextWeek ? "status-on-target" : ""}">${history.lastSession.increaseNextWeek ? "⬆ Increase" : "Hold"}</span>`
+    const nextSessionStatus = history.lastSession?.progressionStatus
+      || (history.lastSession?.progressionRecommendation ? (history.lastSession.increaseNextWeek ? "Increase Load" : "Hold Load") : null);
+    const recBadge = nextSessionStatus
+      ? `<span class="badge ${nextSessionStatus === "Increase Load" ? "status-on-target" : ["Pain Review", "Reduce Load"].includes(nextSessionStatus) ? "status-under" : ""}">NEXT SESSION: ${esc(nextSessionStatus)}</span>`
       : "";
     const lastDisplay = isDistanceBased ? formatDistanceSet(history.lastSession, trackLength) : formatSet(history.lastSession);
     const bestDisplay = isDistanceBased ? formatDistanceSet(history.previousBest, trackLength) : formatSet(history.previousBest);
@@ -538,6 +540,7 @@ function buildCompletionSummary(workout, exercises, data, prs) {
   }, 0);
   const totalVol = exercises.reduce((sum, e) => sum + totalVolume({ exercises: [e] }), 0);
   const progressionCandidates = exercises.filter(e => e.increaseNextWeek).map(e => e.name);
+  const progressionStatuses = exercises.map(e => ({ name: e.name, status: e.progressionStatus || "Insufficient Data" }));
   const musclesTrained = [...new Set(exercises.map(e => {
     const def = data.exercises.find(d => d.name === e.name);
     return def?.primaryMuscle;
@@ -552,6 +555,7 @@ function buildCompletionSummary(workout, exercises, data, prs) {
     setCount,
     totalVolume: totalVol,
     progressionCandidates,
+    progressionStatuses,
     musclesTrained,
     prs,
     nextObjective
@@ -565,6 +569,12 @@ export function saveWorkout() {
   let summary = null;
   try {
     const prs = [];
+    const readiness = readinessScore(data);
+    const rawMealCompliance = recoveryMealCompliance(data.mealLogs);
+    const mealCompliance = {
+      ...rawMealCompliance,
+      preWorkoutComplete: rawMealCompliance.preWorkoutComplete || !!preWorkoutReadinessToday(data.preWorkoutLogs)
+    };
     const exercises = [...document.querySelectorAll("#workoutList .exercise")].map(el => {
       const name = el.dataset.exercise;
       const exerciseDef = data.exercises.find(e => e.name === name);
@@ -579,6 +589,9 @@ export function saveWorkout() {
       const rec = recommendProgression(entry, exerciseDef, history.lastSession);
       entry.increaseNextWeek = rec.increaseNextWeek;
       entry.progressionRecommendation = rec.recommendation;
+
+      const statusResult = exerciseProgressionStatus(entry, exerciseDef, { previousEntry: history.lastSession, readiness, mealCompliance });
+      entry.progressionStatus = statusResult.status;
 
       const newVol = totalVolume({ exercises: [entry] });
       const prevBestVol = history.previousBest ? totalVolume({ exercises: [history.previousBest] }) : 0;

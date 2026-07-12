@@ -98,6 +98,44 @@ export async function testConnection(apiKey, model = "claude-sonnet-5") {
 }
 
 /**
+ * Structured, non-tool-use meal estimate: one round-trip, JSON-only response. Used by
+ * the Nutrition tab as a strictly-better-than-local-keyword-matching estimator when the
+ * user has connected an API key. Callers must catch and fall back to the local
+ * food-estimator.js on any failure (missing key, network error, bad JSON) — this
+ * function never silently returns a guessed estimate on error, it throws.
+ */
+export async function estimateMealMacrosViaClaude(description, model = "claude-sonnet-5") {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("No Claude API key connected.");
+
+  const system = `You are a nutrition estimation assistant inside a fitness app. Given a free-text meal description, estimate calories and macros. Respond with ONLY a single JSON object and nothing else — no markdown fences, no commentary — in exactly this shape:
+{"foodsDetected": string[], "calories": number, "protein": number, "carbs": number, "fat": number, "fibre": number, "confidenceScore": "High" | "Medium" | "Low", "assumptions": string[], "clarifyingQuestion": string | null}
+Rules: protein/carbs/fibre/fat are in grams. Use "confidenceScore": "Low" whenever the description is vague, missing quantities, or missing preparation method, and in that case set "clarifyingQuestion" to ONE short question that would most improve the estimate (e.g. asking for a quantity or cooking method). Otherwise set "clarifyingQuestion" to null. List every assumption you made (serving size, cooking method, brand) in "assumptions". Never claim exact accuracy — these are estimates.`;
+
+  const response = await callAnthropic({ apiKey, model, system, messages: [{ role: "user", content: description }] });
+  accumulateUsage(response.usage);
+
+  const text = (response.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("Claude did not return a parseable estimate.");
+  let parsed;
+  try { parsed = JSON.parse(jsonMatch[0]); } catch { throw new Error("Claude's estimate response was not valid JSON."); }
+
+  return {
+    foodsDetected: Array.isArray(parsed.foodsDetected) ? parsed.foodsDetected : [],
+    calories: Number(parsed.calories) || 0,
+    protein: Number(parsed.protein) || 0,
+    carbs: Number(parsed.carbs) || 0,
+    fat: Number(parsed.fat) || 0,
+    fibre: Number(parsed.fibre) || 0,
+    confidenceScore: ["High", "Medium", "Low"].includes(parsed.confidenceScore) ? parsed.confidenceScore : "Low",
+    assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : [],
+    clarifyingQuestion: parsed.clarifyingQuestion || null,
+    source: "claude"
+  };
+}
+
+/**
  * Sends a message, running the full tool-use loop (Claude asks for a tool -> we execute
  * it via `toolExecutor` -> result goes back to Claude -> repeat) until Claude returns a
  * final text answer or MAX_TOOL_ITERATIONS is hit. `toolExecutor(name, input)` is

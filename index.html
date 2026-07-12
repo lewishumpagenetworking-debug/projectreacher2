@@ -92,6 +92,18 @@
         <button type="button" id="resumeDraftBtn" class="secondary">Resume Workout Draft</button>
       </section>
 
+      <section class="card" id="recoveryModeCard" hidden>
+        <h2>Recovery Analysis</h2>
+        <p class="small">Shown on days without a logged workout — combines readiness, this week's bottleneck, nutrition confidence and caffeine load into one direction.</p>
+        <div id="recoveryModeContent"></div>
+      </section>
+
+      <section class="card">
+        <h2>Closed-Loop Intelligence</h2>
+        <p class="small">One consolidated read of training progression, nutrition confidence, recovery direction and any active intervention.</p>
+        <div id="closedLoopIntelligence"></div>
+      </section>
+
       <section class="card">
         <h2>Progress Command Grid</h2>
         <div id="progressCommandGrid" class="grid"></div>
@@ -239,6 +251,14 @@
         </div>
         <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="performanceCoachChatInput">Ask Performance Coach</button>
         <div id="trainReadinessChip" class="readiness-chip-row"></div>
+        <div id="preWorkoutReadinessGate" class="warning-banner" hidden>
+          <p class="small">Log your pre-workout fuel status before you start — this feeds your training-nutrition pattern and progression status.</p>
+          <div class="badge-row">
+            <button type="button" class="secondary" data-readiness-choice="fuelled">Fully Fuelled</button>
+            <button type="button" class="secondary" data-readiness-choice="partial">Partially Fuelled</button>
+            <button type="button" class="secondary" data-readiness-choice="fasted">Training Fasted</button>
+          </div>
+        </div>
         <div class="workout-progress-wrap">
           <div class="workout-progress-label"><span>Session Progress</span><span id="workoutProgressText">0%</span></div>
           <div class="workout-progress-bar"><div id="workoutProgressFill" class="workout-progress-fill"></div></div>
@@ -347,17 +367,64 @@
         <h2>Monthly Measurements</h2>
         <div class="form-grid">
           <label>Weight <input id="mWeight" type="number" step="0.1"></label>
-          <label>Shoulders <input id="shoulders" type="number" step="0.1"></label>
-          <label>Chest <input id="chest" type="number" step="0.1"></label>
-          <label>Waist <input id="waist" type="number" step="0.1"></label>
-          <label>Neck <input id="neck" type="number" step="0.1"></label>
-          <label>Right Arm <input id="rarm" type="number" step="0.1"></label>
-          <label>Left Arm <input id="larm" type="number" step="0.1"></label>
-          <label>Right Forearm <input id="rforearm" type="number" step="0.1"></label>
-          <label>Left Forearm <input id="lforearm" type="number" step="0.1"></label>
-          <label>Right Thigh <input id="rthigh" type="number" step="0.1"></label>
-          <label>Left Thigh <input id="lthigh" type="number" step="0.1"></label>
-          <label>Calves <input id="calves" type="number" step="0.1"></label>
+          <label class="metric-label">
+            <span class="metric-label-row" data-metric-toggle="shoulders" role="button" tabindex="0" aria-expanded="false"><span class="metric-label-text">Shoulders</span><span class="metric-chevron">▾</span></span>
+            <span class="metric-explanation" hidden></span>
+            <input id="shoulders" type="number" step="0.1">
+          </label>
+          <label>Shoulders Method <select id="shouldersMethod"><option value="circumference">Circumference</option><option value="flat-width">Flat-width</option></select></label>
+          <label class="metric-label">
+            <span class="metric-label-row" data-metric-toggle="chest" role="button" tabindex="0" aria-expanded="false"><span class="metric-label-text">Chest</span><span class="metric-chevron">▾</span></span>
+            <span class="metric-explanation" hidden></span>
+            <input id="chest" type="number" step="0.1">
+          </label>
+          <label>Chest Method <select id="chestMethod"><option value="circumference">Circumference</option><option value="flat-width">Flat-width</option></select></label>
+          <label class="metric-label">
+            <span class="metric-label-row" data-metric-toggle="waist" role="button" tabindex="0" aria-expanded="false"><span class="metric-label-text">Waist</span><span class="metric-chevron">▾</span></span>
+            <span class="metric-explanation" hidden></span>
+            <input id="waist" type="number" step="0.1">
+          </label>
+          <label>Waist Method <select id="waistMethod"><option value="circumference">Circumference</option><option value="flat-width">Flat-width</option></select></label>
+          <label class="metric-label">
+            <span class="metric-label-row" data-metric-toggle="neck" role="button" tabindex="0" aria-expanded="false"><span class="metric-label-text">Neck</span><span class="metric-chevron">▾</span></span>
+            <span class="metric-explanation" hidden></span>
+            <input id="neck" type="number" step="0.1">
+          </label>
+          <label class="metric-label">
+            <span class="metric-label-row" data-metric-toggle="rarm" role="button" tabindex="0" aria-expanded="false"><span class="metric-label-text">Right Arm</span><span class="metric-chevron">▾</span></span>
+            <span class="metric-explanation" hidden></span>
+            <input id="rarm" type="number" step="0.1">
+          </label>
+          <label class="metric-label">
+            <span class="metric-label-row" data-metric-toggle="larm" role="button" tabindex="0" aria-expanded="false"><span class="metric-label-text">Left Arm</span><span class="metric-chevron">▾</span></span>
+            <span class="metric-explanation" hidden></span>
+            <input id="larm" type="number" step="0.1">
+          </label>
+          <label class="metric-label">
+            <span class="metric-label-row" data-metric-toggle="rforearm" role="button" tabindex="0" aria-expanded="false"><span class="metric-label-text">Right Forearm</span><span class="metric-chevron">▾</span></span>
+            <span class="metric-explanation" hidden></span>
+            <input id="rforearm" type="number" step="0.1">
+          </label>
+          <label class="metric-label">
+            <span class="metric-label-row" data-metric-toggle="lforearm" role="button" tabindex="0" aria-expanded="false"><span class="metric-label-text">Left Forearm</span><span class="metric-chevron">▾</span></span>
+            <span class="metric-explanation" hidden></span>
+            <input id="lforearm" type="number" step="0.1">
+          </label>
+          <label class="metric-label">
+            <span class="metric-label-row" data-metric-toggle="rthigh" role="button" tabindex="0" aria-expanded="false"><span class="metric-label-text">Right Thigh</span><span class="metric-chevron">▾</span></span>
+            <span class="metric-explanation" hidden></span>
+            <input id="rthigh" type="number" step="0.1">
+          </label>
+          <label class="metric-label">
+            <span class="metric-label-row" data-metric-toggle="lthigh" role="button" tabindex="0" aria-expanded="false"><span class="metric-label-text">Left Thigh</span><span class="metric-chevron">▾</span></span>
+            <span class="metric-explanation" hidden></span>
+            <input id="lthigh" type="number" step="0.1">
+          </label>
+          <label class="metric-label">
+            <span class="metric-label-row" data-metric-toggle="calves" role="button" tabindex="0" aria-expanded="false"><span class="metric-label-text">Calves</span><span class="metric-chevron">▾</span></span>
+            <span class="metric-explanation" hidden></span>
+            <input id="calves" type="number" step="0.1">
+          </label>
           <label>Flexed Arm (optional) <input id="flexedArm" type="number" step="0.1"></label>
           <label>Relaxed Arm (optional) <input id="relaxedArm" type="number" step="0.1"></label>
           <label>Pumped / Unpumped Note (optional) <input id="pumpedNote" placeholder="e.g. pumped, post-workout"></label>
@@ -458,6 +525,7 @@
       <section class="card">
         <h2>Log a Meal</h2>
         <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="performanceCoachChatInput">Ask Performance Coach</button>
+        <label>Use a saved food template <select id="foodTemplateSelect"></select></label>
         <label>What did you eat? <textarea id="mealDescription" placeholder="e.g. 2 chicken breasts, rice, olive oil and Greek yogurt"></textarea></label>
         <div class="form-grid">
           <label>Meal Name <input id="mealName" placeholder="e.g. Lunch"></label>
@@ -478,6 +546,7 @@
         <div id="mealEstimateResult" hidden>
           <div class="section-title"><h3>Estimated Macros</h3><span id="mealConfidencePill" class="confidence-pill"></span></div>
           <div id="mealAssumptions" class="small"></div>
+          <p id="mealClarifyingQuestion" class="small status-under" hidden></p>
         </div>
 
         <div class="form-grid">
@@ -487,11 +556,17 @@
           <label>Fat (g) <input id="mealFat" type="number"></label>
           <label>Fibre (g) <input id="mealFibre" type="number"></label>
         </div>
-        <button id="saveMealBtn">Save Meal</button>
+        <div id="mealValidationMessage" class="small" hidden></div>
+        <div class="badge-row">
+          <button id="saveMealBtn">Save Meal</button>
+          <button id="saveMealDraftBtn" type="button" class="secondary">Save as Draft</button>
+          <button id="saveFoodTemplateBtn" type="button" class="secondary">Save as Reusable Template</button>
+        </div>
       </section>
 
       <section class="card">
         <div class="section-title"><h2>Today's Meals</h2><span id="mealDailyBadge" class="badge"></span></div>
+        <div class="badge-row"><span id="mealConfidenceBadge" class="badge"></span></div>
         <div id="mealDailyTotals"></div>
         <div id="mealRemaining"></div>
         <div id="todayMealLog"></div>
@@ -527,6 +602,38 @@
         </div>
         <input id="mealSearch" placeholder="Search meal history...">
         <div id="mealHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Pre-Workout Fuel</h2>
+        <p class="small">30-80g carbs and 25-40g protein, 60-120 minutes before training, is the general target.</p>
+        <div class="form-grid">
+          <label>Carbs (g) <input id="preWorkoutCarbs" type="number"></label>
+          <label>Protein (g) <input id="preWorkoutProtein" type="number"></label>
+          <label>Minutes Before Training <input id="preWorkoutMinutesBefore" type="number"></label>
+        </div>
+        <textarea id="preWorkoutNotes" placeholder="Notes"></textarea>
+        <button id="savePreWorkoutLogBtn" type="button">Log Pre-Workout Fuel</button>
+        <div id="preWorkoutHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Post-Workout Recovery</h2>
+        <div class="form-grid">
+          <label>Protein (g) <input id="postWorkoutProtein" type="number"></label>
+          <label>Carbs (g) <input id="postWorkoutCarbs" type="number"></label>
+          <label>Appetite 1-5 <input id="postWorkoutAppetite" type="number" min="1" max="5"></label>
+          <label>Digestion 1-5 <input id="postWorkoutDigestion" type="number" min="1" max="5"></label>
+        </div>
+        <textarea id="postWorkoutNotes" placeholder="Notes"></textarea>
+        <button id="savePostWorkoutLogBtn" type="button">Log Post-Workout Recovery</button>
+        <div id="postWorkoutHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Training-Nutrition Pattern</h2>
+        <p class="small">Only reports a pattern once there's enough repeated data on both sides — never a single-session conclusion.</p>
+        <div id="trainingNutritionCorrelation"></div>
       </section>
 
       <section class="card">
@@ -688,9 +795,46 @@
         <label class="checklist-row"><input type="checkbox" id="sJittersAnxiety"> <span>Jitters / anxiety</span></label>
         <label class="checklist-row"><input type="checkbox" id="sSleepAffected"> <span>Sleep affected</span></label>
         <label class="checklist-row"><input type="checkbox" id="sPerformanceImproved"> <span>Performance improved</span></label>
+        <p class="small"><strong>Red-flag symptoms today (check any that apply):</strong></p>
+        <div class="checklist-row-group">
+          <label class="checklist-row"><input type="checkbox" class="sRedFlag" value="heart racing/palpitations"> <span>Heart racing / palpitations</span></label>
+          <label class="checklist-row"><input type="checkbox" class="sRedFlag" value="chest tightness"> <span>Chest tightness</span></label>
+          <label class="checklist-row"><input type="checkbox" class="sRedFlag" value="severe anxiety/panic"> <span>Severe anxiety / panic</span></label>
+          <label class="checklist-row"><input type="checkbox" class="sRedFlag" value="tremor"> <span>Tremor</span></label>
+          <label class="checklist-row"><input type="checkbox" class="sRedFlag" value="nausea/vomiting"> <span>Nausea / vomiting</span></label>
+        </div>
         <p class="small">If pre-workout is needed just to feel normal, treat this as a recovery issue, not a supplement issue.</p>
         <textarea id="sNotes" placeholder="Notes"></textarea>
         <button id="saveStimulants">Save Stimulant Log</button>
+      </section>
+
+      <section class="card">
+        <h2>Caffeine Status</h2>
+        <div id="caffeineStatusCard"></div>
+        <div id="caffeineReductionPlan"></div>
+      </section>
+
+      <section class="card">
+        <h2>Contingency Engine</h2>
+        <p class="small">Explicit if/then rules run against your logged data — never a guess, only fires when the underlying pattern is actually there.</p>
+        <div id="contingencyEngineOutput"></div>
+      </section>
+
+      <section class="card">
+        <h2>Log an Intervention</h2>
+        <div class="form-grid">
+          <label>Issue <input id="interventionIssue" placeholder="What's the problem?"></label>
+          <label>Start Date <input id="interventionStartDate" type="date"></label>
+          <label>Reassess Date <input id="interventionReassessDate" type="date"></label>
+        </div>
+        <textarea id="interventionHypothesis" placeholder="Hypothesis — why might this be happening?"></textarea>
+        <textarea id="interventionAction" placeholder="Intervention — what are you going to change?"></textarea>
+        <button id="saveInterventionBtn" type="button">Log Intervention</button>
+      </section>
+
+      <section class="card">
+        <h2>Intervention History</h2>
+        <div id="interventionHistory"></div>
       </section>
 
       <section class="card">
@@ -753,6 +897,7 @@
         <p class="small">Used for Farmer's Carry distance tracking. 1 length = one full walk of your gym's functional track.</p>
         <div class="form-grid">
           <label>Functional Track Length (m) <input id="pTrackLength" type="number" min="10" max="25" step="1"></label>
+          <label>Caffeine Cutoff (hours before bed) <input id="pCaffeineCutoff" type="number" min="0" max="16" step="0.5"></label>
         </div>
         <button id="saveGymProfile" class="secondary">Save Gym Profile</button>
       </section>

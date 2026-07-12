@@ -104,6 +104,12 @@ export function showOperationComplete(summary) {
         <ul>${summary.progressionCandidates.map(c => `<li><strong>${esc(c)}</strong> — Progression candidate</li>`).join("")}</ul>
       </div>` : ""}
 
+      ${summary.progressionStatuses && summary.progressionStatuses.length ? `
+      <div class="completion-section">
+        <h4>Next Session Guidance</h4>
+        <ul>${summary.progressionStatuses.map(p => `<li>${esc(p.name)}: <strong>${esc(p.status)}</strong></li>`).join("")}</ul>
+      </div>` : ""}
+
       ${summary.prs.length ? `
       <div class="pr-highlight-card">
         <p class="pr-highlight-title">New Standard Set</p>

@@ -5,8 +5,10 @@ import {
   workoutsInWeek, dailyMealTotals, remainingMacros, macroAdherence, armForearmDeltWarnings,
   trainingStreakWeeks, loggingStreakDays, weeklyComplianceRate, computeBadges,
   readinessScore, sleepStats, weekendRecoveryStatus, caffeineLoadStatus, recoveryMealCompliance, formatHoursAsHM,
-  dailyChecklist, monthlyChecklist
+  dailyChecklist, monthlyChecklist, currentBodyweightKg, weeklyRecoveryDirection,
+  exercisesReadyToIncrease, nutritionConfidenceStatus, preWorkoutReadinessToday, detectFatigueReason
 } from "./calculations.js";
+import { runContingencyEngine } from "./contingency-engine.js";
 import { DEFAULT_TRAINING_PROGRAM, MUSCLE_GROUPS } from "./program.js";
 import { SUPPLEMENT_DATABASE } from "./recovery-data.js";
 
@@ -53,6 +55,66 @@ export function renderDashboard(data) {
   renderArmForearmDeltSummary(data);
   renderMonthlyReviewReminder(data);
   renderDraftBanner(data);
+  renderRecoveryModeSection(data);
+  renderClosedLoopIntelligence(data);
+}
+
+/** Additive Dashboard card — consolidates the closed-loop intelligence read into one place without touching any existing card. */
+function renderClosedLoopIntelligence(data) {
+  const el = $("closedLoopIntelligence");
+  if (!el) return;
+  const referenceDate = new Date();
+  const todayISO = referenceDate.toLocaleDateString("en-CA");
+
+  const readyToIncrease = exercisesReadyToIncrease(data.workouts || []);
+  const nextProgression = readyToIncrease[0] || null;
+  const nutritionConfidence = nutritionConfidenceStatus(data.mealLogs || [], todayISO);
+  const preWorkout = preWorkoutReadinessToday(data.preWorkoutLogs || [], referenceDate);
+  const direction = weeklyRecoveryDirection(data, referenceDate);
+  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate, currentBodyweightKg(data));
+  const fatigue = detectFatigueReason(data, referenceDate);
+  const triggeredRules = runContingencyEngine(data, referenceDate);
+  const currentConstraint = triggeredRules[0]?.title || fatigue.primaryCause;
+  const activeIntervention = (data.interventions || []).slice().reverse().find(i => i.status === "Open" || i.status === "In Progress") || null;
+
+  el.innerHTML = `
+    <div class="badge-row">
+      <span class="badge">Next Progression: ${nextProgression ? esc(nextProgression) : "None ready yet"}</span>
+      <span class="badge">Ready to Increase: ${readyToIncrease.length}</span>
+      <span class="badge ${nutritionConfidence.status === "High" ? "status-on-target" : nutritionConfidence.status === "Low" || nutritionConfidence.status === "Incomplete Day" ? "status-under" : ""}">Nutrition Confidence: ${esc(nutritionConfidence.status)}</span>
+      <span class="badge">Pre-Workout Fuel: ${preWorkout ? esc(preWorkout.readinessChoice) : "Not logged today"}</span>
+      <span class="badge ${direction.direction === "Push" ? "status-on-target" : direction.direction === "Prioritise Recovery" ? "status-under" : ""}">Recovery Direction: ${esc(direction.direction)}</span>
+      <span class="badge">Caffeine: ${esc(caffeine.label)}</span>
+      <span class="badge">Current Constraint: ${esc(currentConstraint)}</span>
+      <span class="badge">Active Intervention: ${activeIntervention ? esc(activeIntervention.issue) : "None"}</span>
+      <span class="badge">Reassessment Date: ${activeIntervention?.reassessDate ? esc(activeIntervention.reassessDate) : "--"}</span>
+    </div>
+    ${readyToIncrease.length ? `<p class="small">Ready to increase: ${readyToIncrease.map(esc).join(", ")}</p>` : ""}
+  `;
+}
+
+/** Additive Dashboard section — only shown on days with no workout logged yet, never replaces any existing card. */
+function renderRecoveryModeSection(data) {
+  const card = $("recoveryModeCard");
+  const content = $("recoveryModeContent");
+  if (!card || !content) return;
+  const todayISO = new Date().toLocaleDateString("en-CA");
+  const trainedToday = (data.workouts || []).some(w => w.date === todayISO);
+  if (trainedToday) { card.hidden = true; return; }
+  card.hidden = false;
+
+  const direction = weeklyRecoveryDirection(data);
+  const directionClass = direction.direction === "Push" ? "status-on-target" : direction.direction === "Prioritise Recovery" ? "status-under" : "";
+  content.innerHTML = `
+    <div class="badge-row">
+      <span class="badge ${directionClass}">${esc(direction.direction)}</span>
+      <span class="badge">Readiness ${direction.readinessScore} (${esc(direction.readinessStatus)})</span>
+      <span class="badge">Nutrition confidence: ${esc(direction.nutritionConfidence)}</span>
+      <span class="badge">Caffeine: ${esc(direction.caffeineStatus)}</span>
+    </div>
+    ${direction.reasons.length ? `<ul>${direction.reasons.map(r => `<li class="small">${esc(r)}</li>`).join("")}</ul>` : "<p class='small'>No non-training-day recovery concerns detected.</p>"}
+    <p class="small">This week's bottleneck: ${esc(direction.weeklyBottleneck)}</p>
+  `;
 }
 
 function renderDraftBanner(data) {
@@ -160,7 +222,7 @@ function renderRecoveryDashboardCards(data) {
   const readiness = readinessScore(data, referenceDate);
   const sStats = sleepStats(data.sleepLogs || [], referenceDate);
   const weekend = weekendRecoveryStatus(data.sleepLogs || [], referenceDate);
-  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate);
+  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate, currentBodyweightKg(data));
   const mealCompliance = recoveryMealCompliance(data.mealLogs || [], referenceDate);
 
   const activeSupplements = (data.supplements || []).filter(s => s.active);

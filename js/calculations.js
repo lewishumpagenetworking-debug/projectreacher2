@@ -138,14 +138,28 @@ export function armForearmBalance(first, last) {
   return { rArmChange, lArmChange, rForearmChange, lForearmChange, armChange, forearmChange, status, message };
 }
 
-/** shoulder:waist and chest:waist ratios from a measurement entry. */
+/**
+ * shoulder:waist and chest:waist ratios from a measurement entry. Both ratios assume
+ * circumference measurements — if shoulders/chest/waist was logged as flat-width
+ * (see measurementMethods), the ratio is skipped rather than silently comparing two
+ * incompatible measurement methods, and a warning is returned instead.
+ */
 export function ratios(measurement) {
+  const methods = measurement.measurementMethods || { shoulders: "circumference", chest: "circumference", waist: "circumference" };
+  const nonCircumference = ["shoulders", "chest", "waist"].filter(k => methods[k] && methods[k] !== "circumference");
+  if (nonCircumference.length) {
+    return {
+      shoulderToWaist: null, chestToWaist: null,
+      methodWarning: `Ratios skipped — ${nonCircumference.join(", ")} logged as flat-width. Ratios require circumference measurements for shoulders, chest and waist.`
+    };
+  }
   const shoulders = Number(measurement.shoulders);
   const chest = Number(measurement.chest);
   const waist = Number(measurement.waist);
   return {
     shoulderToWaist: waist ? round2(shoulders / waist) : null,
-    chestToWaist: waist ? round2(chest / waist) : null
+    chestToWaist: waist ? round2(chest / waist) : null,
+    methodWarning: null
   };
 }
 function round2(n) { return Math.round(n * 100) / 100; }
@@ -196,7 +210,7 @@ export function recommendProgression(entry, exerciseDef, previousEntry = null) {
     }
   }
 
-  if (s1 >= repRangeMax && s2 >= repRangeMax && (formQuality == null || formQuality >= 4)) {
+  if (s1 >= repRangeMax && s2 >= repRangeMax && formQuality != null && formQuality >= 4) {
     if (exerciseDef.distanceBased) {
       return { increaseNextWeek: true, recommendation: "Both sets hit the top of the lengths range with good form — increase weight next session and reset lengths to the bottom of the range." };
     }
@@ -216,6 +230,136 @@ export function recommendProgression(entry, exerciseDef, previousEntry = null) {
       ? "Within target lengths range — repeat weight, aim for more lengths next session before increasing weight."
       : "Within target range — repeat load, aim for more reps next session."
   };
+}
+
+/**
+ * Full progression-status enum for one logged exercise entry — "NEXT SESSION" guidance
+ * surfaced on the exercise card, workout preview and Dashboard. Blank/unlogged quality
+ * fields (form/ROM/tempo) are always treated as UNKNOWN, never as a silent pass: they
+ * can never produce "Increase Load" on their own, only "Hold Load" pending confirmation.
+ * `context.readiness` / `context.mealCompliance` are optional — when omitted, the
+ * Recovery-Limited / Nutrition-Limited branches are simply skipped (used for isolated
+ * per-entry evaluation, e.g. in the Train tab preview, before those are known).
+ */
+export function exerciseProgressionStatus(entry, exerciseDef, context = {}) {
+  const { previousEntry = null, readiness = null, mealCompliance = null } = context;
+
+  if (!exerciseDef || exerciseDef.repRangeMax == null) {
+    return { status: "Insufficient Data", reason: "No target rep/lengths range set for this exercise.", limitingFactor: null };
+  }
+
+  const s1 = Number(entry.set1Reps) || 0;
+  const s2 = Number(entry.set2Reps) || 0;
+  if (s1 === 0 && s2 === 0) {
+    return { status: "Insufficient Data", reason: "No sets logged yet for this exercise.", limitingFactor: null };
+  }
+
+  if (entry.painFlag) {
+    return { status: "Pain Review", reason: "Pain/discomfort flagged — do not progress this exercise. Consider a professional if it persists.", limitingFactor: "pain" };
+  }
+
+  const formQuality = entry.formQuality != null ? Number(entry.formQuality) : null;
+  const romQuality = entry.rangeOfMotionQuality != null ? Number(entry.rangeOfMotionQuality) : null;
+  const tempoControl = entry.tempoControl != null ? Number(entry.tempoControl) : null;
+
+  const formConfirmedGood = formQuality != null && formQuality >= 4;
+  const formKnownBad = formQuality != null && formQuality < 3;
+  const romKnownBad = romQuality != null && romQuality < 4;
+  const tempoKnownBad = tempoControl != null && tempoControl < 3;
+
+  if (formKnownBad || romKnownBad || tempoKnownBad) {
+    const limitingFactor = formKnownBad ? "form" : romKnownBad ? "rom" : "tempo";
+    return {
+      status: "Improve Form/ROM/Tempo",
+      reason: formKnownBad
+        ? "Form quality below 3 — hold or reduce load until execution is clean."
+        : romKnownBad
+          ? "Range of motion below standard — hold load until depth/stretch is consistent."
+          : "Tempo control broke down — hold load and focus on the eccentric next session.",
+      limitingFactor
+    };
+  }
+
+  if (readiness && ["red-amber", "red"].includes(readiness.status)) {
+    return {
+      status: "Recovery-Limited",
+      reason: `Readiness is currently ${readiness.status} (${readiness.mainBottleneck}) — hold progression on this exercise until recovery improves.`,
+      limitingFactor: "recovery"
+    };
+  }
+
+  if (mealCompliance && mealCompliance.preWorkoutComplete === false) {
+    return {
+      status: "Nutrition-Limited",
+      reason: "Pre-workout fuel wasn't logged for this session — under-fuelled sessions make progression calls unreliable.",
+      limitingFactor: "nutrition"
+    };
+  }
+
+  if (previousEntry) {
+    const prevS1 = Number(previousEntry.set1Reps) || 0;
+    const prevS2 = Number(previousEntry.set2Reps) || 0;
+    const prevForm = previousEntry.formQuality != null ? Number(previousEntry.formQuality) : null;
+    const repsImproved = (s1 + s2) > (prevS1 + prevS2);
+    const formDropped = prevForm != null && formQuality != null && formQuality < prevForm;
+    if (repsImproved && formDropped) {
+      return { status: "Hold Load", reason: "Reps improved but form quality dropped vs. last session — repeat the same load.", limitingFactor: "form" };
+    }
+  }
+
+  const { repRangeMax, repRangeMin } = exerciseDef;
+  const distanceBased = !!exerciseDef.distanceBased;
+  const unitLabel = distanceBased ? "lengths" : "reps";
+
+  if (s1 >= repRangeMax && s2 >= repRangeMax) {
+    if (formConfirmedGood) {
+      return {
+        status: "Increase Load",
+        reason: distanceBased
+          ? "Both sets hit the top of the lengths range with confirmed good form — increase weight next session and reset lengths to the bottom of the range."
+          : "Both sets hit the top of the rep range with confirmed good form — increase load next session.",
+        limitingFactor: null
+      };
+    }
+    return {
+      status: "Hold Load",
+      reason: `Both sets hit the top of the ${unitLabel} range, but form quality wasn't logged this session — log form quality 4+ next time to confirm an Increase Load call.`,
+      limitingFactor: "form-unknown"
+    };
+  }
+
+  if (repRangeMin != null && (s1 < repRangeMin || s2 < repRangeMin)) {
+    return {
+      status: "Reduce Load",
+      reason: distanceBased
+        ? "Lengths fell below target range — watch for fatigue or excessive weight across sessions."
+        : "Reps fell below target range — watch for fatigue or excessive load across sessions.",
+      limitingFactor: null
+    };
+  }
+
+  return {
+    status: "Increase Reps",
+    reason: distanceBased
+      ? "Within target lengths range — repeat weight, aim for more lengths next session before increasing weight."
+      : "Within target range — repeat load, aim for more reps next session.",
+    limitingFactor: null
+  };
+}
+
+/** Exercise names whose most recently logged entry resolved to "Increase Load" — read live from workout history, nothing stored. */
+export function exercisesReadyToIncrease(workouts) {
+  const latestByName = {};
+  (workouts || []).forEach(w => {
+    (w.exercises || []).forEach(e => {
+      const d = parseLogDate(w.date);
+      if (!d) return;
+      if (!latestByName[e.name] || d > latestByName[e.name].dateObj) latestByName[e.name] = { dateObj: d, entry: e };
+    });
+  });
+  return Object.entries(latestByName)
+    .filter(([, v]) => v.entry.progressionStatus === "Increase Load")
+    .map(([name]) => name);
 }
 
 /** Farmer's Carry-only distance analytics — reads calculatedDistanceMetres logged on each entry. No other exercise is affected. */
@@ -416,7 +560,7 @@ export function armForearmDeltWarnings({ workouts, exercises, recoveryLogs = [] 
 
 /** Sums calories/protein/carbs/fat/fibre for all meals logged on a given ISO date. */
 export function dailyMealTotals(mealLogs, dateStr) {
-  const meals = mealLogs.filter(m => m.date === dateStr);
+  const meals = mealLogs.filter(m => m.date === dateStr && !m.isDraft);
   const sum = (key) => meals.reduce((total, m) => total + (Number(m[key]) || 0), 0);
   return {
     mealCount: meals.length,
@@ -459,6 +603,58 @@ export function macroAdherence(totals, targets) {
   }
 
   return { calorieAdherencePercentage, proteinAdherencePercentage, macroStatus };
+}
+
+/**
+ * Reconciles entered calories against protein/carbs/fat math (calories = protein*4 +
+ * carbs*4 + fat*9). Tolerance is the larger of 50 kcal or 10% of the expected total,
+ * to allow for rounding without letting genuinely inconsistent entries through.
+ */
+export function validateMealEntry({ calories, protein, carbs, fat }) {
+  const expectedCalories = round1((Number(protein) || 0) * 4 + (Number(carbs) || 0) * 4 + (Number(fat) || 0) * 9);
+  const enteredCalories = Number(calories) || 0;
+  const difference = round1(Math.abs(enteredCalories - expectedCalories));
+  const tolerance = Math.round(Math.max(50, expectedCalories * 0.1));
+  const reconciled = difference <= tolerance;
+  return {
+    reconciled, expectedCalories, enteredCalories, difference, tolerance,
+    message: reconciled
+      ? "Calories and macros reconcile."
+      : `Entered calories (${enteredCalories}) don't match what protein/carbs/fat add up to (${expectedCalories} expected) — a difference of ${difference} kcal, outside the ${tolerance} kcal tolerance.`
+  };
+}
+
+/** Nutrition Data Confidence for a given day: High/Medium/Low/Incomplete Day, derived purely from today's logged meals. */
+export function nutritionConfidenceStatus(mealLogs, dateStr) {
+  const meals = (mealLogs || []).filter(m => m.date === dateStr);
+  if (!meals.length) return { status: "Incomplete Day", reason: "No meals logged for this day yet.", mealCount: 0, draftCount: 0 };
+
+  const draftCount = meals.filter(m => m.isDraft).length;
+  if (draftCount > 0) {
+    return {
+      status: "Low",
+      reason: `${draftCount} meal(s) saved as draft — macros not yet reconciled.`,
+      mealCount: meals.length, draftCount
+    };
+  }
+
+  const scoreMap = { High: 3, Medium: 2, Low: 1, Manual: 3 };
+  const reconciled = meals.filter(m => m.isDraft !== true);
+  const lowCount = reconciled.filter(m => m.confidenceScore === "Low").length;
+  const avg = average(reconciled.map(m => scoreMap[m.confidenceScore] ?? 1));
+
+  let status;
+  if (lowCount > 0) status = "Low";
+  else if (avg != null && avg >= 2.6) status = "High";
+  else status = "Medium";
+
+  return {
+    status,
+    reason: lowCount
+      ? `${lowCount} low-confidence meal(s) logged today.`
+      : `${meals.length} meal(s) logged, average estimate confidence ${avg != null ? avg.toFixed(1) : "--"}/3.`,
+    mealCount: meals.length, draftCount
+  };
 }
 
 /** Aggregates a month ("YYYY-MM") of meal logs into daily totals + summary stats. */
@@ -581,7 +777,7 @@ export function computeBadges(data) {
 
   const sleepStreakVal = loggingStreakDays(data.sleepLogs || [], "date");
   const wknd = weekendRecoveryStatus(data.sleepLogs || []);
-  const todayCaffeine = caffeineLoadStatus(data.stimulantLogs || []);
+  const todayCaffeine = caffeineLoadStatus(data.stimulantLogs || [], new Date(), currentBodyweightKg(data));
   const todayHydration = hydrationStatus(data.hydrationLogs || [], data.stimulantLogs || []);
 
   return [
@@ -743,18 +939,99 @@ export function hydrationStatus(hydrationLogs, stimulantLogs, referenceDate = ne
   return { status, flags, hasData: true, waterIntake: today.waterIntake, electrolytesUsed: !!today.electrolytesUsed };
 }
 
-export function caffeineLoadStatus(stimulantLogs, referenceDate = new Date()) {
+// Caffeine Guidelines v2: bands are stated for a ~80kg reference bodyweight (roughly
+// the midpoint of this program's 73-89kg bulk range) and scale linearly with the
+// logged/current bodyweight, so a lighter or heavier lifter gets a proportionate
+// read rather than one fixed absolute number.
+const CAFFEINE_REFERENCE_WEIGHT_KG = 80;
+const CAFFEINE_RED_FLAG_SYMPTOMS = ["heart racing/palpitations", "chest tightness", "severe anxiety/panic", "tremor", "nausea/vomiting"];
+
+export function currentBodyweightKg(data) {
+  return data?.bodyweightLogs?.at(-1)?.morningBodyweight || data?.profile?.currentWeight || data?.profile?.startingWeight || CAFFEINE_REFERENCE_WEIGHT_KG;
+}
+
+/**
+ * Per-kg-aware caffeine status. Bands (at the 80kg reference weight): Normal Range up
+ * to 250mg, Priority-Day Range 250-300mg, Caution 300-400mg, Concern 400mg+ — scaled
+ * proportionately by bodyweightKg. `status` keeps its original 4 values (Low/Moderate/
+ * High/"Excessive / caution") for backward compatibility with existing callers; `label`
+ * carries the more descriptive v2 name.
+ */
+export function caffeineLoadStatus(stimulantLogs, referenceDate = new Date(), bodyweightKg = null) {
   const todayISO = referenceDate.toLocaleDateString("en-CA");
   const todayLogs = (stimulantLogs || []).filter(s => s.date === todayISO);
   const totalMg = todayLogs.reduce((sum, s) => sum + (Number(s.caffeineMg) || 0), 0);
-  let status = "Low";
-  if (totalMg >= 400) status = "Excessive / caution";
-  else if (totalMg >= 300) status = "High";
-  else if (totalMg >= 150) status = "Moderate";
+
+  const weight = bodyweightKg || CAFFEINE_REFERENCE_WEIGHT_KG;
+  const scale = weight / CAFFEINE_REFERENCE_WEIGHT_KG;
+  const mgPerKg = weight ? round1(totalMg / weight) : null;
+  const bands = {
+    normalMax: Math.round(250 * scale),
+    priorityMax: Math.round(300 * scale),
+    cautionMax: Math.round(400 * scale)
+  };
+
+  let status, label, message;
+  if (totalMg < bands.normalMax) {
+    status = "Low"; label = "Normal Range";
+    message = `${totalMg}mg is within the normal daily range (up to ~${bands.normalMax}mg at your bodyweight).`;
+  } else if (totalMg < bands.priorityMax) {
+    status = "Moderate"; label = "Priority-Day Range";
+    message = `${totalMg}mg is in the priority-day range (~${bands.normalMax}-${bands.priorityMax}mg) — reasonable for a big session, not an every-day number.`;
+  } else if (totalMg < bands.cautionMax) {
+    status = "High"; label = "Caution";
+    message = `${totalMg}mg is in the caution zone (~${bands.priorityMax}-${bands.cautionMax}mg) — risk of jitters, disrupted sleep and masked fatigue increases here.`;
+  } else {
+    status = "Excessive / caution"; label = "Concern";
+    message = `${totalMg}mg is above ~${bands.cautionMax}mg — this is a concern level. Focus on reducing rather than increasing further, and never use caffeine to push through fatigue, illness or pain.`;
+  }
+
+  const redFlagLogs = todayLogs.filter(s => Array.isArray(s.redFlagSymptoms) && s.redFlagSymptoms.length);
+  const redFlagEscalation = redFlagLogs.length
+    ? "Red-flag symptoms logged with today's caffeine intake — stop further caffeine today and consider medical advice if symptoms continue or worsen."
+    : null;
+
   return {
-    totalMg, status, sourceCount: todayLogs.length,
+    totalMg, mgPerKg, status, label, message, bands,
+    sourceCount: todayLogs.length,
     lateFlag: todayLogs.some(s => s.sleepAffected),
-    maskingWarning: totalMg >= 300
+    maskingWarning: totalMg >= bands.priorityMax,
+    redFlagEscalation
+  };
+}
+
+/**
+ * Proposes a gradual, week-by-week reduction plan toward the user's cutoff preference
+ * — never a same-day cold-stop recommendation. Only proposes a plan when there's
+ * enough recent history (5+ logged days) to base a starting point on.
+ */
+export function caffeineGradualReductionPlan(stimulantLogs, referenceDate = new Date()) {
+  const byDay = {};
+  (stimulantLogs || []).forEach(s => { byDay[s.date] = (byDay[s.date] || 0) + (Number(s.caffeineMg) || 0); });
+  const recentDays = Object.entries(byDay)
+    .filter(([date]) => { const d = parseLogDate(date); return d && (referenceDate - d) / 86400000 <= 14; })
+    .map(([, mg]) => mg);
+
+  if (recentDays.length < 5) {
+    return { hasData: false, note: "Log caffeine for a few more days to unlock a personalised reduction plan." };
+  }
+
+  const currentAverage = round1(average(recentDays));
+  if (currentAverage < 300) {
+    return { hasData: true, needed: false, currentAverage, note: "Current average caffeine intake doesn't need a reduction plan." };
+  }
+
+  const targetAverage = 250;
+  const weeklyStepMg = 50;
+  const weeksNeeded = Math.max(1, Math.ceil((currentAverage - targetAverage) / weeklyStepMg));
+  const steps = [];
+  for (let w = 1; w <= weeksNeeded; w++) {
+    steps.push({ week: w, targetMg: Math.max(targetAverage, Math.round(currentAverage - weeklyStepMg * w)) });
+  }
+
+  return {
+    hasData: true, needed: true, currentAverage, targetAverage, weeklyStepMg, weeksNeeded, steps,
+    note: `Reduce by ~${weeklyStepMg}mg/day per week over ${weeksNeeded} week(s) rather than stopping abruptly — abrupt caffeine withdrawal can cause headaches and fatigue that look like poor recovery.`
   };
 }
 
@@ -769,6 +1046,55 @@ export function recoveryMealCompliance(mealLogs, referenceDate = new Date()) {
     highCarbRecoveryComplete: has("high-carb-recovery"),
     proteinAnchorComplete: has("protein-anchor"),
     hydrationTagComplete: has("hydration")
+  };
+}
+
+/** Today's logged pre-workout readiness choice, if any — used to gate the Train tab mission start. */
+export function preWorkoutReadinessToday(preWorkoutLogs, referenceDate = new Date()) {
+  const todayISO = referenceDate.toLocaleDateString("en-CA");
+  return (preWorkoutLogs || []).find(p => p.date === todayISO) || null;
+}
+
+/**
+ * Training-nutrition correlation: only reports a pattern once there are enough
+ * repeated sessions on both sides (fuelled vs. under-fuelled/fasted) to be
+ * meaningful — a single low-volume fasted session never triggers a claim.
+ */
+export function trainingNutritionCorrelation(data) {
+  const workouts = data.workouts || [];
+  const preLogs = data.preWorkoutLogs || [];
+  if (workouts.length < 4 || !preLogs.length) return { hasData: false };
+
+  const byDate = {};
+  preLogs.forEach(p => { byDate[p.date] = p; });
+
+  const paired = workouts.map(w => {
+    const pre = byDate[w.date];
+    const volume = (w.exercises || []).reduce((sum, e) =>
+      sum + (Number(e.set1Weight) || 0) * (Number(e.set1Reps) || 0) + (Number(e.set2Weight) || 0) * (Number(e.set2Reps) || 0), 0);
+    return { date: w.date, readinessChoice: pre?.readinessChoice || null, volume };
+  }).filter(p => p.readinessChoice);
+
+  const fuelled = paired.filter(p => p.readinessChoice === "fuelled").map(p => p.volume);
+  const underfuelled = paired.filter(p => p.readinessChoice === "partial" || p.readinessChoice === "fasted").map(p => p.volume);
+
+  if (fuelled.length < 3 || underfuelled.length < 3) {
+    return { hasData: false, sessionsAnalysed: paired.length, note: "Log a pre-workout readiness choice on a few more sessions (3+ fuelled and 3+ under-fuelled) to unlock this pattern." };
+  }
+
+  const avgFuelled = average(fuelled);
+  const avgUnderfuelled = average(underfuelled);
+  const volumeDifferencePct = avgFuelled ? round1(((avgFuelled - avgUnderfuelled) / avgFuelled) * 100) : null;
+
+  return {
+    hasData: true,
+    sessionsAnalysed: paired.length,
+    averageVolumeFuelled: round1(avgFuelled),
+    averageVolumeUnderfuelled: round1(avgUnderfuelled),
+    volumeDifferencePct,
+    pattern: (volumeDifferencePct != null && volumeDifferencePct >= 10)
+      ? `Sessions logged as fully fuelled beforehand show ~${volumeDifferencePct}% higher training volume than under-fuelled/fasted sessions — a repeated pattern across ${paired.length} logged sessions.`
+      : "No strong repeated pattern yet between pre-workout fuel status and training volume."
   };
 }
 
@@ -797,7 +1123,7 @@ export function readinessScore(data, referenceDate = new Date()) {
   const recoverySorted = [...(data.recoveryLogs || [])].filter(r => parseLogDate(r.date)).sort((a, b) => parseLogDate(a.date) - parseLogDate(b.date));
   const latestRecovery = recoverySorted.at(-1) || null;
   const hydration = hydrationStatus(data.hydrationLogs || [], data.stimulantLogs || [], referenceDate);
-  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate);
+  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate, currentBodyweightKg(data));
   const mealCompliance = recoveryMealCompliance(data.mealLogs || [], referenceDate);
 
   const dataPoints = [sStats.hasData, !!latestRecovery, hydration.hasData, caffeine.sourceCount > 0].filter(Boolean).length;
@@ -888,7 +1214,7 @@ export function detectFatigueReason(data, referenceDate = new Date()) {
   const recentRecovery = recoverySorted.slice(-4);
   const hydration = hydrationStatus(data.hydrationLogs || [], data.stimulantLogs || [], referenceDate);
   const latestHydration = [...(data.hydrationLogs || [])].filter(h => parseLogDate(h.date)).sort((a, b) => parseLogDate(a.date) - parseLogDate(b.date)).at(-1) || null;
-  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate);
+  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate, currentBodyweightKg(data));
   const todayStim = (data.stimulantLogs || []).filter(s => s.date === todayISO);
   const mealCompliance = recoveryMealCompliance(data.mealLogs || [], referenceDate);
   const recentWorkouts = (data.workouts || []).filter(w => { const d = parseLogDate(w.date); return d && (referenceDate - d) / 86400000 <= 7; });
@@ -1131,7 +1457,7 @@ export function recoveryCoachRead(data, referenceDate = new Date()) {
   const readiness = readinessScore(data, referenceDate);
   const fatigue = detectFatigueReason(data, referenceDate);
   const hydration = hydrationStatus(data.hydrationLogs || [], data.stimulantLogs || [], referenceDate);
-  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate);
+  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate, currentBodyweightKg(data));
   const mealCompliance = recoveryMealCompliance(data.mealLogs || [], referenceDate);
 
   const nutritionAction = !mealCompliance.preWorkoutComplete
@@ -1169,9 +1495,10 @@ export function recoveryCoachRead(data, referenceDate = new Date()) {
 // sync": the dashboard never holds a stale copy of anything).
 // =====================================================================
 
-/** Today's sequenced flow: each step's "done" state is read live from today's logs. */
+/** Today's sequenced flow: each step's "done" state is read live from today's logs. Weekend-aware: Sat/Sun swap "Train today" for weekend recovery items. */
 export function dailyChecklist(data, referenceDate = new Date()) {
   const todayISO = referenceDate.toLocaleDateString("en-CA");
+  const isWeekend = referenceDate.getDay() === 0 || referenceDate.getDay() === 6;
   const sleepDone = (data.sleepLogs || []).some(s => s.date === todayISO);
   const preWorkoutDone = (data.mealLogs || []).some(m => m.date === todayISO && m.recoveryTag === "pre-workout");
   const trainedToday = (data.workouts || []).some(w => w.date === todayISO);
@@ -1181,6 +1508,9 @@ export function dailyChecklist(data, referenceDate = new Date()) {
   const activeSupplements = (data.supplements || []).filter(s => s.active);
   const supplementsDone = activeSupplements.length === 0 ||
     activeSupplements.every(s => (data.supplementLogs || []).some(l => l.date === todayISO && l.supplementId === s.id && l.taken));
+  const todaySleep = (data.sleepLogs || []).find(s => s.date === todayISO);
+  const weekendSleepExtended = !!todaySleep && todaySleep.calculatedDurationHours != null && todaySleep.calculatedDurationHours >= 8;
+  const highCarbRecoveryDone = (data.mealLogs || []).some(m => m.date === todayISO && m.recoveryTag === "high-carb-recovery");
 
   const items = [
     { id: "sleep", label: "Log last night's sleep", done: sleepDone, tab: "recovery", anchor: "sleepBedtime" },
@@ -1191,11 +1521,67 @@ export function dailyChecklist(data, referenceDate = new Date()) {
     { id: "hydration", label: "Log hydration / electrolytes", done: hydrationDone, tab: "recovery", anchor: "hydWaterIntake" },
     { id: "supplements", label: "Take active supplements", done: supplementsDone, tab: "nutrition", anchor: "supplementChecklist" }
   ];
+  if (isWeekend) {
+    items.push(
+      { id: "weekend-sleep-extension", label: "Weekend recovery extension (aim 8-10h sleep)", done: weekendSleepExtended, tab: "recovery", anchor: "sleepBedtime" },
+      { id: "weekend-high-carb-meal", label: "Bank a high-carb recovery meal", done: highCarbRecoveryDone, tab: "nutrition", anchor: "mealName" }
+    );
+  }
   const completedCount = items.filter(i => i.done).length;
   return {
     items, completedCount, totalCount: items.length,
     pct: Math.round((completedCount / items.length) * 100),
-    nextStep: items.find(i => !i.done) || null
+    nextStep: items.find(i => !i.done) || null,
+    isWeekend
+  };
+}
+
+/**
+ * Weekly Recovery Direction: a single "push / maintain / prioritise recovery" call
+ * combining progression readiness, this week's bottleneck, today's nutrition
+ * confidence, caffeine load, and any recent joint/pain concerns. Additive read-only
+ * summary — never writes anything, purely derived from existing collections.
+ */
+export function weeklyRecoveryDirection(data, referenceDate = new Date()) {
+  const readiness = readinessScore(data, referenceDate);
+  const fatigue = detectFatigueReason(data, referenceDate);
+  const todayISO = referenceDate.toLocaleDateString("en-CA");
+  const nutritionConfidence = nutritionConfidenceStatus(data.mealLogs || [], todayISO);
+  const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate, currentBodyweightKg(data));
+  const jointWarnings = armForearmDeltWarnings(data, referenceDate);
+
+  const reasons = [];
+  let direction = "Maintain";
+
+  if (["red", "red-amber"].includes(readiness.status)) {
+    direction = "Prioritise Recovery";
+    reasons.push(`Readiness is ${readiness.status} — ${readiness.mainBottleneck}.`);
+  } else if (fatigue.primaryId === "medical-concern") {
+    direction = "Prioritise Recovery";
+    reasons.push(fatigue.primaryCause);
+  } else if (["green", "amber-green"].includes(readiness.status) && nutritionConfidence.status !== "Low" && caffeine.status !== "Excessive / caution") {
+    direction = "Push";
+    reasons.push(`Readiness is ${readiness.status} with no major bottleneck.`);
+  }
+
+  if (nutritionConfidence.status === "Incomplete Day" || nutritionConfidence.status === "Low") {
+    reasons.push(`Nutrition data confidence is ${nutritionConfidence.status.toLowerCase()} — ${nutritionConfidence.reason}`);
+    if (direction === "Push") direction = "Maintain";
+  }
+  if (caffeine.status === "Excessive / caution") {
+    reasons.push(caffeine.message);
+    if (direction === "Push") direction = "Maintain";
+  }
+  if (jointWarnings.length) {
+    reasons.push(...jointWarnings);
+    direction = "Prioritise Recovery";
+  }
+
+  return {
+    direction, reasons,
+    readinessStatus: readiness.status, readinessScore: readiness.score,
+    weeklyBottleneck: fatigue.primaryCause, nutritionConfidence: nutritionConfidence.status,
+    caffeineStatus: caffeine.status
   };
 }
 
