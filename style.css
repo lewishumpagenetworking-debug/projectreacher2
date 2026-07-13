@@ -768,6 +768,84 @@ table.data-table th { color: var(--muted); font-weight: 700; }
   .library-detail-modal { align-items: center; }
   .library-detail-content { border-radius: 18px; max-height: 80vh; }
 }
+/* ==================== Image Gallery (Vision Board / Goals / Milestones / Library) ==================== */
+.image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-top: 10px; }
+.image-tile {
+  position: relative; margin: 0; border-radius: 12px; overflow: hidden; aspect-ratio: 1 / 1;
+  background: var(--card-hi); border: 1px solid var(--line); cursor: grab;
+}
+.image-tile.dragging { opacity: 0.4; }
+.image-tile img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; }
+.image-tile figcaption {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 6px; font-size: 11px;
+  background: linear-gradient(0deg, rgba(0,0,0,0.75), transparent); color: #fff;
+}
+.image-tile-controls { position: absolute; top: 4px; right: 4px; display: flex; gap: 3px; }
+.image-tile-btn {
+  width: 22px; height: 22px; padding: 0; border-radius: 6px; font-size: 12px; line-height: 1;
+  background: rgba(10,10,12,0.72); color: #fff; border: 1px solid rgba(255,255,255,0.15); box-shadow: none;
+}
+.image-tile-btn:disabled { opacity: 0.3; }
+.image-tile-btn-danger { background: var(--danger-soft); color: var(--danger); }
+
+.image-carousel { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 0 8px; margin-top: 10px; }
+.image-carousel-item {
+  position: relative; flex: 0 0 auto; width: 160px; aspect-ratio: 4 / 5; margin: 0;
+  border-radius: 12px; overflow: hidden; scroll-snap-align: start; background: var(--card-hi); border: 1px solid var(--line);
+}
+.image-carousel-item img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; }
+.image-carousel-item figcaption {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 5px 7px; font-size: 12px;
+  background: linear-gradient(0deg, rgba(0,0,0,0.75), transparent); color: #fff;
+}
+.image-carousel-remove { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0; border-radius: 6px; }
+
+.image-upload-slot { margin-top: 8px; }
+.image-upload-dropzone {
+  display: flex; align-items: center; justify-content: center; min-height: 90px;
+  border: 1px dashed var(--line-hi); border-radius: 12px; color: var(--muted); font-size: 13px;
+  cursor: pointer; text-align: center;
+}
+.image-upload-dropzone:hover { border-color: var(--accent); color: var(--accent); }
+.image-upload-slot-filled img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 12px; display: block; cursor: pointer; }
+.image-upload-slot-filled .actions { margin-top: 8px; }
+.image-upload-btn { display: inline-block; }
+
+.image-lightbox-backdrop { z-index: 80; }
+.image-lightbox-modal {
+  position: fixed; inset: 0; z-index: 81; display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.image-lightbox-modal[hidden] { display: none; }
+.image-lightbox-content { position: relative; max-width: 92vw; max-height: 88vh; display: flex; flex-direction: column; align-items: center; }
+.image-lightbox-content img { max-width: 92vw; max-height: 76vh; object-fit: contain; border-radius: 12px; animation: modal-rise var(--t-med) var(--ease); }
+.image-lightbox-caption { color: #fff; margin-top: 8px; }
+.image-lightbox-close {
+  position: absolute; top: -6px; right: -6px; z-index: 2; background: var(--card-hi); color: var(--text);
+  border: 1px solid var(--line); width: 34px; height: 34px; border-radius: 10px; box-shadow: none;
+}
+.image-lightbox-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); background: rgba(10,10,12,0.6); color: #fff;
+  border: 1px solid rgba(255,255,255,0.2); width: 40px; height: 40px; border-radius: 50%; box-shadow: none; font-size: 16px;
+}
+.image-lightbox-prev { left: 0; }
+.image-lightbox-next { right: 0; }
+
+.library-image-row {
+  display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line);
+}
+.library-image-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; flex: none; cursor: pointer; border: 1px solid var(--line); }
+.library-image-meta { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.library-caption-input { margin-bottom: 0; }
+.library-category-select { width: auto; margin-bottom: 0; font-size: 12px; }
+
+.vision-preview-strip { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; }
+.vision-preview-strip img { width: 84px; height: 84px; object-fit: cover; border-radius: 10px; flex: 0 0 auto; border: 1px solid var(--line); }
+
+@media (max-width: 620px) {
+  .image-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+  .image-carousel-item { width: 130px; }
+}
+
 .library-detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
 .library-detail-header h2 { margin: 2px 0 0; }
 .library-detail-list { margin: 4px 0 10px; padding-left: 20px; color: var(--muted); font-size: 14px; }
@@ -810,6 +888,19 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 }
 .advanced-restore summary { cursor: pointer; color: var(--muted); }
 .advanced-restore p { margin: 8px 0; }
+
+/* ---- Top-level expandable section (e.g. Vision Board) ---- */
+.section-details summary { cursor: pointer; list-style: none; }
+.section-details summary::-webkit-details-marker { display: none; }
+.section-details summary h2 { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+.section-details summary h2::before { content: "▾"; color: var(--muted); font-size: 15px; }
+.section-details:not([open]) summary h2::before { content: "▸"; }
+.category-section { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
+.category-section summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+.category-section summary::-webkit-details-marker { display: none; }
+.category-section summary::before { content: "▸"; color: var(--muted); flex: none; }
+.category-section[open] summary::before { content: "▾"; }
+.category-section summary strong { flex: 1 1 auto; }
 
 /* =====================================================================
    TACTICAL COMMAND-CENTRE COMPONENTS (design/engagement layer)

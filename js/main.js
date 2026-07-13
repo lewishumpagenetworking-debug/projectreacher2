@@ -8,7 +8,7 @@ import {
 } from "./render-train.js";
 import {
   saveBodyweight, renderBodyweight, saveCheckin, renderCheckinHistory,
-  saveMeasurements, renderMeasurementsHistory, savePhotoCheckin, renderPhotos
+  saveMeasurements, renderMeasurementsHistory, savePhotoCheckin, renderPhotos, renderBodyMilestoneVision
 } from "./render-body.js";
 import {
   saveSkinLog, saveHairLog, saveProductExperiment, saveAppearanceCheckin,
@@ -36,6 +36,10 @@ import { renderReviewCentre, setupReviewEventDelegation } from "./render-reviews
 import { renderTasks, setupTasksEventDelegation } from "./render-tasks.js";
 import { setupDashboardChartEventDelegation } from "./render-dashboard.js";
 import { renderReminders, setupRemindersEventDelegation, startReminderScheduler } from "./render-reminders.js";
+import { renderVisionBoard, setupVisionBoardEventDelegation } from "./render-vision-board.js";
+import { renderGoals, setupGoalsEventDelegation } from "./render-goals.js";
+import { renderMilestonesTimeline, setupMilestonesEventDelegation } from "./render-milestones.js";
+import { renderImageLibrary, setupImageLibraryEventDelegation } from "./render-image-library.js";
 
 export function refreshAll() {
   const data = getData();
@@ -51,6 +55,7 @@ export function refreshAll() {
   renderCheckinHistory(data);
   renderMeasurementsHistory(data);
   renderPhotos(data);
+  renderBodyMilestoneVision(data);
   renderAppearance(data);
   renderAiSpecialists(data);
   renderNutrition(data);
@@ -73,6 +78,10 @@ export function refreshAll() {
   renderReviewCentre(data);
   renderTasks(data);
   renderReminders(data);
+  renderGoals(data);
+  renderMilestonesTimeline(data);
+  renderImageLibrary(data);
+  renderVisionBoard(data);
 }
 
 function setupNav() {
@@ -102,7 +111,8 @@ const COLLECTION_LABELS = {
   aiSavedInsights: "Saved AI insights",
   foodTemplates: "Food templates", preWorkoutLogs: "Pre-workout logs", postWorkoutLogs: "Post-workout logs",
   interventions: "Interventions", reviews: "Reviews", savedMeals: "Saved meals (My Meals)", tasks: "Tasks",
-  reminders: "Reminders"
+  reminders: "Reminders", images: "Vision images", imageCategories: "Custom image categories",
+  goals: "Goals", milestones: "Milestones"
 };
 
 function formatImportSummary(summary) {
@@ -224,15 +234,15 @@ function setupEventListeners() {
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         if (fullRestore) {
-          fullRestoreFromBackup(reader.result);
+          await fullRestoreFromBackup(reader.result);
           refreshAll();
           alert("Full restore complete. Your app now matches the uploaded file exactly (a safety backup of your previous data was saved first).");
           if ($("fullRestoreToggle")) $("fullRestoreToggle").checked = false;
         } else {
-          const { summary } = importData(reader.result);
+          const { summary } = await importData(reader.result);
           refreshAll();
           alert(formatImportSummary(summary));
         }
@@ -299,6 +309,10 @@ setupTasksEventDelegation();
 setupDashboardChartEventDelegation();
 setupRemindersEventDelegation();
 startReminderScheduler();
+setupVisionBoardEventDelegation();
+setupGoalsEventDelegation();
+setupMilestonesEventDelegation();
+setupImageLibraryEventDelegation();
 setupRecoveryEventDelegation();
 setupAppearanceEventDelegation();
 setupAiEventDelegation();

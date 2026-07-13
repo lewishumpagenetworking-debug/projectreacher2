@@ -81,6 +81,11 @@
         <div id="attentionPanel" class="attention-panel"></div>
       </section>
 
+      <section class="card" id="visionPreviewCard" hidden>
+        <div class="section-title"><h2>Vision Preview</h2><button type="button" class="card-link-hint link-button" data-goto-tab="more" data-goto-anchor="visionBoardCard">Open Vision Board →</button></div>
+        <div id="visionPreviewStrip" class="vision-preview-strip"></div>
+      </section>
+
       <section class="card">
         <h2>Today's Sequenced Flow</h2>
         <div id="dailyFlowNextStep"></div>
@@ -475,6 +480,11 @@
         <button id="savePhotos">Save Photo Check-In</button>
         <div id="photoReminder" class="small"></div>
         <div id="photoHistory"></div>
+      </section>
+
+      <section class="card" id="bodyMilestoneVisionCard" hidden>
+        <div class="section-title"><h2>Progress Milestones</h2><button type="button" class="card-link-hint link-button" data-goto-tab="more" data-goto-anchor="milestonesCard">Open Milestones →</button></div>
+        <div id="bodyMilestoneVisionStrip" class="vision-preview-strip"></div>
       </section>
     </section>
 
@@ -1040,6 +1050,75 @@
 
         <h3>Your Reminders</h3>
         <div id="reminderList"></div>
+      </section>
+
+      <section class="card" id="goalsCard">
+        <h2>Goals</h2>
+        <p class="small">Weight, strength, business, financial, and skill goals in one place. Every goal can carry its own images, shown automatically when you open it.</p>
+        <div class="form-grid">
+          <input type="text" id="newGoalTitle" placeholder="Goal title" />
+          <select id="newGoalCategory">
+            <option value="business">Business</option>
+            <option value="weight">Weight</option>
+            <option value="physique">Physique</option>
+            <option value="financial">Financial</option>
+            <option value="skill">Skill</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <textarea id="newGoalDescription" placeholder="Optional description"></textarea>
+        <button type="button" id="addGoalBtn" class="secondary">Add Goal</button>
+        <div id="goalList"></div>
+      </section>
+
+      <section class="card" id="milestonesCard">
+        <h2>Milestones</h2>
+        <p class="small">A historical timeline of moments worth remembering - progress photos, business wins, workspace upgrades, personal achievements. New entries never replace previous ones.</p>
+        <div class="form-grid">
+          <input type="text" id="newMilestoneTitle" placeholder="Milestone title" />
+          <input type="date" id="newMilestoneDate" />
+        </div>
+        <select id="newMilestoneCategory">
+          <option value="progress-photo">Progress Photo</option>
+          <option value="bodyweight">Bodyweight Comparison</option>
+          <option value="business">Business Achievement</option>
+          <option value="workspace">Workspace Improvement</option>
+          <option value="personal" selected>Personal Achievement</option>
+          <option value="custom">Custom</option>
+        </select>
+        <textarea id="newMilestoneDescription" placeholder="Optional description"></textarea>
+        <button type="button" id="addMilestoneBtn" class="secondary">Add Milestone</button>
+        <div id="milestoneList"></div>
+      </section>
+
+      <section class="card" id="imageLibraryCard">
+        <div class="section-title"><h2>Image Library</h2><span id="imageLibraryCount" class="badge"></span></div>
+        <p class="small">Every image you've uploaded, in one place - search, filter, sort, replace, archive, delete, or move an image to a different category.</p>
+        <div class="form-grid">
+          <input type="text" id="imageLibrarySearch" placeholder="Search captions/categories..." />
+          <select id="imageLibraryCategoryFilter"><option value="all">All categories</option></select>
+        </div>
+        <div class="badge-row">
+          <select id="imageLibrarySort">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="category">By category</option>
+          </select>
+          <label><input type="checkbox" id="imageLibraryShowArchived"> Show archived</label>
+        </div>
+        <div id="imageLibraryList"></div>
+      </section>
+
+      <section class="card" id="visionBoardCard">
+        <details class="section-details" open>
+          <summary><h2>Vision Board</h2></summary>
+          <p class="small">A personal collection of images that reinforce the identity, physique and future you're building — not a notes page. Images live on your device only.</p>
+          <div id="visionBoardCategories"></div>
+          <div class="form-grid">
+            <input type="text" id="newVisionCategoryName" placeholder="New category name..." />
+            <button type="button" id="addVisionCategoryBtn" class="secondary">Add Category</button>
+          </div>
+        </details>
       </section>
 
       <section class="card">

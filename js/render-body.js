@@ -3,6 +3,8 @@ import { getData, saveData, uid } from "./data.js";
 import { sevenDayAverage, weeklyRateOfGain, ratios } from "./calculations.js";
 import { lineChart } from "./charts.js";
 import { parseLogDate } from "./dates.js";
+import { resolveImageUrls, openLightbox } from "./image-gallery.js";
+import { getImagesFor } from "./vision-images.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -216,4 +218,30 @@ export function renderPhotos(data) {
       ${p.notes ? `<p class="small">${esc(p.notes)}</p>` : ""}
       <div class="actions"><button class="danger" data-delete="progressPhotos" data-id="${p.id}">Delete</button></div>
     </div>`).join("") || "<p class='small'>No progress photos yet.</p>";
+}
+
+/** Compact, secondary strip of recent progress/bodyweight Milestone images — hidden unless any exist. Fully separate from the progressPhotos check-in system above. */
+export async function renderBodyMilestoneVision(data) {
+  const card = $("bodyMilestoneVisionCard");
+  const strip = $("bodyMilestoneVisionStrip");
+  if (!card || !strip) return;
+
+  const progressMilestoneIds = new Set(
+    (data.milestones || []).filter(m => m.category === "progress-photo" || m.category === "bodyweight").map(m => m.id)
+  );
+  const images = (data.images || [])
+    .filter(i => i.status !== "archived" && i.relatedEntityType === "milestone" && progressMilestoneIds.has(i.relatedEntityId))
+    .sort((a, b) => (b.uploadedAt || "").localeCompare(a.uploadedAt || ""))
+    .slice(0, 5);
+
+  if (!images.length) { card.hidden = true; return; }
+  card.hidden = false;
+
+  const urlMap = await resolveImageUrls(images);
+  strip.innerHTML = images.map(img =>
+    `<img src="${esc(urlMap.get(img.id) || "")}" alt="${esc(img.caption || "")}" loading="lazy" data-body-milestone-open="${esc(img.id)}">`
+  ).join("");
+  strip.querySelectorAll("[data-body-milestone-open]").forEach(el => {
+    el.addEventListener("click", () => openLightbox(images, urlMap, el.dataset.bodyMilestoneOpen));
+  });
 }
