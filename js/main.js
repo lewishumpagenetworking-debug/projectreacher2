@@ -41,6 +41,7 @@ import { renderGoals, setupGoalsEventDelegation } from "./render-goals.js";
 import { renderMilestonesTimeline, setupMilestonesEventDelegation } from "./render-milestones.js";
 import { renderImageLibrary, setupImageLibraryEventDelegation } from "./render-image-library.js";
 import { renderSessionNutritionCards, renderBodyweightReviewNotice } from "./render-session-nutrition.js";
+import { renderConstraintPage, completeWeeklyReview } from "./render-constraint.js";
 
 export function refreshAll() {
   const data = getData();
@@ -79,6 +80,7 @@ export function refreshAll() {
   renderAllVisuals(data);
   renderLibrary(data);
   renderReviewCentre(data);
+  renderConstraintPage(data);
   renderTasks(data);
   renderReminders(data);
   renderGoals(data);
@@ -192,6 +194,7 @@ function setupEventListeners() {
   $("saveSleepLog")?.addEventListener("click", saveSleepLog);
   $("saveHydrationLog")?.addEventListener("click", saveHydrationLog);
   $("saveInterventionBtn")?.addEventListener("click", saveIntervention);
+  $("completeWeeklyReviewBtn")?.addEventListener("click", completeWeeklyReview);
 
   $("saveProfile").addEventListener("click", saveProfile);
   $("saveGymProfile")?.addEventListener("click", saveProfile);

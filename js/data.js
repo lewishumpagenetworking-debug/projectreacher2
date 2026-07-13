@@ -229,7 +229,11 @@ export function migrateData() {
     reviewType: "weekly", periodStart: null, periodEnd: null, status: "not_started",
     overallScore: null, summary: "", source: "app", sourceFilename: null,
     findings: [], proposedUpdates: [], knowledgeNotes: [], appliedLog: [],
-    createdAt: r.createdAt || new Date().toISOString(), approvedAt: null, appliedAt: null
+    createdAt: r.createdAt || new Date().toISOString(), approvedAt: null, appliedAt: null,
+    // Weekly constraint-diagnosis output (spec sections 11-12) lives on the same review
+    // record rather than a third parallel review system — null until a Constraint Review
+    // is actually completed for this period.
+    constraintAnalysis: null
   }));
 
   data.tasks = data.tasks.map(t => withDefaults(t, {

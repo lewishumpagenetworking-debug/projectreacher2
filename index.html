@@ -38,6 +38,7 @@
         <button class="nav-btn" data-tab="appearance"><span class="drawer-icon">✨</span> Appearance</button>
         <button class="nav-btn" data-tab="nutrition"><span class="drawer-icon">🍽️</span> Nutrition</button>
         <button class="nav-btn" data-tab="recovery"><span class="drawer-icon">😴</span> Recovery</button>
+        <button class="nav-btn" data-tab="constraint"><span class="drawer-icon">🧭</span> Constraint</button>
         <button class="nav-btn" data-tab="library"><span class="drawer-icon">📚</span> Library</button>
         <button class="nav-btn" data-tab="more"><span class="drawer-icon">⚙️</span> More</button>
       </div>
@@ -54,6 +55,7 @@
       <button class="nav-btn" data-tab="appearance">Appearance</button>
       <button class="nav-btn" data-tab="nutrition">Nutrition</button>
       <button class="nav-btn" data-tab="recovery">Recovery</button>
+      <button class="nav-btn" data-tab="constraint">Constraint</button>
       <button class="nav-btn" data-tab="library">Library</button>
       <button class="nav-btn" data-tab="more">More</button>
     </nav>
@@ -1307,6 +1309,30 @@
       <section class="card">
         <h2>Saved Insights</h2>
         <div id="savedInsightsList"></div>
+      </section>
+    </section>
+
+    <!-- ================= CONSTRAINT ANALYSIS ================= -->
+    <section class="tab-panel" data-tab="constraint" hidden>
+      <section class="card">
+        <h2>This Week</h2>
+        <p class="small">Formal diagnosis only happens here, in the weekly review. During the week this app collects evidence and shows neutral observations — it never declares a plateau or activates a plan mid-week.</p>
+        <div id="constraintReadiness"></div>
+        <div id="constraintSafetyFlags"></div>
+        <div id="constraintWeeklyPreview"></div>
+        <div class="actions">
+          <button id="completeWeeklyReviewBtn">Complete This Week's Constraint Review</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Active Constraint Cases</h2>
+        <div id="constraintActiveCases"></div>
+      </section>
+
+      <section class="card">
+        <h2>Case History</h2>
+        <div id="constraintCaseHistory"></div>
       </section>
     </section>
 
