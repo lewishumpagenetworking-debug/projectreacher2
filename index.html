@@ -38,6 +38,7 @@
         <button class="nav-btn" data-tab="appearance"><span class="drawer-icon">✨</span> Appearance</button>
         <button class="nav-btn" data-tab="nutrition"><span class="drawer-icon">🍽️</span> Nutrition</button>
         <button class="nav-btn" data-tab="recovery"><span class="drawer-icon">😴</span> Recovery</button>
+        <button class="nav-btn" data-tab="constraint"><span class="drawer-icon">🧭</span> Constraint</button>
         <button class="nav-btn" data-tab="library"><span class="drawer-icon">📚</span> Library</button>
         <button class="nav-btn" data-tab="more"><span class="drawer-icon">⚙️</span> More</button>
       </div>
@@ -54,6 +55,7 @@
       <button class="nav-btn" data-tab="appearance">Appearance</button>
       <button class="nav-btn" data-tab="nutrition">Nutrition</button>
       <button class="nav-btn" data-tab="recovery">Recovery</button>
+      <button class="nav-btn" data-tab="constraint">Constraint</button>
       <button class="nav-btn" data-tab="library">Library</button>
       <button class="nav-btn" data-tab="more">More</button>
     </nav>
@@ -73,6 +75,12 @@
           <div class="hero-stat"><span>Recovery Status</span><strong id="heroRecovery">--</strong></div>
         </div>
         <button type="button" class="hero-cta" id="heroStartWorkoutBtn" data-goto-tab="train">Start / Resume Workout</button>
+      </section>
+
+      <section class="card" id="progressTaskListCard">
+        <h2>Task List</h2>
+        <div id="progressTaskSummary"></div>
+        <div id="progressTaskSections"></div>
       </section>
 
       <section class="card" id="attentionPanelCard" hidden>
@@ -267,6 +275,7 @@
     <!-- ================= TRAIN ================= -->
     <section class="tab-panel" data-tab="train" hidden>
       <div id="visual-train"></div>
+      <div id="trainPageTasks" hidden></div>
 
       <section class="card">
         <div class="section-title">
@@ -295,6 +304,59 @@
         <div id="draftStatus" class="draft-status" hidden></div>
         <div id="workoutList"></div>
         <div id="postWorkoutRecoveryCardSlot"></div>
+        <details class="category-section session-review-form" id="sessionReviewSection">
+          <summary><strong>Session Review</strong></summary>
+          <p class="small">Optional, but the more complete this is, the more reliable the weekly analysis will be. You can also finish this later from Workout History.</p>
+          <div class="form-grid">
+            <label class="small">Performance vs expected
+              <select id="srPerformanceVsExpected">
+                <option value="">Not set</option>
+                <option value="better">Better than expected</option>
+                <option value="similar">Similar to expected</option>
+                <option value="worse">Worse than expected</option>
+              </select>
+            </label>
+            <label class="small">Main limiting factor
+              <select id="srMainLimitingFactor">
+                <option value="">Not set</option>
+                <option value="none">Nothing limited me</option>
+                <option value="grip">Grip</option>
+                <option value="energy">Energy</option>
+                <option value="technique">Technique</option>
+                <option value="pain">Pain or discomfort</option>
+                <option value="equipment">Equipment</option>
+                <option value="cardio">Cardiovascular</option>
+                <option value="muscular-fatigue">Muscular fatigue</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label class="small">Energy (1-5)
+              <select id="srEnergy"><option value="">Not set</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+            </label>
+            <label class="small">Muscular fatigue (1-5)
+              <select id="srMuscularFatigue"><option value="">Not set</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+            </label>
+            <label class="small">Cardiovascular fatigue (1-5)
+              <select id="srCardioFatigue"><option value="">Not set</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+            </label>
+            <label class="small">Technique quality (1-5)
+              <select id="srTechniqueQuality"><option value="">Not set</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+            </label>
+            <label class="small">Focus (1-5)
+              <select id="srFocus"><option value="">Not set</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+            </label>
+          </div>
+          <div class="checklist-row"><input type="checkbox" id="srGripLimitation"><span>Grip limitation</span></div>
+          <div class="checklist-row"><input type="checkbox" id="srPainOrDiscomfort"><span>Pain or discomfort</span></div>
+          <input type="text" id="srPainNote" placeholder="Pain/discomfort note (optional)">
+          <div class="checklist-row"><input type="checkbox" id="srPreWorkoutNutritionMet"><span>Pre-workout nutrition target met</span></div>
+          <div class="checklist-row"><input type="checkbox" id="srPostWorkoutNutritionMet"><span>Post-workout nutrition target met</span></div>
+          <div class="checklist-row"><input type="checkbox" id="srHydrationMet"><span>Hydration target met</span></div>
+          <div class="checklist-row"><input type="checkbox" id="srRestPeriodsFollowed"><span>Planned rest periods followed</span></div>
+          <div class="checklist-row"><input type="checkbox" id="srExerciseSetupChanged"><span>Exercise setup changed from usual</span></div>
+          <input type="text" id="srSetupChangeNote" placeholder="Setup change note (optional)">
+          <textarea id="srNotes" placeholder="Session notes (optional, free text)"></textarea>
+        </details>
         <div class="actions">
           <button id="saveWorkout">Save Workout</button>
           <button id="clearDraftBtn" class="secondary" type="button" hidden>Clear Draft</button>
@@ -360,6 +422,7 @@
 
     <!-- ================= BODY ================= -->
     <section class="tab-panel" data-tab="body" hidden>
+      <div id="bodyPageTasks" hidden></div>
       <section class="card">
         <h2>Daily Bodyweight</h2>
         <div class="form-grid">
@@ -555,6 +618,7 @@
     <!-- ================= NUTRITION ================= -->
     <section class="tab-panel" data-tab="nutrition" hidden>
       <div id="visual-meals"></div>
+      <div id="nutritionPageTasks" hidden></div>
 
       <section class="card">
         <h2>Log a Meal</h2>
@@ -756,6 +820,7 @@
 
     <!-- ================= RECOVERY ================= -->
     <section class="tab-panel" data-tab="recovery" hidden>
+      <div id="recoveryPageTasks" hidden></div>
       <section class="card command-hero">
         <h2>Recovery Command Centre</h2>
         <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="performanceCoachChatInput">Ask Performance Coach</button>
@@ -1254,6 +1319,30 @@
       <section class="card">
         <h2>Saved Insights</h2>
         <div id="savedInsightsList"></div>
+      </section>
+    </section>
+
+    <!-- ================= CONSTRAINT ANALYSIS ================= -->
+    <section class="tab-panel" data-tab="constraint" hidden>
+      <section class="card">
+        <h2>This Week</h2>
+        <p class="small">Formal diagnosis only happens here, in the weekly review. During the week this app collects evidence and shows neutral observations — it never declares a plateau or activates a plan mid-week.</p>
+        <div id="constraintReadiness"></div>
+        <div id="constraintSafetyFlags"></div>
+        <div id="constraintWeeklyPreview"></div>
+        <div class="actions">
+          <button id="completeWeeklyReviewBtn">Complete This Week's Constraint Review</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Active Constraint Cases</h2>
+        <div id="constraintActiveCases"></div>
+      </section>
+
+      <section class="card">
+        <h2>Case History</h2>
+        <div id="constraintCaseHistory"></div>
       </section>
     </section>
 

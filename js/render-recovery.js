@@ -6,7 +6,7 @@ import {
   detectFatigueReason, activeRecoveryProtocols, recoveryCoachRead, currentBodyweightKg, caffeineGradualReductionPlan
 } from "./calculations.js";
 import { SUPPLEMENT_DATABASE, MEDICAL_EDUCATION_DATABASE, MEDICAL_DISCLAIMERS } from "./recovery-data.js";
-import { runContingencyEngine } from "./contingency-engine.js";
+import { evaluateConstraintRules } from "./constraint-engine.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -438,7 +438,20 @@ export function renderRecoveryCommandCentre(data) {
 export function renderContingencyEngineOutput(data) {
   const el = $("contingencyEngineOutput");
   if (!el) return;
-  const triggered = runContingencyEngine(data);
+  // Sourced from the shared local knowledge library/evidence engine (js/constraint-library.js
+  // + js/constraint-engine.js) rather than the old standalone contingency-engine.js, so this
+  // card can never disagree with the Dashboard's "Current Constraint" badge or the Constraint
+  // Analysis tab. Mapped to the same {title, severity, issue, hypothesis, suggestedIntervention}
+  // shape the existing card/intervention-logging UI already expects.
+  const impactRank = { high: 0, medium: 1, low: 2 };
+  const triggered = evaluateConstraintRules(data).filter(e => e.fired)
+    .sort((a, b) => (impactRank[a.rule.impactLevel] ?? 1) - (impactRank[b.rule.impactLevel] ?? 1))
+    .map(e => ({
+      title: e.rule.title, severity: e.rule.impactLevel,
+      issue: e.evidenceDetail[0] || e.rule.description,
+      hypothesis: e.rule.educationalExplanation,
+      suggestedIntervention: e.rule.recommendedActions[0] || "Review this evidence at the next weekly review."
+    }));
   if (!triggered.length) { el.innerHTML = "<p class='small'>No contingency rules triggered right now.</p>"; return; }
   el.innerHTML = triggered.map(r => `
     <div class="history-item">

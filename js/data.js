@@ -6,6 +6,17 @@ import { DEFAULT_SESSION_NUTRITION } from "./session-nutrition.js";
 export const STORAGE_KEY = "projectReacher";
 export const SCHEMA_VERSION = 2;
 
+/** Session Review defaults (spec section 21) — every field optional, never guessed. */
+export const DEFAULT_SESSION_REVIEW = {
+  performanceVsExpected: null, mainLimitingFactor: null,
+  energy: null, muscularFatigue: null, cardioFatigue: null,
+  gripLimitation: null, painOrDiscomfort: null, painNote: "",
+  techniqueQuality: null, focus: null,
+  preWorkoutNutritionMet: null, postWorkoutNutritionMet: null, hydrationMet: null,
+  restPeriodsFollowed: null, exerciseSetupChanged: null, setupChangeNote: "",
+  notes: "", reviewedAt: null
+};
+
 export const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 const legacyHistoricalData = [
@@ -109,7 +120,8 @@ function emptyData() {
     images: [],
     imageCategories: [],
     goals: [],
-    milestones: []
+    milestones: [],
+    constraintCases: []
   };
 }
 
@@ -166,7 +178,7 @@ export function migrateData() {
    "aiSavedInsights", "aiProposedChanges", "aiAuditLog",
    "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
    "reviews", "reminders", "savedMeals", "tasks",
-   "images", "imageCategories", "goals", "milestones"].forEach(key => {
+   "images", "imageCategories", "goals", "milestones", "constraintCases"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -217,7 +229,11 @@ export function migrateData() {
     reviewType: "weekly", periodStart: null, periodEnd: null, status: "not_started",
     overallScore: null, summary: "", source: "app", sourceFilename: null,
     findings: [], proposedUpdates: [], knowledgeNotes: [], appliedLog: [],
-    createdAt: r.createdAt || new Date().toISOString(), approvedAt: null, appliedAt: null
+    createdAt: r.createdAt || new Date().toISOString(), approvedAt: null, appliedAt: null,
+    // Weekly constraint-diagnosis output (spec sections 11-12) lives on the same review
+    // record rather than a third parallel review system — null until a Constraint Review
+    // is actually completed for this period.
+    constraintAnalysis: null
   }));
 
   data.tasks = data.tasks.map(t => withDefaults(t, {
@@ -275,7 +291,15 @@ export function migrateData() {
     // historical workouts stay null here and resolve their nutrition guidance dynamically
     // from the current programme-day config instead (see session-nutrition.js), never
     // retroactively backfilled with a guessed time.
-    startedAt: null, completedAt: null, sessionNutritionSnapshot: null
+    startedAt: null, completedAt: null, sessionNutritionSnapshot: null,
+    // Session Review (spec section 21) — every field optional/null until the user (or a
+    // later post-hoc completion from Workout History) actually fills it in. Never guessed
+    // or backfilled from other data.
+    sessionReview: withDefaults(w.sessionReview, DEFAULT_SESSION_REVIEW),
+    // Snapshots captured only for workouts saved after the constraint-engine/task-list
+    // system shipped (spec section 26) — older workouts stay null and are simply excluded
+    // from historical-snapshot display, never backfilled with a guessed reconstruction.
+    activeInterventionSnapshot: null, taskCompletionSnapshot: null, engineVersion: w.engineVersion || null
   }));
   data.workouts.forEach(w => {
     w.exercises = (w.exercises || []).map(e => withDefaults(e, {
@@ -416,7 +440,7 @@ const COLLECTION_KEYS = [
   "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared", "aiSavedInsights",
   "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
   "reviews", "savedMeals", "tasks",
-  "images", "imageCategories", "goals", "milestones"
+  "images", "imageCategories", "goals", "milestones", "constraintCases"
   // "reminders" is deliberately excluded — per-device notification scheduling state,
   // the same reasoning as aiProposedChanges/aiAuditLog below.
 ];
@@ -679,6 +703,7 @@ export function importAndMergeData(importedRaw, currentState) {
     (list, c) => detectDuplicateById(list, c) || list.find(x => (x.label || "").toLowerCase() === (c.label || "").toLowerCase())));
   record("goals", mergeByIdGeneric(current.goals, imported.goals, detectDuplicateById));
   record("milestones", mergeByIdGeneric(current.milestones, imported.milestones, detectDuplicateById));
+  record("constraintCases", mergeByIdGeneric(current.constraintCases, imported.constraintCases, detectDuplicateById));
   // reminders deliberately not merged — never restore stale/old notification schedules from a backup.
 
   // aiSettings: current device's consent/permissions always win (consent must never be
