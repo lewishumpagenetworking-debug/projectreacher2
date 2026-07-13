@@ -1761,3 +1761,18 @@ export function monthlyChecklist(data, referenceDate = new Date()) {
   const completedCount = items.filter(i => i.done).length;
   return { items, completedCount, totalCount: items.length, pct: Math.round((completedCount / items.length) * 100) };
 }
+
+/**
+ * A Session Review (spec section 21) doesn't require every field, but performanceVsExpected,
+ * mainLimitingFactor and energy are the minimum needed for the constraint engine to treat
+ * this session as usable evidence. Missing fields don't block saving — they surface a task.
+ */
+const SESSION_REVIEW_REQUIRED_FIELDS = ["performanceVsExpected", "mainLimitingFactor", "energy"];
+export function isSessionReviewComplete(review) {
+  if (!review) return false;
+  return SESSION_REVIEW_REQUIRED_FIELDS.every(f => review[f] != null && review[f] !== "");
+}
+export function sessionReviewMissingFields(review) {
+  if (!review) return SESSION_REVIEW_REQUIRED_FIELDS.slice();
+  return SESSION_REVIEW_REQUIRED_FIELDS.filter(f => review[f] == null || review[f] === "");
+}

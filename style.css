@@ -929,6 +929,10 @@ table.data-table th { color: var(--muted); font-weight: 700; }
   .session-nutrition-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ---- Session Review (spec section 21) ---- */
+.session-review-form .form-grid, .session-review-editor .form-grid { margin-bottom: 8px; }
+.session-review-form input[type="text"], .session-review-editor input[type="text"] { margin-bottom: 8px; }
+
 /* =====================================================================
    TACTICAL COMMAND-CENTRE COMPONENTS (design/engagement layer)
    ===================================================================== */

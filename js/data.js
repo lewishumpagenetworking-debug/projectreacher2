@@ -6,6 +6,17 @@ import { DEFAULT_SESSION_NUTRITION } from "./session-nutrition.js";
 export const STORAGE_KEY = "projectReacher";
 export const SCHEMA_VERSION = 2;
 
+/** Session Review defaults (spec section 21) — every field optional, never guessed. */
+export const DEFAULT_SESSION_REVIEW = {
+  performanceVsExpected: null, mainLimitingFactor: null,
+  energy: null, muscularFatigue: null, cardioFatigue: null,
+  gripLimitation: null, painOrDiscomfort: null, painNote: "",
+  techniqueQuality: null, focus: null,
+  preWorkoutNutritionMet: null, postWorkoutNutritionMet: null, hydrationMet: null,
+  restPeriodsFollowed: null, exerciseSetupChanged: null, setupChangeNote: "",
+  notes: "", reviewedAt: null
+};
+
 export const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 const legacyHistoricalData = [
@@ -275,7 +286,15 @@ export function migrateData() {
     // historical workouts stay null here and resolve their nutrition guidance dynamically
     // from the current programme-day config instead (see session-nutrition.js), never
     // retroactively backfilled with a guessed time.
-    startedAt: null, completedAt: null, sessionNutritionSnapshot: null
+    startedAt: null, completedAt: null, sessionNutritionSnapshot: null,
+    // Session Review (spec section 21) — every field optional/null until the user (or a
+    // later post-hoc completion from Workout History) actually fills it in. Never guessed
+    // or backfilled from other data.
+    sessionReview: withDefaults(w.sessionReview, DEFAULT_SESSION_REVIEW),
+    // Snapshots captured only for workouts saved after the constraint-engine/task-list
+    // system shipped (spec section 26) — older workouts stay null and are simply excluded
+    // from historical-snapshot display, never backfilled with a guessed reconstruction.
+    activeInterventionSnapshot: null, taskCompletionSnapshot: null, engineVersion: w.engineVersion || null
   }));
   data.workouts.forEach(w => {
     w.exercises = (w.exercises || []).map(e => withDefaults(e, {

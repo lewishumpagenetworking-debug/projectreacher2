@@ -1,6 +1,6 @@
 import { $, esc } from "./dom.js";
-import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore, farmersCarryAnalytics, exerciseProgressionStatus, recoveryMealCompliance, preWorkoutReadinessToday } from "./calculations.js";
-import { getData, saveData, uid } from "./data.js";
+import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore, farmersCarryAnalytics, exerciseProgressionStatus, recoveryMealCompliance, preWorkoutReadinessToday, sessionReviewMissingFields } from "./calculations.js";
+import { getData, saveData, uid, DEFAULT_SESSION_REVIEW } from "./data.js";
 import { metricLabel } from "./metric-info.js";
 import { showMissionStart, celebrateSetRow, celebrateExerciseComplete, showOperationComplete, formatVolumeComparison } from "./reward-system.js";
 import { getSessionNutritionForDay } from "./session-nutrition.js";
@@ -574,6 +574,50 @@ function buildCompletionSummary(workout, exercises, data, prs) {
   };
 }
 
+const SESSION_REVIEW_SELECT_FIELDS = ["srEnergy", "srMuscularFatigue", "srCardioFatigue", "srTechniqueQuality", "srFocus"];
+const SESSION_REVIEW_CHECKBOX_FIELDS = [
+  "srGripLimitation", "srPainOrDiscomfort", "srPreWorkoutNutritionMet", "srPostWorkoutNutritionMet",
+  "srHydrationMet", "srRestPeriodsFollowed", "srExerciseSetupChanged"
+];
+
+/** Reads the static Session Review form (index.html #sessionReviewSection) at save time. Every field is optional. */
+function readSessionReviewFromLiveForm() {
+  const review = {
+    performanceVsExpected: $("srPerformanceVsExpected")?.value || null,
+    mainLimitingFactor: $("srMainLimitingFactor")?.value || null,
+    energy: $("srEnergy")?.value ? Number($("srEnergy").value) : null,
+    muscularFatigue: $("srMuscularFatigue")?.value ? Number($("srMuscularFatigue").value) : null,
+    cardioFatigue: $("srCardioFatigue")?.value ? Number($("srCardioFatigue").value) : null,
+    gripLimitation: $("srGripLimitation")?.checked || false,
+    painOrDiscomfort: $("srPainOrDiscomfort")?.checked || false,
+    painNote: $("srPainNote")?.value || "",
+    techniqueQuality: $("srTechniqueQuality")?.value ? Number($("srTechniqueQuality").value) : null,
+    focus: $("srFocus")?.value ? Number($("srFocus").value) : null,
+    preWorkoutNutritionMet: $("srPreWorkoutNutritionMet")?.checked || false,
+    postWorkoutNutritionMet: $("srPostWorkoutNutritionMet")?.checked || false,
+    hydrationMet: $("srHydrationMet")?.checked || false,
+    restPeriodsFollowed: $("srRestPeriodsFollowed")?.checked || false,
+    exerciseSetupChanged: $("srExerciseSetupChanged")?.checked || false,
+    setupChangeNote: $("srSetupChangeNote")?.value || "",
+    notes: $("srNotes")?.value || "",
+    reviewedAt: null
+  };
+  const hasAnyInput = review.performanceVsExpected || review.mainLimitingFactor || review.energy != null ||
+    review.muscularFatigue != null || review.cardioFatigue != null || review.gripLimitation || review.painOrDiscomfort ||
+    review.techniqueQuality != null || review.focus != null || review.preWorkoutNutritionMet || review.postWorkoutNutritionMet ||
+    review.hydrationMet || review.restPeriodsFollowed || review.exerciseSetupChanged || review.notes.trim();
+  review.reviewedAt = hasAnyInput ? new Date().toISOString() : null;
+  return review;
+}
+
+function resetSessionReviewForm() {
+  $("srPerformanceVsExpected") && ($("srPerformanceVsExpected").value = "");
+  $("srMainLimitingFactor") && ($("srMainLimitingFactor").value = "");
+  SESSION_REVIEW_SELECT_FIELDS.forEach(id => { if ($(id)) $(id).value = ""; });
+  SESSION_REVIEW_CHECKBOX_FIELDS.forEach(id => { if ($(id)) $(id).checked = false; });
+  ["srPainNote", "srSetupChangeNote", "srNotes"].forEach(id => { if ($(id)) $(id).value = ""; });
+}
+
 export function saveWorkout() {
   const data = getData();
   const day = $("daySelect").value;
@@ -618,6 +662,7 @@ export function saveWorkout() {
     const startedAt = (data.activeWorkoutDraft && data.activeWorkoutDraft.day === day && data.activeWorkoutDraft.startedAt)
       ? data.activeWorkoutDraft.startedAt : now;
     const sessionNutritionSnapshot = structuredClone(getSessionNutritionForDay(data, day));
+    const sessionReview = readSessionReviewFromLiveForm();
 
     const workout = {
       id: uid(),
@@ -626,12 +671,14 @@ export function saveWorkout() {
       programDay: day,
       sessionName: day,
       exercises,
-      startedAt, completedAt: now, sessionNutritionSnapshot
+      startedAt, completedAt: now, sessionNutritionSnapshot, sessionReview,
+      activeInterventionSnapshot: null, taskCompletionSnapshot: null, engineVersion: null
     };
     data.workouts.push(workout);
     data.activeWorkoutDraft = null;
     saveData(data);
     summary = buildCompletionSummary(workout, exercises, data, prs);
+    resetSessionReviewForm();
   } catch (err) {
     console.error("[Project Reacher] Failed to save workout", err);
     updateDraftStatusUI("error");
@@ -713,6 +760,9 @@ export function setupTrainEventDelegation() {
       resumeDraftForCurrentDaySelect();
       return;
     }
+
+    const saveReviewBtn = e.target.closest("[data-save-review]");
+    if (saveReviewBtn) { saveSessionReviewForWorkout(saveReviewBtn.dataset.saveReview, saveReviewBtn.closest(".session-review-editor")); return; }
   });
 
   document.addEventListener("input", (e) => {
@@ -729,6 +779,81 @@ export function setupTrainEventDelegation() {
   });
 }
 
+const SELECT_1TO5 = `<option value="">Not set</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>`;
+
+function selectedAttr(current, value) { return String(current) === String(value) ? "selected" : ""; }
+
+/** Post-hoc-editable Session Review block for a saved workout (spec 21: reviews may be finished after saving). */
+function sessionReviewEditorHtml(w) {
+  const r = w.sessionReview || DEFAULT_SESSION_REVIEW;
+  const missing = sessionReviewMissingFields(r);
+  return `
+    <details class="category-section session-review-editor" data-workout-id="${esc(w.id)}">
+      <summary><strong>Session Review</strong>${missing.length ? ` <span class="badge status-under">Incomplete</span>` : ` <span class="badge status-on-target">Complete</span>`}</summary>
+      <div class="form-grid">
+        <label class="small">Performance vs expected
+          <select data-field="performanceVsExpected">
+            <option value="">Not set</option>
+            <option value="better" ${selectedAttr(r.performanceVsExpected, "better")}>Better than expected</option>
+            <option value="similar" ${selectedAttr(r.performanceVsExpected, "similar")}>Similar to expected</option>
+            <option value="worse" ${selectedAttr(r.performanceVsExpected, "worse")}>Worse than expected</option>
+          </select>
+        </label>
+        <label class="small">Main limiting factor
+          <select data-field="mainLimitingFactor">
+            <option value="">Not set</option>
+            ${["none", "grip", "energy", "technique", "pain", "equipment", "cardio", "muscular-fatigue", "other"].map(v =>
+              `<option value="${v}" ${selectedAttr(r.mainLimitingFactor, v)}>${esc(v === "none" ? "Nothing limited me" : v === "muscular-fatigue" ? "Muscular fatigue" : v[0].toUpperCase() + v.slice(1))}</option>`).join("")}
+          </select>
+        </label>
+        <label class="small">Energy (1-5) <select data-field="energy">${SELECT_1TO5.replace(`>${r.energy}<`, ` selected>${r.energy}<`)}</select></label>
+        <label class="small">Muscular fatigue (1-5) <select data-field="muscularFatigue">${SELECT_1TO5.replace(`>${r.muscularFatigue}<`, ` selected>${r.muscularFatigue}<`)}</select></label>
+        <label class="small">Cardiovascular fatigue (1-5) <select data-field="cardioFatigue">${SELECT_1TO5.replace(`>${r.cardioFatigue}<`, ` selected>${r.cardioFatigue}<`)}</select></label>
+        <label class="small">Technique quality (1-5) <select data-field="techniqueQuality">${SELECT_1TO5.replace(`>${r.techniqueQuality}<`, ` selected>${r.techniqueQuality}<`)}</select></label>
+        <label class="small">Focus (1-5) <select data-field="focus">${SELECT_1TO5.replace(`>${r.focus}<`, ` selected>${r.focus}<`)}</select></label>
+      </div>
+      <div class="checklist-row"><input type="checkbox" data-field="gripLimitation" ${r.gripLimitation ? "checked" : ""}><span>Grip limitation</span></div>
+      <div class="checklist-row"><input type="checkbox" data-field="painOrDiscomfort" ${r.painOrDiscomfort ? "checked" : ""}><span>Pain or discomfort</span></div>
+      <input type="text" data-field="painNote" value="${esc(r.painNote || "")}" placeholder="Pain/discomfort note (optional)">
+      <div class="checklist-row"><input type="checkbox" data-field="preWorkoutNutritionMet" ${r.preWorkoutNutritionMet ? "checked" : ""}><span>Pre-workout nutrition target met</span></div>
+      <div class="checklist-row"><input type="checkbox" data-field="postWorkoutNutritionMet" ${r.postWorkoutNutritionMet ? "checked" : ""}><span>Post-workout nutrition target met</span></div>
+      <div class="checklist-row"><input type="checkbox" data-field="hydrationMet" ${r.hydrationMet ? "checked" : ""}><span>Hydration target met</span></div>
+      <div class="checklist-row"><input type="checkbox" data-field="restPeriodsFollowed" ${r.restPeriodsFollowed ? "checked" : ""}><span>Planned rest periods followed</span></div>
+      <div class="checklist-row"><input type="checkbox" data-field="exerciseSetupChanged" ${r.exerciseSetupChanged ? "checked" : ""}><span>Exercise setup changed from usual</span></div>
+      <input type="text" data-field="setupChangeNote" value="${esc(r.setupChangeNote || "")}" placeholder="Setup change note (optional)">
+      <textarea data-field="notes" placeholder="Session notes (optional, free text)">${esc(r.notes || "")}</textarea>
+      <div class="actions"><button type="button" class="secondary" data-save-review="${esc(w.id)}">Save Review</button></div>
+    </details>`;
+}
+
+/** Post-hoc Session Review completion from Workout History — patches ONLY sessionReview on an already-saved workout, never the logged exercises/date/etc. */
+function saveSessionReviewForWorkout(workoutId, containerEl) {
+  if (!containerEl) return;
+  const field = (name) => containerEl.querySelector(`[data-field="${name}"]`);
+  const selectVal = (name) => field(name)?.value || null;
+  const numVal = (name) => (field(name)?.value ? Number(field(name).value) : null);
+  const checked = (name) => field(name)?.checked || false;
+  const textVal = (name) => field(name)?.value || "";
+
+  const review = {
+    performanceVsExpected: selectVal("performanceVsExpected"), mainLimitingFactor: selectVal("mainLimitingFactor"),
+    energy: numVal("energy"), muscularFatigue: numVal("muscularFatigue"), cardioFatigue: numVal("cardioFatigue"),
+    gripLimitation: checked("gripLimitation"), painOrDiscomfort: checked("painOrDiscomfort"), painNote: textVal("painNote"),
+    techniqueQuality: numVal("techniqueQuality"), focus: numVal("focus"),
+    preWorkoutNutritionMet: checked("preWorkoutNutritionMet"), postWorkoutNutritionMet: checked("postWorkoutNutritionMet"),
+    hydrationMet: checked("hydrationMet"), restPeriodsFollowed: checked("restPeriodsFollowed"),
+    exerciseSetupChanged: checked("exerciseSetupChanged"), setupChangeNote: textVal("setupChangeNote"),
+    notes: textVal("notes"), reviewedAt: new Date().toISOString()
+  };
+
+  const data = getData();
+  const workout = data.workouts.find(w => w.id === workoutId);
+  if (!workout) return;
+  workout.sessionReview = review;
+  saveData(data);
+  window.dispatchEvent(new CustomEvent("reacher:refresh"));
+}
+
 export function renderWorkoutHistory(data) {
   const full = $("workoutHistory");
   if (full) {
@@ -737,6 +862,7 @@ export function renderWorkoutHistory(data) {
         <summary><strong>${esc(w.date)}</strong> · ${esc(w.day)} · Volume ${Math.round(totalVolume(w))}kg</summary>
         <p class="small">${(w.exercises || []).map(e => `${esc(e.name)}: ${e.set1Weight}x${e.set1Reps}, ${e.set2Weight}x${e.set2Reps}${e.increaseNextWeek ? " ⬆️" : ""}`).join("<br>")}</p>
         ${renderSavedWorkoutSessionNutrition(w, data)}
+        ${sessionReviewEditorHtml(w)}
         <div class="actions">
           <button class="danger" data-delete="workouts" data-id="${w.id}">Delete</button>
         </div>

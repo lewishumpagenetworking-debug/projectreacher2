@@ -295,6 +295,59 @@
         <div id="draftStatus" class="draft-status" hidden></div>
         <div id="workoutList"></div>
         <div id="postWorkoutRecoveryCardSlot"></div>
+        <details class="category-section session-review-form" id="sessionReviewSection">
+          <summary><strong>Session Review</strong></summary>
+          <p class="small">Optional, but the more complete this is, the more reliable the weekly analysis will be. You can also finish this later from Workout History.</p>
+          <div class="form-grid">
+            <label class="small">Performance vs expected
+              <select id="srPerformanceVsExpected">
+                <option value="">Not set</option>
+                <option value="better">Better than expected</option>
+                <option value="similar">Similar to expected</option>
+                <option value="worse">Worse than expected</option>
+              </select>
+            </label>
+            <label class="small">Main limiting factor
+              <select id="srMainLimitingFactor">
+                <option value="">Not set</option>
+                <option value="none">Nothing limited me</option>
+                <option value="grip">Grip</option>
+                <option value="energy">Energy</option>
+                <option value="technique">Technique</option>
+                <option value="pain">Pain or discomfort</option>
+                <option value="equipment">Equipment</option>
+                <option value="cardio">Cardiovascular</option>
+                <option value="muscular-fatigue">Muscular fatigue</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label class="small">Energy (1-5)
+              <select id="srEnergy"><option value="">Not set</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+            </label>
+            <label class="small">Muscular fatigue (1-5)
+              <select id="srMuscularFatigue"><option value="">Not set</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+            </label>
+            <label class="small">Cardiovascular fatigue (1-5)
+              <select id="srCardioFatigue"><option value="">Not set</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+            </label>
+            <label class="small">Technique quality (1-5)
+              <select id="srTechniqueQuality"><option value="">Not set</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+            </label>
+            <label class="small">Focus (1-5)
+              <select id="srFocus"><option value="">Not set</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+            </label>
+          </div>
+          <div class="checklist-row"><input type="checkbox" id="srGripLimitation"><span>Grip limitation</span></div>
+          <div class="checklist-row"><input type="checkbox" id="srPainOrDiscomfort"><span>Pain or discomfort</span></div>
+          <input type="text" id="srPainNote" placeholder="Pain/discomfort note (optional)">
+          <div class="checklist-row"><input type="checkbox" id="srPreWorkoutNutritionMet"><span>Pre-workout nutrition target met</span></div>
+          <div class="checklist-row"><input type="checkbox" id="srPostWorkoutNutritionMet"><span>Post-workout nutrition target met</span></div>
+          <div class="checklist-row"><input type="checkbox" id="srHydrationMet"><span>Hydration target met</span></div>
+          <div class="checklist-row"><input type="checkbox" id="srRestPeriodsFollowed"><span>Planned rest periods followed</span></div>
+          <div class="checklist-row"><input type="checkbox" id="srExerciseSetupChanged"><span>Exercise setup changed from usual</span></div>
+          <input type="text" id="srSetupChangeNote" placeholder="Setup change note (optional)">
+          <textarea id="srNotes" placeholder="Session notes (optional, free text)"></textarea>
+        </details>
         <div class="actions">
           <button id="saveWorkout">Save Workout</button>
           <button id="clearDraftBtn" class="secondary" type="button" hidden>Clear Draft</button>
