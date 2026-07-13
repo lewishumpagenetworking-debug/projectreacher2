@@ -583,6 +583,61 @@ export function dailyMealTotals(mealLogs, dateStr) {
   };
 }
 
+/**
+ * Combines a meal log's stored date ("YYYY-MM-DD" or legacy DD/MM/YYYY) and time
+ * ("HH:MM") into one Date. Returns null if either half is missing/unparseable — such a
+ * meal simply can't be placed into a timing window and is excluded from window totals,
+ * never guessed at.
+ */
+export function mealLogDateTime(meal) {
+  const day = parseLogDate(meal?.date);
+  if (!day || typeof meal?.time !== "string") return null;
+  const match = meal.time.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  const dt = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Number(match[1]), Number(match[2]));
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+/** [start, end) window ending at the workout's start, beginning `minutesBefore` earlier — the pre-workout intake window. */
+export function preWorkoutWindow(workoutStart, minutesBefore = 150) {
+  if (!workoutStart) return null;
+  const end = new Date(workoutStart);
+  const start = new Date(end.getTime() - minutesBefore * 60000);
+  return { start, end };
+}
+
+/** [start, end) window beginning at workout completion, ending `minutesAfter` later — the post-workout intake window. */
+export function postWorkoutWindow(workoutCompletion, minutesAfter = 120) {
+  if (!workoutCompletion) return null;
+  const start = new Date(workoutCompletion);
+  const end = new Date(start.getTime() + minutesAfter * 60000);
+  return { start, end };
+}
+
+/**
+ * Sums protein/carbohydrate/fat/calories for whichever already-logged (non-draft) meals
+ * fall inside `[window.start, window.end)`, purely by reading mealLogs — never mutates,
+ * duplicates, or removes any log, and never changes what counts toward daily totals
+ * elsewhere. Returns null (not zeros) when `window` itself is null, so callers can tell
+ * "no workout time to classify against" apart from "classified, and totals were zero".
+ */
+export function sessionNutritionWindowTotals(mealLogs, window) {
+  if (!window) return null;
+  const meals = (mealLogs || []).filter(m => {
+    if (m.isDraft) return false;
+    const dt = mealLogDateTime(m);
+    return dt && dt >= window.start && dt < window.end;
+  });
+  const sum = (key) => meals.reduce((total, m) => total + (Number(m[key]) || 0), 0);
+  return {
+    mealCount: meals.length,
+    protein: round1(sum("protein")),
+    carbs: round1(sum("carbs")),
+    fat: round1(sum("fat")),
+    calories: round1(sum("calories"))
+  };
+}
+
 export function remainingMacros(totals, targets) {
   return {
     caloriesRemaining: round1((targets.calories ?? 0) - totals.calories),

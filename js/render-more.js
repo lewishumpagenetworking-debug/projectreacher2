@@ -5,6 +5,9 @@ import {
   weeklyRecoveryDebrief, monthlyRecoveryTrajectory
 } from "./calculations.js";
 import { parseLogDate, isSameWeek, startOfWeek, isLegacySlashDate } from "./dates.js";
+import {
+  DEFAULT_SESSION_NUTRITION, SAFE_FALLBACK_SESSION_NUTRITION, getSessionNutritionForDay, isValidSessionNutritionNumber
+} from "./session-nutrition.js";
 
 export function renderVisualModeToggle(data) {
   const checkbox = $("visualModeToggle");
@@ -255,6 +258,93 @@ function renderMonthlyRecoveryTrajectory(t) {
     </div>`;
 }
 
+function sessionNutritionNumberFieldHtml(section, field, label, value, unit) {
+  return `<label class="small">${esc(label)}${unit ? ` (${esc(unit)})` : ""}
+    <input type="number" min="0" step="1" data-section="${esc(section)}" data-field="${esc(field)}" value="${value == null ? "" : esc(value)}">
+  </label>`;
+}
+
+function renderSessionNutritionEditorHtml(day, config) {
+  const pre = config.preWorkout, during = config.duringWorkout, post = config.postWorkout;
+  return `
+    <details class="category-section session-nutrition-editor" data-day="${esc(day)}">
+      <summary><strong>Session Nutrition</strong></summary>
+      <h4>Pre-Workout</h4>
+      <div class="form-grid">
+        ${sessionNutritionNumberFieldHtml("preWorkout", "timingMinMinutes", "Timing min", pre.timingMinMinutes, "minutes before")}
+        ${sessionNutritionNumberFieldHtml("preWorkout", "timingMaxMinutes", "Timing max", pre.timingMaxMinutes, "minutes before")}
+        ${sessionNutritionNumberFieldHtml("preWorkout", "proteinGrams", "Protein", pre.proteinGrams, "g")}
+        ${sessionNutritionNumberFieldHtml("preWorkout", "carbohydrateGrams", "Carbohydrates", pre.carbohydrateGrams, "g")}
+        ${sessionNutritionNumberFieldHtml("preWorkout", "fatMaxGrams", "Fat max", pre.fatMaxGrams, "g")}
+        ${sessionNutritionNumberFieldHtml("preWorkout", "fibreMaxGrams", "Fibre max", pre.fibreMaxGrams, "g")}
+        ${sessionNutritionNumberFieldHtml("preWorkout", "waterMl", "Water", pre.waterMl, "ml")}
+        ${sessionNutritionNumberFieldHtml("preWorkout", "sodiumMg", "Sodium", pre.sodiumMg, "mg")}
+      </div>
+      <label class="small">Explanation
+        <textarea data-section="preWorkout" data-field="explanation" rows="2">${esc(pre.explanation || "")}</textarea>
+      </label>
+
+      <h4>During Training (optional)</h4>
+      <div class="form-grid">
+        <label class="small">Water guidance
+          <input type="text" data-section="duringWorkout" data-field="waterGuidance" value="${esc(during.waterGuidance || "")}">
+        </label>
+        ${sessionNutritionNumberFieldHtml("duringWorkout", "carbohydrateGramsMin", "Carb min", during.carbohydrateGramsMin, "g")}
+        ${sessionNutritionNumberFieldHtml("duringWorkout", "carbohydrateGramsMax", "Carb max", during.carbohydrateGramsMax, "g")}
+        ${sessionNutritionNumberFieldHtml("duringWorkout", "sodiumMgMin", "Sodium min", during.sodiumMgMin, "mg")}
+        ${sessionNutritionNumberFieldHtml("duringWorkout", "sodiumMgMax", "Sodium max", during.sodiumMgMax, "mg")}
+      </div>
+      <label class="small">Condition
+        <input type="text" data-section="duringWorkout" data-field="condition" value="${esc(during.condition || "")}">
+      </label>
+
+      <h4>Post-Workout</h4>
+      <div class="form-grid">
+        ${sessionNutritionNumberFieldHtml("postWorkout", "timingMaxMinutes", "Timing max", post.timingMaxMinutes, "minutes after")}
+        ${sessionNutritionNumberFieldHtml("postWorkout", "proteinGrams", "Protein", post.proteinGrams, "g")}
+        ${sessionNutritionNumberFieldHtml("postWorkout", "carbohydrateGrams", "Carbohydrates", post.carbohydrateGrams, "g")}
+        ${sessionNutritionNumberFieldHtml("postWorkout", "fatMaxGrams", "Fat max", post.fatMaxGrams, "g")}
+        ${sessionNutritionNumberFieldHtml("postWorkout", "waterMl", "Water", post.waterMl, "ml")}
+        ${sessionNutritionNumberFieldHtml("postWorkout", "sodiumMg", "Sodium", post.sodiumMg, "mg")}
+      </div>
+      <label class="small">Explanation
+        <textarea data-section="postWorkout" data-field="explanation" rows="2">${esc(post.explanation || "")}</textarea>
+      </label>
+
+      <button type="button" class="session-nutrition-restore-defaults" data-day="${esc(day)}">Restore recommended defaults</button>
+    </details>`;
+}
+
+function applySessionNutritionEditorToData(el, d) {
+  const skippedDays = [];
+  el.querySelectorAll(".session-nutrition-editor").forEach(editorEl => {
+    const day = editorEl.dataset.day;
+    const existing = getSessionNutritionForDay(d, day);
+    const updated = structuredClone(existing);
+    const invalidFields = [];
+    editorEl.querySelectorAll("[data-section][data-field]").forEach(input => {
+      const section = input.dataset.section;
+      const field = input.dataset.field;
+      if (input.tagName === "TEXTAREA" || input.type === "text") {
+        updated[section][field] = input.value;
+        return;
+      }
+      if (!isValidSessionNutritionNumber(input.value)) {
+        invalidFields.push(`${section}.${field}`);
+        return;
+      }
+      updated[section][field] = input.value === "" ? null : Number(input.value);
+    });
+    if (invalidFields.length) {
+      skippedDays.push(day);
+      return;
+    }
+    if (!d.sessionNutrition) d.sessionNutrition = {};
+    d.sessionNutrition[day] = updated;
+  });
+  return skippedDays;
+}
+
 export function renderProgramEditor(data) {
   const el = $("programEditor");
   el.innerHTML = Object.entries(data.trainingProgram).map(([day, exercises]) => `
@@ -270,6 +360,7 @@ export function renderProgramEditor(data) {
           </tr>`).join("")}
       </tbody>
     </table></div>
+    ${renderSessionNutritionEditorHtml(day, getSessionNutritionForDay(data, day))}
   `).join("") + `<button id="saveProgram">Save Program Changes</button>`;
 
   $("saveProgram").addEventListener("click", () => {
@@ -284,9 +375,25 @@ export function renderProgramEditor(data) {
         target.note = row.querySelector('[data-field="note"]').value;
       });
     });
+    const skippedDays = applySessionNutritionEditorToData(el, d);
     saveData(d);
     window.dispatchEvent(new CustomEvent("reacher:refresh"));
-    alert("Program updated. Future sessions will use the new exercise names/targets — past logs are untouched.");
+    const skippedNote = skippedDays.length
+      ? ` Session nutrition for ${skippedDays.join(", ")} was left unchanged because it contained a negative value.`
+      : "";
+    alert(`Program updated. Future sessions will use the new exercise names/targets — past logs are untouched.${skippedNote}`);
+  });
+
+  el.querySelectorAll(".session-nutrition-restore-defaults").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const day = btn.dataset.day;
+      const d = getData();
+      if (!d.sessionNutrition) d.sessionNutrition = {};
+      d.sessionNutrition[day] = structuredClone(DEFAULT_SESSION_NUTRITION[day] || SAFE_FALLBACK_SESSION_NUTRITION);
+      saveData(d);
+      window.dispatchEvent(new CustomEvent("reacher:refresh"));
+      alert(`Session nutrition for ${day} restored to recommended defaults.`);
+    });
   });
 }
 

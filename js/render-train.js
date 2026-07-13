@@ -3,6 +3,8 @@ import { recommendProgression, getExerciseHistory, localExerciseAdvice, readines
 import { getData, saveData, uid } from "./data.js";
 import { metricLabel } from "./metric-info.js";
 import { showMissionStart, celebrateSetRow, celebrateExerciseComplete, showOperationComplete, formatVolumeComparison } from "./reward-system.js";
+import { getSessionNutritionForDay } from "./session-nutrition.js";
+import { renderSavedWorkoutSessionNutrition } from "./render-session-nutrition.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -610,13 +612,21 @@ export function saveWorkout() {
       }
       return entry;
     });
+    // Captured once, at the moment of saving, so a later Programme Editor change to this
+    // day's nutrition targets can never retroactively alter what was actually recommended
+    // for this specific completed session (see js/session-nutrition.js).
+    const startedAt = (data.activeWorkoutDraft && data.activeWorkoutDraft.day === day && data.activeWorkoutDraft.startedAt)
+      ? data.activeWorkoutDraft.startedAt : now;
+    const sessionNutritionSnapshot = structuredClone(getSessionNutritionForDay(data, day));
+
     const workout = {
       id: uid(),
       date: new Date().toLocaleDateString("en-CA"),
       day,
       programDay: day,
       sessionName: day,
-      exercises
+      exercises,
+      startedAt, completedAt: now, sessionNutritionSnapshot
     };
     data.workouts.push(workout);
     data.activeWorkoutDraft = null;
@@ -726,6 +736,7 @@ export function renderWorkoutHistory(data) {
       <details class="history-item expandable-card">
         <summary><strong>${esc(w.date)}</strong> · ${esc(w.day)} · Volume ${Math.round(totalVolume(w))}kg</summary>
         <p class="small">${(w.exercises || []).map(e => `${esc(e.name)}: ${e.set1Weight}x${e.set1Reps}, ${e.set2Weight}x${e.set2Reps}${e.increaseNextWeek ? " ⬆️" : ""}`).join("<br>")}</p>
+        ${renderSavedWorkoutSessionNutrition(w, data)}
         <div class="actions">
           <button class="danger" data-delete="workouts" data-id="${w.id}">Delete</button>
         </div>
