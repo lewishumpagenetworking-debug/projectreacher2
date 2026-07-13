@@ -328,6 +328,83 @@ export const CONSTRAINT_RULES = [
   }),
 
   Rule({
+    id: "shortened-rest-periods",
+    category: CONSTRAINT_CATEGORIES.PERFORMANCE_PROGRESSION,
+    title: "Rest periods not being followed",
+    description: "Session Review reports planned rest periods were not followed on 2+ of the last 3 sessions.",
+    appliesTo: ["training"],
+    requiredSignals: ["sessionReview.restPeriodsFollowed === false on 2+ of the last 3 sessions"],
+    minimumDataRequirements: ["At least 3 sessions with a completed Session Review in the last 14 days"],
+    impactLevel: "medium",
+    recommendedActions: ["Use a timer between working sets and hold the planned rest period for 2 weeks before changing anything else"],
+    monitoringMetrics: ["restPeriodsFollowed flag", "Session volume"],
+    reassessmentWindow: "Next weekly review",
+    escalationRules: [],
+    educationalExplanation: "Rushed rest periods reduce the load or reps achievable on the next set — a simple, easily-corrected explanation for underperformance before assuming a training-design cause.",
+    evaluate(data, referenceDate = new Date()) {
+      const recent = (data.workouts || []).filter(w => {
+        const d = parseLogDate(w.date);
+        return d && (referenceDate - d) / 86400000 <= 14 && w.sessionReview?.restPeriodsFollowed != null;
+      }).slice(-3);
+      if (recent.length < 3) return { ...NOT_APPLICABLE, considered: false, missingData: ["Fewer than 3 sessions with a completed Session Review in the last 14 days"] };
+      const notFollowed = recent.filter(w => w.sessionReview.restPeriodsFollowed === false).length;
+      if (notFollowed < 2) return { ...NOT_APPLICABLE, considered: true };
+      return {
+        fired: true, considered: true, supportPoints: 2, contradictPoints: 0, dataSufficient: true,
+        evidenceDetail: [`Planned rest periods were not followed on ${notFollowed} of the last ${recent.length} reviewed sessions.`],
+        contradictingDetail: [], missingData: []
+      };
+    }
+  }),
+
+  Rule({
+    id: "large-load-increment-jump",
+    category: CONSTRAINT_CATEGORIES.PROGRAMME_DESIGN,
+    title: "Large minimum load increment may be blocking progression",
+    description: "The smallest available load jump on this exercise is large relative to the working weight, and load has not increased since.",
+    appliesTo: ["training"],
+    requiredSignals: ["A single logged weight increase exceeding 8% of the prior weight, followed by 2+ sessions with no further increase"],
+    minimumDataRequirements: ["At least 4 comparable logged sessions for the exercise"],
+    impactLevel: "low",
+    recommendedActions: ["Use a smaller available increment (fractional plates, resistance bands) or a double-progression rep range to bridge the gap"],
+    monitoringMetrics: ["Load", "Reps at top of range"],
+    reassessmentWindow: "Next weekly review",
+    escalationRules: [],
+    educationalExplanation: "When the only available jump is too large to complete cleanly, the natural result looks identical to a plateau — checking the equipment's increment size is a smaller fix than changing the programme.",
+    evaluate(data) {
+      const byExercise = {};
+      (data.workouts || []).forEach(w => (w.exercises || []).forEach(e => {
+        if (e.set1Weight != null) (byExercise[e.name] ||= []).push({ ...e, date: w.date });
+      }));
+      const flagged = [];
+      let considered = false;
+      Object.entries(byExercise).forEach(([name, entries]) => {
+        const sorted = entries.slice().sort((a, b) => (parseLogDate(a.date) || 0) - (parseLogDate(b.date) || 0));
+        if (sorted.length < 4) return;
+        considered = true;
+        const recent = sorted.slice(-4);
+        let bigJumpIndex = -1;
+        for (let i = 1; i < recent.length; i++) {
+          const prevW = Number(recent[i - 1].set1Weight) || 0;
+          const curW = Number(recent[i].set1Weight) || 0;
+          if (prevW > 0 && curW > prevW && (curW - prevW) / prevW > 0.08) bigJumpIndex = i;
+        }
+        if (bigJumpIndex === -1) return;
+        const sessionsAfterJump = recent.slice(bigJumpIndex);
+        if (sessionsAfterJump.length < 3) return;
+        const noFurtherIncrease = sessionsAfterJump.every((e, i) => i === 0 || (Number(e.set1Weight) || 0) <= (Number(sessionsAfterJump[i - 1].set1Weight) || 0));
+        if (noFurtherIncrease) flagged.push(name);
+      });
+      if (!flagged.length) return { ...NOT_APPLICABLE, considered, missingData: considered ? [] : ["Fewer than 4 comparable sessions logged for any exercise"] };
+      return {
+        fired: true, considered: true, supportPoints: 1, contradictPoints: 0, dataSufficient: true,
+        evidenceDetail: [`${flagged.join(", ")}: a large single load jump (>8%) was followed by 2+ sessions with no further increase.`],
+        contradictingDetail: [], missingData: []
+      };
+    }
+  }),
+
+  Rule({
     id: "insufficient-volume",
     category: CONSTRAINT_CATEGORIES.PROGRAMME_DESIGN,
     title: "Muscle group under target volume",

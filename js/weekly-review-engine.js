@@ -52,9 +52,12 @@ export function runWeeklyReview(data, { weekStart, weekEnd, referenceDate = new 
   let weeklyState;
   if (caseReviews.length) {
     weeklyState = WEEKLY_STATES.EXISTING_PLAN_REVIEWED;
-  } else if (!rankResult.primary || rankResult.primary.rule.id === "insufficient-history") {
+  } else if (!rankResult.primary) {
+    // Nothing fired at all (not even the low-data-history flag) -> there's enough evidence
+    // and none of it points to a problem.
     weeklyState = WEEKLY_STATES.NO_CONSTRAINT_DETECTED;
-  } else if (rankResult.primary.confidence === "low") {
+  } else if (rankResult.primary.rule.id === "insufficient-history" || rankResult.primary.confidence === "low") {
+    // Evidence exists but is too thin or too new to justify a change (spec test 21/45).
     weeklyState = WEEKLY_STATES.OBSERVE_FOR_ANOTHER_WEEK;
   } else {
     weeklyState = WEEKLY_STATES.CONSTRAINT_IDENTIFIED;
