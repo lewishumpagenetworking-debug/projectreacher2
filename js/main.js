@@ -8,7 +8,7 @@ import {
 } from "./render-train.js";
 import {
   saveBodyweight, renderBodyweight, saveCheckin, renderCheckinHistory,
-  saveMeasurements, renderMeasurementsHistory, savePhotoCheckin, renderPhotos
+  saveMeasurements, renderMeasurementsHistory, savePhotoCheckin, renderPhotos, renderBodyMilestoneVision
 } from "./render-body.js";
 import {
   saveSkinLog, saveHairLog, saveProductExperiment, saveAppearanceCheckin,
@@ -55,6 +55,7 @@ export function refreshAll() {
   renderCheckinHistory(data);
   renderMeasurementsHistory(data);
   renderPhotos(data);
+  renderBodyMilestoneVision(data);
   renderAppearance(data);
   renderAiSpecialists(data);
   renderNutrition(data);
