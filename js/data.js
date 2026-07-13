@@ -120,7 +120,8 @@ function emptyData() {
     images: [],
     imageCategories: [],
     goals: [],
-    milestones: []
+    milestones: [],
+    constraintCases: []
   };
 }
 
@@ -177,7 +178,7 @@ export function migrateData() {
    "aiSavedInsights", "aiProposedChanges", "aiAuditLog",
    "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
    "reviews", "reminders", "savedMeals", "tasks",
-   "images", "imageCategories", "goals", "milestones"].forEach(key => {
+   "images", "imageCategories", "goals", "milestones", "constraintCases"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -435,7 +436,7 @@ const COLLECTION_KEYS = [
   "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared", "aiSavedInsights",
   "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
   "reviews", "savedMeals", "tasks",
-  "images", "imageCategories", "goals", "milestones"
+  "images", "imageCategories", "goals", "milestones", "constraintCases"
   // "reminders" is deliberately excluded — per-device notification scheduling state,
   // the same reasoning as aiProposedChanges/aiAuditLog below.
 ];
@@ -698,6 +699,7 @@ export function importAndMergeData(importedRaw, currentState) {
     (list, c) => detectDuplicateById(list, c) || list.find(x => (x.label || "").toLowerCase() === (c.label || "").toLowerCase())));
   record("goals", mergeByIdGeneric(current.goals, imported.goals, detectDuplicateById));
   record("milestones", mergeByIdGeneric(current.milestones, imported.milestones, detectDuplicateById));
+  record("constraintCases", mergeByIdGeneric(current.constraintCases, imported.constraintCases, detectDuplicateById));
   // reminders deliberately not merged — never restore stale/old notification schedules from a backup.
 
   // aiSettings: current device's consent/permissions always win (consent must never be
