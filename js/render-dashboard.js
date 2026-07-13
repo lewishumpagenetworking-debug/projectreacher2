@@ -6,22 +6,44 @@ import {
   trainingStreakWeeks, loggingStreakDays, weeklyComplianceRate, computeBadges,
   readinessScore, sleepStats, weekendRecoveryStatus, caffeineLoadStatus, recoveryMealCompliance, formatHoursAsHM,
   dailyChecklist, monthlyChecklist, currentBodyweightKg, weeklyRecoveryDirection,
-  exercisesReadyToIncrease, nutritionConfidenceStatus, preWorkoutReadinessToday, detectFatigueReason
+  exercisesReadyToIncrease, nutritionConfidenceStatus, preWorkoutReadinessToday, detectFatigueReason,
+  remainingDailyTargets, macroGapUrgency
 } from "./calculations.js";
 import { runContingencyEngine } from "./contingency-engine.js";
 import { READINESS_CHOICE_LABELS } from "./render-meals.js";
 import { DEFAULT_TRAINING_PROGRAM, MUSCLE_GROUPS } from "./program.js";
 import { SUPPLEMENT_DATABASE } from "./recovery-data.js";
+import { lineChart, donutChart, barRows } from "./charts.js";
+import { parseLogDate } from "./dates.js";
+
+// Per-widget chart-type / time-range preferences. View-state only — deliberately kept out of
+// the main "projectReacher" data object (same isolated-storage pattern as claude-client.js's API key).
+const CHART_PREF_KEY = "reacherChartPrefs";
+function getChartPref(widgetId, fallback) {
+  try {
+    const all = JSON.parse(localStorage.getItem(CHART_PREF_KEY) || "{}");
+    return all[widgetId] || fallback;
+  } catch { return fallback; }
+}
+function setChartPref(widgetId, value) {
+  try {
+    const all = JSON.parse(localStorage.getItem(CHART_PREF_KEY) || "{}");
+    all[widgetId] = value;
+    localStorage.setItem(CHART_PREF_KEY, JSON.stringify(all));
+  } catch { /* view preference only — safe to drop if storage is unavailable */ }
+}
 
 function pct(n) { return Math.max(0, Math.min(100, n)); }
 
 export function renderDashboard(data) {
+  lastDashboardData = data;
   const profile = data.profile;
   const latestBw = data.bodyweightLogs[data.bodyweightLogs.length - 1];
   const currentWeight = latestBw ? Number(latestBw.morningBodyweight) : (data.checkins.at(-1)?.weight ?? profile.currentWeight ?? profile.startingWeight);
   $("currentWeight").textContent = `${fmt(currentWeight)}kg`;
 
   renderHeroMission(data, currentWeight);
+  renderAttentionPanel(data);
   renderDailyMonthlyChecklist(data);
   renderProgressCommandGrid(data);
   renderRecoveryDashboardCards(data);
@@ -42,7 +64,9 @@ export function renderDashboard(data) {
   $("progressText").textContent = `${fmt(progress)}%`;
   $("progressSubtext").textContent = `${fmt(currentWeight)}kg toward ambitious ${profile.ambitiousTargetWeight}kg (realistic target ${profile.realisticTargetWeightMin}-${profile.realisticTargetWeightMax}kg)`;
 
+  renderWeightTrendChart(data);
   renderNutritionCards(data, currentWeight);
+  renderMacroSplitChart(data, currentWeight);
   renderMealsToday(data, currentWeight);
   renderRecoveryCards(data);
   renderScore(data, currentWeight);
@@ -507,4 +531,173 @@ function renderMonthlyReviewReminder(data) {
   el.innerHTML = daysSince >= 28
     ? "<div class='warning-banner'>It's been 4+ weeks — time for a new monthly review.</div>"
     : `<p class="small">Last review: ${esc(last.month)}. Next one due in ${Math.max(0, Math.round(28 - daysSince))} days.</p>`;
+}
+
+// ---- Graphical dashboard widgets: chart-type toggle + time-range control (Task 99 pattern) ----
+
+const WEIGHT_TREND_RANGES = [
+  { key: "7", label: "7d", days: 7 },
+  { key: "30", label: "30d", days: 30 },
+  { key: "90", label: "90d", days: 90 },
+  { key: "all", label: "All", days: null }
+];
+
+function renderWeightTrendChart(data) {
+  const toggleEl = $("weightTrendRange");
+  const chartEl = $("weightTrendChart");
+  if (!toggleEl || !chartEl) return;
+  const activeRange = getChartPref("weightTrendRange", "30");
+
+  toggleEl.innerHTML = WEIGHT_TREND_RANGES.map(r =>
+    `<button type="button" class="${r.key === activeRange ? "active" : ""}" data-weight-range="${r.key}">${esc(r.label)}</button>`
+  ).join("");
+
+  const range = WEIGHT_TREND_RANGES.find(r => r.key === activeRange) || WEIGHT_TREND_RANGES[1];
+  const cutoff = range.days ? Date.now() - range.days * 86400000 : null;
+  const points = (data.bodyweightLogs || [])
+    .filter(b => {
+      if (!cutoff) return true;
+      const d = parseLogDate(b.date);
+      return d && d.getTime() >= cutoff;
+    })
+    .map(b => ({ label: (b.date || "").slice(5), value: Number(b.morningBodyweight) }))
+    .filter(p => !Number.isNaN(p.value));
+
+  chartEl.innerHTML = lineChart(points, { labelEvery: Math.ceil(points.length / 8) || 1, formatValue: v => `${fmt(v)}kg` });
+}
+
+function setWeightTrendRange(rangeKey) {
+  setChartPref("weightTrendRange", rangeKey);
+  renderWeightTrendChart(getDashboardData());
+}
+
+const MACRO_SPLIT_CHART_TYPES = [
+  { key: "donut", label: "Pie" },
+  { key: "bar", label: "Bar" }
+];
+
+function renderMacroSplitChart(data, currentWeight) {
+  const toggleEl = $("macroSplitChartType");
+  const chartEl = $("dashMacroSplitChart");
+  if (!toggleEl || !chartEl) return;
+  const activeType = getChartPref("dashMacroSplit", "donut");
+
+  toggleEl.innerHTML = MACRO_SPLIT_CHART_TYPES.map(t =>
+    `<button type="button" class="${t.key === activeType ? "active" : ""}" data-macro-split-type="${t.key}">${esc(t.label)}</button>`
+  ).join("");
+
+  const today = new Date().toLocaleDateString("en-CA");
+  const totals = dailyMealTotals(data.mealLogs || [], today);
+  if (!totals.mealCount) {
+    chartEl.innerHTML = "<p class='small'>No meals logged yet today.</p>";
+    return;
+  }
+  const slices = [
+    { label: "Protein", value: (totals.protein || 0) * 4, colour: "var(--good)" },
+    { label: "Carbs", value: (totals.carbs || 0) * 4, colour: "var(--accent)" },
+    { label: "Fat", value: (totals.fat || 0) * 9, colour: "var(--warn)" }
+  ];
+  chartEl.innerHTML = activeType === "bar"
+    ? barRows(slices, { formatValue: v => `${Math.round(v)}kcal` })
+    : donutChart(slices, { formatValue: v => `${Math.round(v)}kcal` });
+}
+
+function setMacroSplitChartType(typeKey) {
+  setChartPref("dashMacroSplit", typeKey);
+  const data = getDashboardData();
+  const latestBw = data.bodyweightLogs[data.bodyweightLogs.length - 1];
+  const currentWeight = latestBw ? Number(latestBw.morningBodyweight) : (data.checkins.at(-1)?.weight ?? data.profile.currentWeight ?? data.profile.startingWeight);
+  renderMacroSplitChart(data, currentWeight);
+}
+
+// Chart controls need the current data snapshot on click, outside the main renderDashboard() pass.
+let lastDashboardData = null;
+function getDashboardData() { return lastDashboardData; }
+
+/** Ranked "what needs my attention" panel — overdue tasks, macro gaps, recovery direction, review deadlines. */
+function renderAttentionPanel(data) {
+  const card = $("attentionPanelCard");
+  const el = $("attentionPanel");
+  if (!card || !el) return;
+  const referenceDate = new Date();
+  const todayISO = referenceDate.toLocaleDateString("en-CA");
+  const items = [];
+
+  const overdueTasks = (data.tasks || []).filter(t => !t.completed && t.dueDate && t.dueDate < todayISO);
+  overdueTasks.forEach(t => items.push({
+    severity: "error", icon: "🔴", title: t.title || t.description || "Overdue task",
+    detail: `Was due ${t.dueDate}.`, gotoTab: "more", gotoAnchor: "tasksCard"
+  }));
+
+  const remaining = remainingDailyTargets(data, referenceDate);
+  const urgency = macroGapUrgency(remaining, referenceDate);
+  if (urgency === "urgent" || urgency === "prominent") {
+    items.push({
+      severity: urgency === "urgent" ? "error" : "warning", icon: urgency === "urgent" ? "🔴" : "🟠",
+      title: "Macro gap still open today",
+      detail: `${Math.max(0, remaining.calories)}kcal / ${Math.max(0, remaining.protein)}g protein remaining.`,
+      gotoTab: "nutrition", gotoAnchor: "findMealBtn"
+    });
+  }
+
+  const direction = weeklyRecoveryDirection(data, referenceDate);
+  if (direction.direction === "Prioritise Recovery") {
+    items.push({
+      severity: "warning", icon: "🟠", title: "Recovery direction: Prioritise Recovery",
+      detail: direction.reasons[0] || "Readiness signals suggest backing off today.",
+      gotoTab: "recovery", gotoAnchor: undefined
+    });
+  }
+
+  const warnings = recoveryWarnings(data);
+  warnings.slice(0, 2).forEach(w => items.push({
+    severity: "warning", icon: "🟠", title: "Recovery flag", detail: w, gotoTab: "recovery", gotoAnchor: undefined
+  }));
+
+  const lastMonthlyReview = data.monthlyReviews.at(-1);
+  const daysSinceMonthly = lastMonthlyReview ? (Date.now() - new Date(lastMonthlyReview.createdAt || lastMonthlyReview.month).getTime()) / 86400000 : Infinity;
+  if (daysSinceMonthly >= 28) {
+    items.push({
+      severity: "info", icon: "🔵", title: "Monthly review is due",
+      detail: lastMonthlyReview ? `Last review was ${Math.round(daysSinceMonthly)} days ago.` : "No monthly review has been generated yet.",
+      gotoTab: "more", gotoAnchor: "monthlyReviewReminderCard"
+    });
+  }
+
+  const trainedToday = (data.workouts || []).some(w => w.date === todayISO);
+  const hour = referenceDate.getHours();
+  if (!trainedToday && !totalsHasMeal(data, todayISO) && hour >= 14) {
+    items.push({
+      severity: "info", icon: "🔵", title: "No meals logged today yet",
+      detail: "Log a meal to keep nutrition confidence and macro tracking accurate.",
+      gotoTab: "nutrition", gotoAnchor: undefined
+    });
+  }
+
+  const severityRank = { error: 0, warning: 1, info: 2 };
+  items.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+
+  if (!items.length) { card.hidden = true; return; }
+  card.hidden = false;
+  el.innerHTML = items.slice(0, 6).map(i => `
+    <div class="attention-item" data-goto-tab="${esc(i.gotoTab)}" ${i.gotoAnchor ? `data-goto-anchor="${esc(i.gotoAnchor)}"` : ""} tabindex="0" role="button">
+      <span class="status-icon">${i.icon}</span>
+      <div class="attention-body">
+        <div class="attention-title">${esc(i.title)}</div>
+        <div class="attention-detail">${esc(i.detail)}</div>
+      </div>
+    </div>`).join("");
+}
+
+function totalsHasMeal(data, todayISO) {
+  return dailyMealTotals(data.mealLogs || [], todayISO).mealCount > 0;
+}
+
+export function setupDashboardChartEventDelegation() {
+  document.addEventListener("click", (e) => {
+    const rangeBtn = e.target.closest("[data-weight-range]");
+    if (rangeBtn) { setWeightTrendRange(rangeBtn.dataset.weightRange); return; }
+    const typeBtn = e.target.closest("[data-macro-split-type]");
+    if (typeBtn) { setMacroSplitChartType(typeBtn.dataset.macroSplitType); return; }
+  });
 }

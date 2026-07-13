@@ -46,6 +46,29 @@ export function stackedBarRows(rows, { max = null } = {}) {
   `).join("");
 }
 
+// Simple donut chart for proportional data (e.g. macro split). Not used for data that
+// isn't inherently a share of a whole — bar/line stay the default for trends.
+const DONUT_COLOURS = ["var(--accent)", "var(--good)", "var(--warn)", "var(--danger)", "var(--muted)"];
+export function donutChart(slices, { size = 160, thickness = 22, formatValue = (v) => v } = {}) {
+  const total = slices.reduce((sum, s) => sum + (Number(s.value) || 0), 0);
+  if (!total) return "<p class='small'>Not enough data yet.</p>";
+  const r = (size - thickness) / 2;
+  const cx = size / 2, cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+  let offset = 0;
+  const segments = slices.map((s, i) => {
+    const frac = (Number(s.value) || 0) / total;
+    const dash = frac * circumference;
+    const el = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.colour || DONUT_COLOURS[i % DONUT_COLOURS.length]}" stroke-width="${thickness}"
+      stroke-dasharray="${dash.toFixed(1)} ${(circumference - dash).toFixed(1)}" stroke-dashoffset="${(-offset).toFixed(1)}" transform="rotate(-90 ${cx} ${cy})">
+      <title>${s.label}: ${formatValue(s.value)} (${Math.round(frac * 100)}%)</title></circle>`;
+    offset += dash;
+    return el;
+  }).join("");
+  const legend = slices.map((s, i) => `<span class="donut-legend-item"><i class="swatch" style="background:${s.colour || DONUT_COLOURS[i % DONUT_COLOURS.length]}"></i>${s.label} (${Math.round(((Number(s.value) || 0) / total) * 100)}%)</span>`).join("");
+  return `<svg class="chart-svg donut-svg" viewBox="0 0 ${size} ${size}" preserveAspectRatio="xMidYMid meet">${segments}</svg><div class="donut-legend">${legend}</div>`;
+}
+
 export function barRows(rows, { max = null, formatValue = (v) => v } = {}) {
   if (!rows.length) return "<p class='small'>Not enough data yet.</p>";
   const peak = max ?? Math.max(...rows.map(r => r.value), 1);

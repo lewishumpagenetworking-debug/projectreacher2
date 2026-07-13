@@ -35,6 +35,7 @@ export function renderNutrition(data) {
     } else {
       const targets = macroTargets(currentWeight);
       const fibreT = fibreTarget(latest.calories);
+      const calorieTarget = data.profile?.dailyCalorieTarget || 2800;
       dash.innerHTML = `
         <div class="badge-row">
           <span class="badge">${fmt(perKg(latest.protein, currentWeight), 2)}g/kg protein</span>
@@ -42,17 +43,17 @@ export function renderNutrition(data) {
           <span class="badge">${fmt(perKg(latest.fat, currentWeight), 2)}g/kg fat</span>
         </div>
         <p class="small">Protein target ${targets.proteinMin}-${targets.proteinMax}g · Carb target ${targets.carbsMin}-${targets.carbsMax}g · Fat target ${targets.fatMin}-${targets.fatMax}g · Fibre target ~${fibreT ?? "--"}g</p>
-        <p class="small">Calorie adherence vs 2800kcal reference: ${calorieAdherence(latest.calories, 2800) ?? "--"}%</p>`;
+        <p class="small">Calorie adherence vs ${calorieTarget}kcal target: ${calorieAdherence(latest.calories, calorieTarget) ?? "--"}%</p>`;
     }
   }
   const history = $("nutritionHistory");
   if (history) {
     history.innerHTML = data.nutritionLogs.slice().reverse().slice(0, 20).map(n => `
-      <div class="history-item">
-        <strong>${esc(n.date)}</strong> · ${n.calories}kcal · P${n.protein} C${n.carbs} F${n.fat} · Fibre ${n.fibre ?? "-"}g
-        ${n.notes ? `<br>${esc(n.notes)}` : ""}
+      <details class="history-item expandable-card">
+        <summary><strong>${esc(n.date)}</strong> · ${n.calories}kcal · P${n.protein} C${n.carbs} F${n.fat} · Fibre ${n.fibre ?? "-"}g</summary>
+        ${n.notes ? `<p class="small">${esc(n.notes)}</p>` : ""}
         <div class="actions"><button class="danger" data-delete="nutritionLogs" data-id="${n.id}">Delete</button></div>
-      </div>`).join("") || "<p class='small'>No nutrition logs yet.</p>";
+      </details>`).join("") || "<p class='small'>No nutrition logs yet.</p>";
   }
 }
 

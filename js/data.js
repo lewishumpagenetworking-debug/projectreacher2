@@ -31,7 +31,10 @@ export const DEFAULT_PROFILE = {
   notes: "",
   visualModeEnabled: false,
   functionalTrackLengthMetres: 15,
-  caffeineCutoffHours: 8
+  caffeineCutoffHours: 8,
+  dailyCalorieTarget: 2800,
+  proteinTargetOverrideG: null,
+  sleepTargetHours: 7.5
 };
 
 // AI Specialists: consent + data-category permissions gate what the Context Builder is
@@ -95,7 +98,11 @@ function emptyData() {
     foodTemplates: [],
     preWorkoutLogs: [],
     postWorkoutLogs: [],
-    interventions: []
+    interventions: [],
+    reviews: [],
+    reminders: [],
+    savedMeals: [],
+    tasks: []
   };
 }
 
@@ -150,7 +157,8 @@ export function migrateData() {
    "skinLogs", "hairLogs", "productExperiments", "appearanceCheckins",
    "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared",
    "aiSavedInsights", "aiProposedChanges", "aiAuditLog",
-   "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions"].forEach(key => {
+   "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
+   "reviews", "reminders", "savedMeals", "tasks"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -187,7 +195,35 @@ export function migrateData() {
   }));
 
   data.mealLogs = data.mealLogs.map(m => withDefaults(m, {
-    recoveryTag: null, quantity: null, unit: null, isDraft: false, source: "manual", assumptions: []
+    recoveryTag: null, quantity: null, unit: null, isDraft: false, source: "manual", assumptions: [],
+    savedMealId: null, servingMultiplier: 1
+  }));
+
+  data.savedMeals = data.savedMeals.map(m => withDefaults(m, {
+    ingredients: [], fibre: null, micronutrients: {}, notes: "", mealType: null,
+    contentHash: null, timesLogged: 0, firstCreatedAt: m.createdAt || null, lastUsedAt: m.createdAt || null,
+    archived: false, favourite: false
+  }));
+
+  data.reviews = data.reviews.map(r => withDefaults(r, {
+    reviewType: "weekly", periodStart: null, periodEnd: null, status: "not_started",
+    overallScore: null, summary: "", source: "app", sourceFilename: null,
+    findings: [], proposedUpdates: [], knowledgeNotes: [], appliedLog: [],
+    createdAt: r.createdAt || new Date().toISOString(), approvedAt: null, appliedAt: null
+  }));
+
+  data.tasks = data.tasks.map(t => withDefaults(t, {
+    description: "", category: "general", priority: "medium", dueDate: null,
+    completed: false, completedAt: null, source: "manual", relatedReviewId: null,
+    createdAt: t.createdAt || new Date().toISOString(), updatedAt: t.createdAt || new Date().toISOString()
+  }));
+
+  data.reminders = data.reminders.map(r => withDefaults(r, {
+    title: "", description: "", relatedEntityType: null, relatedEntityId: null,
+    scheduledTime: "09:00", repeatRule: "daily", daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+    timesPerDay: 1, additionalTimes: [], startDate: null, endDate: null,
+    enabled: true, notificationIdentifier: null, lastFiredAt: null, suggested: false,
+    createdAt: r.createdAt || new Date().toISOString(), updatedAt: r.createdAt || new Date().toISOString()
   }));
 
   data.sleepLogs = data.sleepLogs.map(s => withDefaults(s, {
@@ -314,7 +350,10 @@ const COLLECTION_KEYS = [
   "sleepLogs", "hydrationLogs",
   "skinLogs", "hairLogs", "productExperiments", "appearanceCheckins",
   "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared", "aiSavedInsights",
-  "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions"
+  "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
+  "reviews", "savedMeals", "tasks"
+  // "reminders" is deliberately excluded — per-device notification scheduling state,
+  // the same reasoning as aiProposedChanges/aiAuditLog below.
 ];
 
 function normalizeSetSignature(e) {
@@ -544,6 +583,10 @@ export function importAndMergeData(importedRaw, currentState) {
   record("preWorkoutLogs", mergeByIdGeneric(current.preWorkoutLogs, imported.preWorkoutLogs, detectDuplicateById));
   record("postWorkoutLogs", mergeByIdGeneric(current.postWorkoutLogs, imported.postWorkoutLogs, detectDuplicateById));
   record("interventions", mergeByIdGeneric(current.interventions, imported.interventions, detectDuplicateById));
+  record("reviews", mergeByIdGeneric(current.reviews, imported.reviews, detectDuplicateById));
+  record("savedMeals", mergeByIdGeneric(current.savedMeals, imported.savedMeals, (list, c) => list.find(x => x.contentHash && x.contentHash === c.contentHash) || detectDuplicateById(list, c)));
+  record("tasks", mergeByIdGeneric(current.tasks, imported.tasks, detectDuplicateById));
+  // reminders deliberately not merged — never restore stale/old notification schedules from a backup.
 
   // aiSettings: current device's consent/permissions always win (consent must never be
   // silently granted by an import) — only additive/unset fields are backfilled from the import.
