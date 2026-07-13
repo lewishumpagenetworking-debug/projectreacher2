@@ -7,9 +7,9 @@ import {
   readinessScore, sleepStats, weekendRecoveryStatus, caffeineLoadStatus, recoveryMealCompliance, formatHoursAsHM,
   dailyChecklist, monthlyChecklist, currentBodyweightKg, weeklyRecoveryDirection,
   exercisesReadyToIncrease, nutritionConfidenceStatus, preWorkoutReadinessToday, detectFatigueReason,
-  remainingDailyTargets, macroGapUrgency
+  attentionSignals
 } from "./calculations.js";
-import { runContingencyEngine } from "./contingency-engine.js";
+import { evaluateConstraintRules, rankCauses } from "./constraint-engine.js";
 import { READINESS_CHOICE_LABELS } from "./render-meals.js";
 import { DEFAULT_TRAINING_PROGRAM, MUSCLE_GROUPS } from "./program.js";
 import { SUPPLEMENT_DATABASE } from "./recovery-data.js";
@@ -101,8 +101,8 @@ function renderClosedLoopIntelligence(data) {
   const direction = weeklyRecoveryDirection(data, referenceDate);
   const caffeine = caffeineLoadStatus(data.stimulantLogs || [], referenceDate, currentBodyweightKg(data));
   const fatigue = detectFatigueReason(data, referenceDate);
-  const triggeredRules = runContingencyEngine(data, referenceDate);
-  const currentConstraint = triggeredRules[0]?.title || fatigue.primaryCause;
+  const { primary } = rankCauses(evaluateConstraintRules(data, referenceDate));
+  const currentConstraint = primary?.rule.title || fatigue.primaryCause;
   const activeIntervention = (data.interventions || []).slice().reverse().find(i => i.status === "Open" || i.status === "In Progress") || null;
 
   el.innerHTML = `
@@ -617,68 +617,12 @@ function setMacroSplitChartType(typeKey) {
 let lastDashboardData = null;
 function getDashboardData() { return lastDashboardData; }
 
-/** Ranked "what needs my attention" panel — overdue tasks, macro gaps, recovery direction, review deadlines. */
+/** Ranked "what needs my attention" panel — overdue tasks, macro gaps, recovery direction, review deadlines. Sourced from calculations.js's attentionSignals(), the same shared signal function the global ProgressTask engine reads, so the two surfaces can never disagree. */
 function renderAttentionPanel(data) {
   const card = $("attentionPanelCard");
   const el = $("attentionPanel");
   if (!card || !el) return;
-  const referenceDate = new Date();
-  const todayISO = referenceDate.toLocaleDateString("en-CA");
-  const items = [];
-
-  const overdueTasks = (data.tasks || []).filter(t => !t.completed && t.dueDate && t.dueDate < todayISO);
-  overdueTasks.forEach(t => items.push({
-    severity: "error", icon: "🔴", title: t.title || t.description || "Overdue task",
-    detail: `Was due ${t.dueDate}.`, gotoTab: "more", gotoAnchor: "tasksCard"
-  }));
-
-  const remaining = remainingDailyTargets(data, referenceDate);
-  const urgency = macroGapUrgency(remaining, referenceDate);
-  if (urgency === "urgent" || urgency === "prominent") {
-    items.push({
-      severity: urgency === "urgent" ? "error" : "warning", icon: urgency === "urgent" ? "🔴" : "🟠",
-      title: "Macro gap still open today",
-      detail: `${Math.max(0, remaining.calories)}kcal / ${Math.max(0, remaining.protein)}g protein remaining.`,
-      gotoTab: "nutrition", gotoAnchor: "findMealBtn"
-    });
-  }
-
-  const direction = weeklyRecoveryDirection(data, referenceDate);
-  if (direction.direction === "Prioritise Recovery") {
-    items.push({
-      severity: "warning", icon: "🟠", title: "Recovery direction: Prioritise Recovery",
-      detail: direction.reasons[0] || "Readiness signals suggest backing off today.",
-      gotoTab: "recovery", gotoAnchor: undefined
-    });
-  }
-
-  const warnings = recoveryWarnings(data);
-  warnings.slice(0, 2).forEach(w => items.push({
-    severity: "warning", icon: "🟠", title: "Recovery flag", detail: w, gotoTab: "recovery", gotoAnchor: undefined
-  }));
-
-  const lastMonthlyReview = data.monthlyReviews.at(-1);
-  const daysSinceMonthly = lastMonthlyReview ? (Date.now() - new Date(lastMonthlyReview.createdAt || lastMonthlyReview.month).getTime()) / 86400000 : Infinity;
-  if (daysSinceMonthly >= 28) {
-    items.push({
-      severity: "info", icon: "🔵", title: "Monthly review is due",
-      detail: lastMonthlyReview ? `Last review was ${Math.round(daysSinceMonthly)} days ago.` : "No monthly review has been generated yet.",
-      gotoTab: "more", gotoAnchor: "monthlyReviewReminderCard"
-    });
-  }
-
-  const trainedToday = (data.workouts || []).some(w => w.date === todayISO);
-  const hour = referenceDate.getHours();
-  if (!trainedToday && !totalsHasMeal(data, todayISO) && hour >= 14) {
-    items.push({
-      severity: "info", icon: "🔵", title: "No meals logged today yet",
-      detail: "Log a meal to keep nutrition confidence and macro tracking accurate.",
-      gotoTab: "nutrition", gotoAnchor: undefined
-    });
-  }
-
-  const severityRank = { error: 0, warning: 1, info: 2 };
-  items.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+  const items = attentionSignals(data, new Date());
 
   if (!items.length) { card.hidden = true; return; }
   card.hidden = false;
@@ -690,10 +634,6 @@ function renderAttentionPanel(data) {
         <div class="attention-detail">${esc(i.detail)}</div>
       </div>
     </div>`).join("");
-}
-
-function totalsHasMeal(data, todayISO) {
-  return dailyMealTotals(data.mealLogs || [], todayISO).mealCount > 0;
 }
 
 /** Compact rotating preview of the user's Vision Board — small and secondary by design, never a hero element. */

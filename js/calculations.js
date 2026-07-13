@@ -1776,3 +1776,69 @@ export function sessionReviewMissingFields(review) {
   if (!review) return SESSION_REVIEW_REQUIRED_FIELDS.slice();
   return SESSION_REVIEW_REQUIRED_FIELDS.filter(f => review[f] == null || review[f] === "");
 }
+
+/**
+ * Ranked "what needs attention" signals — overdue tasks, macro gaps, recovery direction,
+ * recovery warnings, monthly-review-due, no-meals-logged-yet. Extracted as the SINGLE
+ * shared source for both the Dashboard Attention Panel and the global ProgressTask engine,
+ * so both surfaces can never disagree about what's flagged (see js/task-engine.js).
+ */
+export function attentionSignals(data, referenceDate = new Date()) {
+  const todayISO = referenceDate.toLocaleDateString("en-CA");
+  const items = [];
+
+  const overdueTasks = (data.tasks || []).filter(t => !t.completed && t.dueDate && t.dueDate < todayISO);
+  overdueTasks.forEach(t => items.push({
+    id: `overdue-task-${t.id}`, severity: "error", icon: "🔴", title: t.title || t.description || "Overdue task",
+    detail: `Was due ${t.dueDate}.`, gotoTab: "more", gotoAnchor: "tasksCard"
+  }));
+
+  const remaining = remainingDailyTargets(data, referenceDate);
+  const urgency = macroGapUrgency(remaining, referenceDate);
+  if (urgency === "urgent" || urgency === "prominent") {
+    items.push({
+      id: "macro-gap-open", severity: urgency === "urgent" ? "error" : "warning", icon: urgency === "urgent" ? "🔴" : "🟠",
+      title: "Macro gap still open today",
+      detail: `${Math.max(0, remaining.calories)}kcal / ${Math.max(0, remaining.protein)}g protein remaining.`,
+      gotoTab: "nutrition", gotoAnchor: "findMealBtn"
+    });
+  }
+
+  const direction = weeklyRecoveryDirection(data, referenceDate);
+  if (direction.direction === "Prioritise Recovery") {
+    items.push({
+      id: "recovery-direction-prioritise", severity: "warning", icon: "🟠", title: "Recovery direction: Prioritise Recovery",
+      detail: direction.reasons[0] || "Readiness signals suggest backing off today.",
+      gotoTab: "recovery", gotoAnchor: undefined
+    });
+  }
+
+  const warnings = recoveryWarnings(data);
+  warnings.slice(0, 2).forEach((w, i) => items.push({
+    id: `recovery-warning-${i}`, severity: "warning", icon: "🟠", title: "Recovery flag", detail: w, gotoTab: "recovery", gotoAnchor: undefined
+  }));
+
+  const lastMonthlyReview = data.monthlyReviews.at(-1);
+  const daysSinceMonthly = lastMonthlyReview ? (referenceDate.getTime() - new Date(lastMonthlyReview.createdAt || lastMonthlyReview.month).getTime()) / 86400000 : Infinity;
+  if (daysSinceMonthly >= 28) {
+    items.push({
+      id: "monthly-review-due", severity: "info", icon: "🔵", title: "Monthly review is due",
+      detail: lastMonthlyReview ? `Last review was ${Math.round(daysSinceMonthly)} days ago.` : "No monthly review has been generated yet.",
+      gotoTab: "more", gotoAnchor: "monthlyReviewReminderCard"
+    });
+  }
+
+  const trainedToday = (data.workouts || []).some(w => w.date === todayISO);
+  const hour = referenceDate.getHours();
+  const hasMealToday = dailyMealTotals(data.mealLogs || [], todayISO).mealCount > 0;
+  if (!trainedToday && !hasMealToday && hour >= 14) {
+    items.push({
+      id: "no-meals-today", severity: "info", icon: "🔵", title: "No meals logged today yet",
+      detail: "Log a meal to keep nutrition confidence and macro tracking accurate.",
+      gotoTab: "nutrition", gotoAnchor: undefined
+    });
+  }
+
+  const severityRank = { error: 0, warning: 1, info: 2 };
+  return items.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+}
