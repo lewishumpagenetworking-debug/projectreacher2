@@ -1,8 +1,10 @@
-// Generic motivational visual/caption system. Purely content-neutral: it stores
-// whatever image URL the user supplies (their own photos, stock art, anything
-// they've sourced or generated elsewhere) alongside a rotating caption. This
-// module never generates images itself and has no opinion on what the image
-// depicts — see js/render-visuals.js for the UI that reads/writes these records.
+// Generic motivational visual/caption system. Purely content-neutral: images are
+// uploaded from the user's device and stored locally (js/image-store.js), addressed via
+// data.images with relatedEntityType:"visual-placement" — see js/render-visuals.js for
+// the UI. isValidImageUrl() is kept only for backward compatibility with records saved
+// before local upload existed (a pasted HTTPS imageUrl still renders as a fallback until
+// the user uploads a local replacement or removes it). This module never generates
+// images itself and has no opinion on what an image depicts.
 
 export const CAPTION_BANK = {
   mission: [
