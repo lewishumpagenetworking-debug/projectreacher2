@@ -1042,6 +1042,25 @@
         <div id="reminderList"></div>
       </section>
 
+      <section class="card" id="goalsCard">
+        <h2>Goals</h2>
+        <p class="small">Weight, strength, business, financial, and skill goals in one place. Every goal can carry its own images, shown automatically when you open it.</p>
+        <div class="form-grid">
+          <input type="text" id="newGoalTitle" placeholder="Goal title" />
+          <select id="newGoalCategory">
+            <option value="business">Business</option>
+            <option value="weight">Weight</option>
+            <option value="physique">Physique</option>
+            <option value="financial">Financial</option>
+            <option value="skill">Skill</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <textarea id="newGoalDescription" placeholder="Optional description"></textarea>
+        <button type="button" id="addGoalBtn" class="secondary">Add Goal</button>
+        <div id="goalList"></div>
+      </section>
+
       <section class="card" id="visionBoardCard">
         <details class="section-details" open>
           <summary><h2>Vision Board</h2></summary>
