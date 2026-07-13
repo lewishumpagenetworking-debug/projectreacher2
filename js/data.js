@@ -219,7 +219,7 @@ export function migrateData() {
   }));
 
   data.reminders = data.reminders.map(r => withDefaults(r, {
-    description: "", relatedEntityType: null, relatedEntityId: null,
+    title: "", description: "", relatedEntityType: null, relatedEntityId: null,
     scheduledTime: "09:00", repeatRule: "daily", daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
     timesPerDay: 1, additionalTimes: [], startDate: null, endDate: null,
     enabled: true, notificationIdentifier: null, lastFiredAt: null, suggested: false,

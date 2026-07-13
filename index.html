@@ -1008,6 +1008,40 @@
         <div id="taskList"></div>
       </section>
 
+      <section class="card" id="remindersCard">
+        <h2>Reminders</h2>
+        <p class="small">Recurring reminders fire as browser notifications while this tab is open.</p>
+        <div id="reminderPermissionStatus"></div>
+
+        <div class="form-grid">
+          <input type="text" id="reminderTitle" placeholder="Reminder title" />
+          <input type="time" id="reminderTime" value="09:00" />
+        </div>
+        <select id="reminderRepeat">
+          <option value="daily">Every day</option>
+          <option value="weekdays">Weekdays (Mon-Fri)</option>
+          <option value="weekends">Weekends (Sat-Sun)</option>
+          <option value="custom">Custom days</option>
+        </select>
+        <div class="badge-row" id="reminderCustomDays" hidden>
+          <label><input type="checkbox" class="reminder-day-check" value="0"> Sun</label>
+          <label><input type="checkbox" class="reminder-day-check" value="1"> Mon</label>
+          <label><input type="checkbox" class="reminder-day-check" value="2"> Tue</label>
+          <label><input type="checkbox" class="reminder-day-check" value="3"> Wed</label>
+          <label><input type="checkbox" class="reminder-day-check" value="4"> Thu</label>
+          <label><input type="checkbox" class="reminder-day-check" value="5"> Fri</label>
+          <label><input type="checkbox" class="reminder-day-check" value="6"> Sat</label>
+        </div>
+        <textarea id="reminderDescription" placeholder="Optional note shown in the notification"></textarea>
+        <button type="button" id="addReminderBtn" class="secondary">Add Reminder</button>
+
+        <h3>Suggested</h3>
+        <div id="reminderSuggestions"></div>
+
+        <h3>Your Reminders</h3>
+        <div id="reminderList"></div>
+      </section>
+
       <section class="card">
         <h2>Training Program Editor</h2>
         <div id="programEditor"></div>

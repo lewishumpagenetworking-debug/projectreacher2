@@ -35,6 +35,7 @@ import { renderLibrary, setupLibraryEventDelegation } from "./render-library.js"
 import { renderReviewCentre, setupReviewEventDelegation } from "./render-reviews.js";
 import { renderTasks, setupTasksEventDelegation } from "./render-tasks.js";
 import { setupDashboardChartEventDelegation } from "./render-dashboard.js";
+import { renderReminders, setupRemindersEventDelegation, startReminderScheduler } from "./render-reminders.js";
 
 export function refreshAll() {
   const data = getData();
@@ -71,6 +72,7 @@ export function refreshAll() {
   renderLibrary(data);
   renderReviewCentre(data);
   renderTasks(data);
+  renderReminders(data);
 }
 
 function setupNav() {
@@ -99,7 +101,8 @@ const COLLECTION_LABELS = {
   aiConversationsAppearance: "Appearance Director conversations", aiConversationsShared: "Shared AI conversations",
   aiSavedInsights: "Saved AI insights",
   foodTemplates: "Food templates", preWorkoutLogs: "Pre-workout logs", postWorkoutLogs: "Post-workout logs",
-  interventions: "Interventions", reviews: "Reviews", savedMeals: "Saved meals (My Meals)", tasks: "Tasks"
+  interventions: "Interventions", reviews: "Reviews", savedMeals: "Saved meals (My Meals)", tasks: "Tasks",
+  reminders: "Reminders"
 };
 
 function formatImportSummary(summary) {
@@ -294,6 +297,8 @@ setupLibraryEventDelegation();
 setupReviewEventDelegation();
 setupTasksEventDelegation();
 setupDashboardChartEventDelegation();
+setupRemindersEventDelegation();
+startReminderScheduler();
 setupRecoveryEventDelegation();
 setupAppearanceEventDelegation();
 setupAiEventDelegation();
