@@ -75,6 +75,12 @@
         <button type="button" class="hero-cta" id="heroStartWorkoutBtn" data-goto-tab="train">Start / Resume Workout</button>
       </section>
 
+      <section class="card" id="attentionPanelCard" hidden>
+        <h2>Requires Attention</h2>
+        <p class="small">Ranked by urgency — tap any item to jump straight to it.</p>
+        <div id="attentionPanel" class="attention-panel"></div>
+      </section>
+
       <section class="card">
         <h2>Today's Sequenced Flow</h2>
         <div id="dailyFlowNextStep"></div>
@@ -147,6 +153,13 @@
         <p class="small" id="progressSubtext"></p>
       </section>
 
+      <section class="card" id="weightTrendCard">
+        <h2>Weight Trend</h2>
+        <div class="time-range-toggle" id="weightTrendRange" role="group" aria-label="Weight trend time range"></div>
+        <div class="chart-box" id="weightTrendChart"></div>
+        <button type="button" class="card-link-hint link-button" data-goto-tab="body">Open full Body history →</button>
+      </section>
+
       <section class="card" id="gainStatusCard">
         <h2>Weekly Gain vs Target</h2>
         <div id="gainStatus"></div>
@@ -159,6 +172,12 @@
         <div class="card"><span>Carbs</span><strong id="dashCarbs">--</strong></div>
         <div class="card"><span>Fats</span><strong id="dashFats">--</strong></div>
         <div class="card"><span>Current Phase</span><strong id="dashPhase">--</strong></div>
+      </section>
+
+      <section class="card">
+        <div class="section-title"><h2>Today's Macro Split</h2></div>
+        <div class="chart-type-toggle" id="macroSplitChartType" role="group" aria-label="Macro split chart type"></div>
+        <div class="chart-box small-chart" id="dashMacroSplitChart"></div>
       </section>
 
       <section class="card">
@@ -585,6 +604,24 @@
         <div id="todayMealLog"></div>
       </section>
 
+      <section class="card" id="macroGapPanel" hidden>
+        <div class="section-title"><h2>Meals to Reach Today's Goal</h2>
+          <select id="macroGapSort">
+            <option value="best-fit">Best Overall Fit</option>
+            <option value="highest-calories">Highest Calories</option>
+            <option value="highest-protein">Highest Protein</option>
+            <option value="highest-carbs">Highest Carbohydrates</option>
+            <option value="highest-fat">Highest Fat</option>
+            <option value="closest-without-exceeding">Closest Without Exceeding</option>
+            <option value="most-frequent">Most Frequently Logged</option>
+            <option value="recent">Recently Used</option>
+          </select>
+        </div>
+        <p class="small">Recommendations only ever come from your own Meal History — never an outside database.</p>
+        <div id="macroGapRemaining"></div>
+        <div id="macroGapResults"></div>
+      </section>
+
       <section class="card">
         <h2>Today's Macro Breakdown</h2>
         <div class="macro-legend">
@@ -615,6 +652,18 @@
         </div>
         <input id="mealSearch" placeholder="Search meal history...">
         <div id="mealHistory"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-title"><h2>My Meals</h2><button type="button" id="findMealBtn" class="secondary">Find a Meal</button></div>
+        <p class="small">Your personal cookbook — built automatically from meals you log. Exact repeats reuse the same entry instead of duplicating it.</p>
+        <div class="meal-filter-row" id="cookbookFilterRow">
+          <button data-filter="all" class="active">All</button>
+          <button data-filter="favourites">Favourites</button>
+          <button data-filter="archived">Archived</button>
+        </div>
+        <input id="cookbookSearch" placeholder="Search your meals...">
+        <div id="mealCookbookList"></div>
       </section>
 
       <section class="card">
@@ -930,6 +979,33 @@
         <div id="visual-monthly-review"></div>
         <div id="monthlyReview"></div>
         <button id="generateMonthlyReview">Generate Monthly Review</button>
+      </section>
+
+      <section class="card">
+        <h2>Review Centre</h2>
+        <p class="small">Upload a GPT-generated review, or generate one from your tracked app data. Nothing changes until you review and approve it.</p>
+        <div class="badge-row" id="reviewTypeTabs">
+          <button type="button" class="secondary active" data-review-tab="weekly">Weekly Review</button>
+          <button type="button" class="secondary" data-review-tab="monthly">Monthly Review</button>
+        </div>
+        <div class="badge-row">
+          <label class="secondary" style="cursor:pointer">Upload GPT Review<input id="reviewFileInput" type="file" accept=".json,.md,.txt,.docx,.pdf" style="display:none"></label>
+          <button type="button" id="reviewGenerateBtn" class="secondary"><span id="reviewGenerateLabel">Generate This Week's Review</span></button>
+        </div>
+        <p id="reviewUploadError" class="small status-under" hidden></p>
+        <div id="reviewDraftPreview" hidden></div>
+        <h3>Review History</h3>
+        <div id="reviewTimeline"></div>
+      </section>
+
+      <section class="card" id="tasksCard">
+        <div class="section-title"><h2>Tasks</h2><span id="tasksOpenCount" class="badge"></span></div>
+        <p class="small">Action items from your reviews. Complete them here, or add your own.</p>
+        <div class="form-grid">
+          <input type="text" id="newTaskTitle" placeholder="New task..." />
+          <button type="button" id="addTaskBtn" class="secondary">Add</button>
+        </div>
+        <div id="taskList"></div>
       </section>
 
       <section class="card">

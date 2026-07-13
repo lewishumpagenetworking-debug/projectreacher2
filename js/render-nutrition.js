@@ -35,6 +35,7 @@ export function renderNutrition(data) {
     } else {
       const targets = macroTargets(currentWeight);
       const fibreT = fibreTarget(latest.calories);
+      const calorieTarget = data.profile?.dailyCalorieTarget || 2800;
       dash.innerHTML = `
         <div class="badge-row">
           <span class="badge">${fmt(perKg(latest.protein, currentWeight), 2)}g/kg protein</span>
@@ -42,7 +43,7 @@ export function renderNutrition(data) {
           <span class="badge">${fmt(perKg(latest.fat, currentWeight), 2)}g/kg fat</span>
         </div>
         <p class="small">Protein target ${targets.proteinMin}-${targets.proteinMax}g · Carb target ${targets.carbsMin}-${targets.carbsMax}g · Fat target ${targets.fatMin}-${targets.fatMax}g · Fibre target ~${fibreT ?? "--"}g</p>
-        <p class="small">Calorie adherence vs 2800kcal reference: ${calorieAdherence(latest.calories, 2800) ?? "--"}%</p>`;
+        <p class="small">Calorie adherence vs ${calorieTarget}kcal target: ${calorieAdherence(latest.calories, calorieTarget) ?? "--"}%</p>`;
     }
   }
   const history = $("nutritionHistory");

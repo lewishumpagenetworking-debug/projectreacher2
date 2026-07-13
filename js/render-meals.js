@@ -4,6 +4,8 @@ import { estimateMealMacros } from "./food-estimator.js";
 import { macroTargets, dailyMealTotals, remainingMacros, macroAdherence, monthlyMealSummary, loggingStreakDays, validateMealEntry, nutritionConfidenceStatus, preWorkoutReadinessToday, trainingNutritionCorrelation } from "./calculations.js";
 import { lineChart, stackedBarRows } from "./charts.js";
 import { hasApiKey, estimateMealMacrosViaClaude } from "./claude-client.js";
+import { remainingDailyTargets, macroGapUrgency, rankSavedMealsForGap } from "./calculations.js";
+import { findOrCreateSavedMeal, buildDailyLogEntryFromSavedMeal } from "./meal-cookbook.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 const todayISO = () => new Date().toLocaleDateString("en-CA");
@@ -166,13 +168,26 @@ export function saveMeal(asDraft = false) {
     ? (calories !== lastEstimate.calories || protein !== lastEstimate.protein || carbs !== lastEstimate.carbs || fat !== lastEstimate.fat || fibre !== lastEstimate.fibre)
     : true; // no estimate was run at all -> fully manual entry
 
+  const foodsDetected = lastEstimate?.foodsDetected || [];
+  let savedMealId = null;
+  // Every genuinely-saved (non-draft) meal auto-joins the Meal History cookbook —
+  // an exact repeat (same name/ingredients/macros) reuses the existing catalog entry
+  // rather than creating a duplicate, per the exact-duplicate-prevention requirement.
+  if (!asDraft) {
+    const { savedMeal } = findOrCreateSavedMeal(data, {
+      name: mealName || "Meal", ingredients: foodsDetected,
+      calories: calories ?? 0, protein: protein ?? 0, carbs: carbs ?? 0, fat: fat ?? 0, fibre
+    }, now.toISOString());
+    savedMealId = savedMeal.id;
+  }
+
   data.mealLogs.push({
     id: uid(),
     date: todayISO(),
     time: $("mealTime").value || now.toTimeString().slice(0, 5),
     mealName: mealName || "Meal",
     rawDescription: $("mealDescription").value,
-    foodsDetected: lastEstimate?.foodsDetected || [],
+    foodsDetected,
     calories: calories ?? 0, protein: protein ?? 0, carbs: carbs ?? 0, fat: fat ?? 0, fibre,
     confidenceScore: lastEstimate?.confidenceScore || "Manual",
     assumptions: lastEstimate?.assumptions || [],
@@ -182,6 +197,7 @@ export function saveMeal(asDraft = false) {
     quantity, unit,
     isDraft: asDraft,
     source: lastEstimate ? (lastEstimate.source || "estimator") : "manual",
+    savedMealId, servingMultiplier: 1,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
   });
@@ -206,6 +222,8 @@ export function renderMealTracking(data) {
   renderMonthlyOverview(data);
   renderMealHistory(data);
   renderFoodTemplates(data);
+  renderMealCookbook(data);
+  renderMacroGapRecommendations(data);
 }
 
 function renderTodayMeals(data) {
@@ -274,10 +292,16 @@ function renderTodayMeals(data) {
   }
 }
 
+// Compact expandable meal card: collapsed shows only name/calories/protein (spec 7.1),
+// full breakdown appears on expand — replaces the old always-expanded long row.
 function mealHistoryItem(m) {
-  return `<div class="history-item">
-    <div class="section-title">
+  return `<details class="history-item meal-card">
+    <summary>
       <strong>${m.time ? esc(m.time) + " · " : ""}${esc(m.mealName)}</strong>
+      <span class="small">${m.calories} kcal · ${m.protein}g protein</span>
+      ${m.isDraft ? `<span class="badge status-under">Draft</span>` : ""}
+    </summary>
+    <div class="section-title">
       <span class="confidence-pill confidence-${(m.confidenceScore || "manual").toLowerCase()}">${esc(m.confidenceScore)}${m.userCorrected ? " · edited" : ""}</span>
     </div>
     <p class="small">${esc(m.rawDescription)}</p>
@@ -294,7 +318,7 @@ function mealHistoryItem(m) {
       <button class="secondary" data-duplicate-meal="${m.id}">Add Again Today</button>
       <button class="danger" data-delete="mealLogs" data-id="${m.id}">Delete</button>
     </div>
-  </div>`;
+  </details>`;
 }
 
 function renderMonthSelect(data) {
@@ -345,6 +369,132 @@ function renderMealHistory(data) {
   if (search) meals = meals.filter(m => (m.mealName + " " + m.rawDescription).toLowerCase().includes(search));
 
   el.innerHTML = meals.slice(0, 40).map(m => `<p class="small" style="margin:10px 0 0">${esc(m.date)}</p>${mealHistoryItem(m)}`).join("") || "<p class='small'>No meals match this filter.</p>";
+}
+
+// ==================== MEAL HISTORY / COOKBOOK ====================
+
+let cookbookSearch = "";
+let cookbookFilter = "all"; // all | favourites | archived
+
+function savedMealCardHtml(m) {
+  return `<details class="history-item meal-card" data-saved-meal="${m.id}">
+    <summary>
+      <strong>${m.favourite ? "★ " : ""}${esc(m.name)}</strong>
+      <span class="small">${m.calories} kcal · ${m.protein}g protein</span>
+      ${m.archived ? `<span class="badge">Archived</span>` : ""}
+    </summary>
+    <p class="small">${m.ingredients.length ? esc(m.ingredients.join(", ")) : "No ingredients recorded."}</p>
+    <div class="badge-row">
+      <span class="badge">${m.calories}kcal</span>
+      <span class="badge">P${m.protein}</span>
+      <span class="badge">C${m.carbs}</span>
+      <span class="badge">F${m.fat}</span>
+      <span class="badge">Fibre${m.fibre ?? 0}</span>
+      ${m.mealType ? `<span class="badge">${esc(m.mealType)}</span>` : ""}
+      <span class="badge">Logged ${m.timesLogged}x</span>
+      <span class="badge">Last used ${esc((m.lastUsedAt || "").slice(0, 10) || "--")}</span>
+    </div>
+    ${m.notes ? `<p class="small">${esc(m.notes)}</p>` : ""}
+    <div class="form-grid">
+      <label>Servings <input type="number" class="cookbook-serving-multiplier" data-saved-meal-id="${m.id}" value="1" min="0.25" step="0.25"></label>
+    </div>
+    <div class="actions">
+      <button class="secondary" data-cookbook-add="${m.id}">Add to Today</button>
+      <button class="secondary" data-cookbook-favourite="${m.id}">${m.favourite ? "Unfavourite" : "Favourite"}</button>
+      <button class="secondary" data-cookbook-archive="${m.id}">${m.archived ? "Unarchive" : "Archive"}</button>
+      <button class="secondary" data-cookbook-duplicate="${m.id}">Duplicate as New</button>
+      <button class="danger" data-delete="savedMeals" data-id="${m.id}">Delete</button>
+    </div>
+  </details>`;
+}
+
+export function renderMealCookbook(data) {
+  const el = $("mealCookbookList");
+  if (!el) return;
+  let meals = [...data.savedMeals];
+  if (cookbookFilter === "favourites") meals = meals.filter(m => m.favourite && !m.archived);
+  else if (cookbookFilter === "archived") meals = meals.filter(m => m.archived);
+  else meals = meals.filter(m => !m.archived);
+
+  if (cookbookSearch) {
+    const s = cookbookSearch.toLowerCase();
+    meals = meals.filter(m => m.name.toLowerCase().includes(s) || m.ingredients.some(i => i.toLowerCase().includes(s)));
+  }
+  meals.sort((a, b) => (b.favourite ? 1 : 0) - (a.favourite ? 1 : 0) || new Date(b.lastUsedAt) - new Date(a.lastUsedAt));
+
+  el.innerHTML = meals.length ? meals.map(savedMealCardHtml).join("")
+    : "<p class='small'>No saved meals yet. Meals you create or log will appear here for quick reuse.</p>";
+}
+
+function addSavedMealToToday(savedMealId, servingMultiplier = 1) {
+  const data = getData();
+  const savedMeal = data.savedMeals.find(m => m.id === savedMealId);
+  if (!savedMeal) return;
+  const now = new Date();
+  const entry = buildDailyLogEntryFromSavedMeal(savedMeal, servingMultiplier);
+  savedMeal.timesLogged += 1;
+  savedMeal.lastUsedAt = now.toISOString();
+  data.mealLogs.push({
+    id: uid(), date: todayISO(), time: now.toTimeString().slice(0, 5),
+    isDraft: false, assumptions: [], userCorrected: false, correctionNotes: "",
+    recoveryTag: null, quantity: servingMultiplier, unit: "serving", createdAt: now.toISOString(), updatedAt: now.toISOString(),
+    ...entry
+  });
+  saveData(data);
+  refreshAll();
+}
+
+// ==================== MACRO-GAP RECOMMENDATIONS ====================
+
+let gapSortBy = "best-fit";
+let gapPanelManuallyOpened = false;
+
+function recommendationCardHtml(r) {
+  return `<div class="history-item">
+    <div class="section-title"><strong>${esc(r.meal.name)}</strong><span class="badge">${r.fitScore}% fit</span></div>
+    <div class="badge-row">
+      <span class="badge">${r.meal.calories}kcal</span>
+      <span class="badge">P${r.meal.protein}</span>
+      <span class="badge">C${r.meal.carbs}</span>
+      <span class="badge">F${r.meal.fat}</span>
+    </div>
+    <p class="small">After adding: ${r.afterCalories}kcal remaining · Protein ${r.afterProtein <= 0 ? "target achieved" : r.afterProtein + "g remaining"}${r.exceedsCarbs ? ` · Carbohydrates exceeded by ${Math.abs(r.afterCarbs)}g` : ""}${r.exceedsFat ? ` · Fat exceeded by ${Math.abs(r.afterFat)}g` : ""}</p>
+    <button type="button" class="secondary" data-gap-add="${r.meal.id}">Add to Today</button>
+  </div>`;
+}
+
+export function renderMacroGapRecommendations(data, { forceOpen = false } = {}) {
+  const panel = $("macroGapPanel");
+  if (!panel) return;
+  const remaining = remainingDailyTargets(data);
+  const urgency = macroGapUrgency(remaining);
+  const shouldShow = forceOpen || gapPanelManuallyOpened || urgency === "prominent" || urgency === "urgent";
+  panel.hidden = !shouldShow;
+
+  const remainingEl = $("macroGapRemaining");
+  if (remainingEl) {
+    remainingEl.innerHTML = `<div class="badge-row">
+      <span class="badge">Calories: ${remaining.calories}kcal</span>
+      <span class="badge">Protein: ${remaining.protein}g</span>
+      <span class="badge">Carbs: ${remaining.carbs}g</span>
+      <span class="badge">Fat: ${remaining.fat}g</span>
+    </div>`;
+  }
+  if (urgency === "urgent") {
+    panel.querySelector(".status-banner")?.remove();
+    panel.insertAdjacentHTML("afterbegin", `<div class="status-banner status-warning"><span class="status-icon">⚠</span><span>It's getting late and a meaningful macro gap remains today.</span></div>`);
+  }
+
+  const listEl = $("macroGapResults");
+  if (!listEl) return;
+  const ranked = rankSavedMealsForGap(data.savedMeals, remaining, gapSortBy).slice(0, 10);
+  listEl.innerHTML = ranked.length ? ranked.map(recommendationCardHtml).join("")
+    : "<p class='small'>No saved meals match your remaining targets. Add more meals to your Meal History to improve recommendations.</p>";
+}
+
+export function openMacroGapPanel() {
+  gapPanelManuallyOpened = true;
+  renderMacroGapRecommendations(getData(), { forceOpen: true });
 }
 
 export function syncMealsToDailyNutrition() {
@@ -524,10 +674,61 @@ export function setupMealEventDelegation() {
           target.focus?.({ preventScroll: true });
         }, 60);
       }
+      return;
+    }
+
+    // ---- Meal History / cookbook actions ----
+    const addBtn = e.target.closest("[data-cookbook-add]");
+    if (addBtn) {
+      const multiplierInput = addBtn.closest("details")?.querySelector(".cookbook-serving-multiplier");
+      addSavedMealToToday(addBtn.dataset.cookbookAdd, Number(multiplierInput?.value) || 1);
+      return;
+    }
+    const favBtn = e.target.closest("[data-cookbook-favourite]");
+    if (favBtn) {
+      const data = getData();
+      const m = data.savedMeals.find(x => x.id === favBtn.dataset.cookbookFavourite);
+      if (m) { m.favourite = !m.favourite; saveData(data); refreshAll(); }
+      return;
+    }
+    const archiveBtn = e.target.closest("[data-cookbook-archive]");
+    if (archiveBtn) {
+      const data = getData();
+      const m = data.savedMeals.find(x => x.id === archiveBtn.dataset.cookbookArchive);
+      if (m) { m.archived = !m.archived; saveData(data); refreshAll(); }
+      return;
+    }
+    const dupBtn = e.target.closest("[data-cookbook-duplicate]");
+    if (dupBtn) {
+      const data = getData();
+      const m = data.savedMeals.find(x => x.id === dupBtn.dataset.cookbookDuplicate);
+      if (m) {
+        const now = new Date().toISOString();
+        data.savedMeals.push({ ...m, id: uid(), name: `${m.name} (copy)`, contentHash: `${m.contentHash}::copy-${uid()}`, timesLogged: 0, firstCreatedAt: now, lastUsedAt: now, favourite: false });
+        saveData(data); refreshAll();
+      }
+      return;
+    }
+    const cookbookFilterBtn = e.target.closest("#cookbookFilterRow button");
+    if (cookbookFilterBtn) {
+      cookbookFilter = cookbookFilterBtn.dataset.filter;
+      document.querySelectorAll("#cookbookFilterRow button").forEach(b => b.classList.toggle("active", b === cookbookFilterBtn));
+      renderMealCookbook(getData());
+      return;
+    }
+
+    // ---- Macro-gap recommendations ----
+    if (e.target.closest("#findMealBtn")) { openMacroGapPanel(); return; }
+    const gapAddBtn = e.target.closest("[data-gap-add]");
+    if (gapAddBtn) {
+      if (confirm("Add this meal to today's log?")) addSavedMealToToday(gapAddBtn.dataset.gapAdd, 1);
+      return;
     }
   });
 
   $("mealSearch")?.addEventListener("input", () => renderMealHistory(getData()));
+  $("cookbookSearch")?.addEventListener("input", (e) => { cookbookSearch = e.target.value; renderMealCookbook(getData()); });
+  $("macroGapSort")?.addEventListener("change", (e) => { gapSortBy = e.target.value; renderMacroGapRecommendations(getData(), { forceOpen: true }); });
   $("foodTemplateSelect")?.addEventListener("change", (e) => {
     if (e.target.value) applyFoodTemplate(e.target.value);
   });

@@ -198,6 +198,19 @@ textarea { min-height: 88px; margin: 12px 0; resize: vertical; }
   color: var(--muted);
 }
 .history-item strong { color: var(--text); display: inline; font-size: 15px; }
+
+/* Compact expandable meal card (progressive disclosure): collapsed shows only the
+   summary line, full breakdown appears on expand. Uses the native <details> element
+   already used elsewhere in the app (e.g. .advanced-restore) for consistency. */
+.meal-card { cursor: default; }
+.meal-card summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; padding: 2px 0;
+}
+.meal-card summary::-webkit-details-marker { display: none; }
+.meal-card summary::before { content: "▸"; color: var(--muted); flex: none; }
+.meal-card[open] summary::before { content: "▾"; }
+.meal-card summary strong { flex: 1 1 auto; min-width: 0; }
 .small { color: var(--muted); font-size: 12px; margin-top: 6px; }
 .chart-box { width: 100%; min-height: 210px; overflow: hidden; }
 .small-chart { min-height: 120px; }
@@ -206,6 +219,37 @@ textarea { min-height: 88px; margin: 12px 0; resize: vertical; }
 .line { stroke: var(--accent); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 6px rgba(255, 154, 31, 0.35)); }
 .dot { fill: var(--good); }
 .chart-label { fill: var(--muted); font-size: 14px; font-weight: 700; }
+.donut-svg { max-width: 200px; margin: 0 auto; }
+.donut-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; justify-content: center; margin-top: 12px; }
+.donut-legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.donut-legend-item .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.chart-type-toggle { display: inline-flex; gap: 4px; margin-bottom: 10px; }
+.chart-type-toggle button {
+  padding: 4px 10px; font-size: 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; color: var(--muted); box-shadow: none;
+}
+.chart-type-toggle button.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.time-range-toggle { display: inline-flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.time-range-toggle button {
+  padding: 4px 10px; font-size: 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; color: var(--muted); box-shadow: none;
+}
+.time-range-toggle button.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.card-link-hint { font-size: 11px; color: var(--muted); }
+button.link-button {
+  background: none; border: none; box-shadow: none; padding: 4px 0; margin-top: 4px;
+  color: var(--accent); font-size: 12px; cursor: pointer; text-align: left;
+}
+.attention-panel { display: flex; flex-direction: column; gap: 8px; }
+.attention-item {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid var(--line-hi); cursor: pointer; background: var(--card-hi);
+}
+.attention-item:hover { border-color: var(--accent); }
+.attention-item .status-icon { font-size: 16px; }
+.attention-item .attention-body { flex: 1 1 auto; min-width: 0; }
+.attention-item .attention-title { font-weight: 700; color: var(--text); font-size: 13px; }
+.attention-item .attention-detail { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .bar-row { display: grid; grid-template-columns: 130px 1fr 70px; gap: 10px; align-items: center; margin: 10px 0; }
 .bar-row span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bar-row b { text-align: right; font-size: 13px; color: var(--text); }
@@ -407,6 +451,20 @@ body.drawer-open { overflow: hidden; }
   margin-bottom: 8px;
   font-size: 13px;
 }
+/* Generic status system: success/warning/error/info/neutral, always paired with an icon
+   and text so meaning is never colour-only (spec: consistent colour-coded states). */
+.status-banner {
+  display: flex; align-items: flex-start; gap: 8px;
+  border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; font-size: 13px;
+  border: 1px solid var(--line-hi);
+}
+.status-icon { flex: none; line-height: 1; }
+.status-banner.status-success { border-color: var(--good); background: var(--good-soft); color: var(--good); }
+.status-banner.status-warning { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+.status-banner.status-error { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+.status-banner.status-info { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.status-banner.status-neutral { border-color: var(--line); background: transparent; color: var(--muted); }
+
 .badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
 .badge {
   border-radius: 999px;

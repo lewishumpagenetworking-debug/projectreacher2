@@ -32,6 +32,9 @@ import { setupNavDrawer, updateMobilePageTitle } from "./nav-drawer.js";
 import { renderAllVisuals, setupVisualsEventDelegation } from "./render-visuals.js";
 import { setupMetricInfoDelegation, hydrateStaticMetricLabels } from "./metric-info.js";
 import { renderLibrary, setupLibraryEventDelegation } from "./render-library.js";
+import { renderReviewCentre, setupReviewEventDelegation } from "./render-reviews.js";
+import { renderTasks, setupTasksEventDelegation } from "./render-tasks.js";
+import { setupDashboardChartEventDelegation } from "./render-dashboard.js";
 
 export function refreshAll() {
   const data = getData();
@@ -66,6 +69,8 @@ export function refreshAll() {
   renderVisualModeToggle(data);
   renderAllVisuals(data);
   renderLibrary(data);
+  renderReviewCentre(data);
+  renderTasks(data);
 }
 
 function setupNav() {
@@ -94,7 +99,7 @@ const COLLECTION_LABELS = {
   aiConversationsAppearance: "Appearance Director conversations", aiConversationsShared: "Shared AI conversations",
   aiSavedInsights: "Saved AI insights",
   foodTemplates: "Food templates", preWorkoutLogs: "Pre-workout logs", postWorkoutLogs: "Post-workout logs",
-  interventions: "Interventions"
+  interventions: "Interventions", reviews: "Reviews", savedMeals: "Saved meals (My Meals)", tasks: "Tasks"
 };
 
 function formatImportSummary(summary) {
@@ -286,6 +291,9 @@ setupVisualsEventDelegation();
 setupMetricInfoDelegation();
 hydrateStaticMetricLabels();
 setupLibraryEventDelegation();
+setupReviewEventDelegation();
+setupTasksEventDelegation();
+setupDashboardChartEventDelegation();
 setupRecoveryEventDelegation();
 setupAppearanceEventDelegation();
 setupAiEventDelegation();

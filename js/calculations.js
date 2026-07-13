@@ -688,6 +688,74 @@ export function nutritionConfidenceStatus(mealLogs, dateStr) {
   };
 }
 
+/** Today's remaining calorie/macro targets, from the same dailyMealTotals() used everywhere else (drafts excluded). */
+export function remainingDailyTargets(data, referenceDate = new Date()) {
+  const todayISO = referenceDate.toLocaleDateString("en-CA");
+  const totals = dailyMealTotals(data.mealLogs || [], todayISO);
+  const weight = currentBodyweightKg(data);
+  const macros = macroTargets(weight);
+  const calorieTarget = data.profile?.dailyCalorieTarget || 2800;
+  return {
+    calories: round1(calorieTarget - totals.calories),
+    protein: round1(macros.proteinMin - totals.protein),
+    carbs: round1(macros.carbsMin - totals.carbs),
+    fat: round1(macros.fatMin - totals.fat),
+    totals, calorieTarget, macroTargets: macros
+  };
+}
+
+/** How prominently the "meals to reach today's goal" panel should surface itself, unless the user manually opens it. */
+export function macroGapUrgency(remaining, referenceDate = new Date()) {
+  const meaningfulGap = remaining.calories > 200 || remaining.protein > 20;
+  if (!meaningfulGap) return "none";
+  const hour = referenceDate.getHours();
+  if (hour >= 20) return "urgent";
+  if (hour >= 17) return "prominent";
+  return "low";
+}
+
+const GAP_SORTERS = {
+  "best-fit": (a, b) => b.fitScore - a.fitScore,
+  "highest-calories": (a, b) => b.meal.calories - a.meal.calories,
+  "highest-protein": (a, b) => b.meal.protein - a.meal.protein,
+  "highest-carbs": (a, b) => b.meal.carbs - a.meal.carbs,
+  "highest-fat": (a, b) => b.meal.fat - a.meal.fat,
+  "closest-without-exceeding": (a, b) => {
+    const aOver = a.exceedsCalories ? 1 : 0, bOver = b.exceedsCalories ? 1 : 0;
+    if (aOver !== bOver) return aOver - bOver;
+    return b.meal.calories - a.meal.calories;
+  },
+  "most-frequent": (a, b) => (b.meal.timesLogged || 0) - (a.meal.timesLogged || 0),
+  "recent": (a, b) => new Date(b.meal.lastUsedAt || 0) - new Date(a.meal.lastUsedAt || 0)
+};
+
+/**
+ * Ranks saved meals (Meal History only — never an external database) against today's
+ * remaining macro shortfall. High-calorie meals rank highest for a calorie shortfall,
+ * high-protein meals rank highest for a protein shortfall; fitScore blends both when
+ * more than one macro is behind.
+ */
+export function rankSavedMealsForGap(savedMeals, remaining, sortBy = "best-fit") {
+  const active = (savedMeals || []).filter(m => !m.archived);
+  const scored = active.map(meal => {
+    const calScore = remaining.calories > 0 ? Math.max(0, 1 - Math.abs(remaining.calories - meal.calories) / Math.max(remaining.calories, 1)) : 0;
+    const proteinScore = remaining.protein > 0 ? Math.min(1, meal.protein / Math.max(remaining.protein, 1)) : 0;
+    const fitScore = round1(calScore * 40 + proteinScore * 60);
+    const afterCalories = round1(remaining.calories - meal.calories);
+    const afterProtein = round1(remaining.protein - meal.protein);
+    const afterCarbs = round1(remaining.carbs - meal.carbs);
+    const afterFat = round1(remaining.fat - meal.fat);
+    return {
+      meal, fitScore,
+      exceedsCalories: meal.calories > remaining.calories + 100,
+      exceedsCarbs: meal.carbs > remaining.carbs + 20,
+      exceedsFat: meal.fat > remaining.fat + 15,
+      afterCalories, afterProtein, afterCarbs, afterFat
+    };
+  });
+  return scored.sort(GAP_SORTERS[sortBy] || GAP_SORTERS["best-fit"]);
+}
+
 /** Aggregates a month ("YYYY-MM") of meal logs into daily totals + summary stats. */
 export function monthlyMealSummary(mealLogs, yearMonth) {
   const inMonth = mealLogs.filter(m => (m.date || "").startsWith(yearMonth));
