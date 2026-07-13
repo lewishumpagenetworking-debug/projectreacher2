@@ -881,6 +881,19 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .advanced-restore summary { cursor: pointer; color: var(--muted); }
 .advanced-restore p { margin: 8px 0; }
 
+/* ---- Top-level expandable section (e.g. Vision Board) ---- */
+.section-details summary { cursor: pointer; list-style: none; }
+.section-details summary::-webkit-details-marker { display: none; }
+.section-details summary h2 { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+.section-details summary h2::before { content: "▾"; color: var(--muted); font-size: 15px; }
+.section-details:not([open]) summary h2::before { content: "▸"; }
+.category-section { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
+.category-section summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+.category-section summary::-webkit-details-marker { display: none; }
+.category-section summary::before { content: "▸"; color: var(--muted); flex: none; }
+.category-section[open] summary::before { content: "▾"; }
+.category-section summary strong { flex: 1 1 auto; }
+
 /* =====================================================================
    TACTICAL COMMAND-CENTRE COMPONENTS (design/engagement layer)
    ===================================================================== */

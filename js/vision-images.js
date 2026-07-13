@@ -7,14 +7,21 @@ import { getData, saveData, uid } from "./data.js";
 import { putImageBlob, deleteImageBlob, revokeImageObjectURL } from "./image-store.js";
 import { processUploadedFiles } from "./image-gallery.js";
 
-/** All non-archived-by-default images matching a filter. Pass includeArchived:true to include archived ones too. */
-export function getImagesFor({ category = null, relatedEntityType = null, relatedEntityId = null, includeArchived = false } = {}, data = getData()) {
+/**
+ * All non-archived-by-default images matching a filter. Pass includeArchived:true to
+ * include archived ones too. category/relatedEntityType/relatedEntityId are left
+ * unfiltered when omitted (undefined) — but relatedEntityType:null is a real, meaningful
+ * value ("only images with no goal/milestone link", i.e. pure Vision Board images), so it
+ * must NOT be treated the same as "not specified". That distinction is what keeps a
+ * goal's attached images from leaking into a same-named Vision Board category and vice versa.
+ */
+export function getImagesFor({ category, relatedEntityType, relatedEntityId, includeArchived = false } = {}, data = getData()) {
   return (data.images || [])
     .filter(img => {
       if (!includeArchived && img.status === "archived") return false;
-      if (category != null && img.category !== category) return false;
-      if (relatedEntityType != null && img.relatedEntityType !== relatedEntityType) return false;
-      if (relatedEntityId != null && img.relatedEntityId !== relatedEntityId) return false;
+      if (category !== undefined && img.category !== category) return false;
+      if (relatedEntityType !== undefined && img.relatedEntityType !== relatedEntityType) return false;
+      if (relatedEntityId !== undefined && img.relatedEntityId !== relatedEntityId) return false;
       return true;
     })
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));

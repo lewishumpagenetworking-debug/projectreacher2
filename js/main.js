@@ -36,6 +36,7 @@ import { renderReviewCentre, setupReviewEventDelegation } from "./render-reviews
 import { renderTasks, setupTasksEventDelegation } from "./render-tasks.js";
 import { setupDashboardChartEventDelegation } from "./render-dashboard.js";
 import { renderReminders, setupRemindersEventDelegation, startReminderScheduler } from "./render-reminders.js";
+import { renderVisionBoard, setupVisionBoardEventDelegation } from "./render-vision-board.js";
 
 export function refreshAll() {
   const data = getData();
@@ -73,6 +74,7 @@ export function refreshAll() {
   renderReviewCentre(data);
   renderTasks(data);
   renderReminders(data);
+  renderVisionBoard(data);
 }
 
 function setupNav() {
@@ -300,6 +302,7 @@ setupTasksEventDelegation();
 setupDashboardChartEventDelegation();
 setupRemindersEventDelegation();
 startReminderScheduler();
+setupVisionBoardEventDelegation();
 setupRecoveryEventDelegation();
 setupAppearanceEventDelegation();
 setupAiEventDelegation();
