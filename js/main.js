@@ -38,6 +38,7 @@ import { setupDashboardChartEventDelegation } from "./render-dashboard.js";
 import { renderReminders, setupRemindersEventDelegation, startReminderScheduler } from "./render-reminders.js";
 import { renderVisionBoard, setupVisionBoardEventDelegation } from "./render-vision-board.js";
 import { renderGoals, setupGoalsEventDelegation } from "./render-goals.js";
+import { renderMilestonesTimeline, setupMilestonesEventDelegation } from "./render-milestones.js";
 
 export function refreshAll() {
   const data = getData();
@@ -76,6 +77,7 @@ export function refreshAll() {
   renderTasks(data);
   renderReminders(data);
   renderGoals(data);
+  renderMilestonesTimeline(data);
   renderVisionBoard(data);
 }
 
@@ -306,6 +308,7 @@ setupRemindersEventDelegation();
 startReminderScheduler();
 setupVisionBoardEventDelegation();
 setupGoalsEventDelegation();
+setupMilestonesEventDelegation();
 setupRecoveryEventDelegation();
 setupAppearanceEventDelegation();
 setupAiEventDelegation();

@@ -1061,6 +1061,26 @@
         <div id="goalList"></div>
       </section>
 
+      <section class="card" id="milestonesCard">
+        <h2>Milestones</h2>
+        <p class="small">A historical timeline of moments worth remembering - progress photos, business wins, workspace upgrades, personal achievements. New entries never replace previous ones.</p>
+        <div class="form-grid">
+          <input type="text" id="newMilestoneTitle" placeholder="Milestone title" />
+          <input type="date" id="newMilestoneDate" />
+        </div>
+        <select id="newMilestoneCategory">
+          <option value="progress-photo">Progress Photo</option>
+          <option value="bodyweight">Bodyweight Comparison</option>
+          <option value="business">Business Achievement</option>
+          <option value="workspace">Workspace Improvement</option>
+          <option value="personal" selected>Personal Achievement</option>
+          <option value="custom">Custom</option>
+        </select>
+        <textarea id="newMilestoneDescription" placeholder="Optional description"></textarea>
+        <button type="button" id="addMilestoneBtn" class="secondary">Add Milestone</button>
+        <div id="milestoneList"></div>
+      </section>
+
       <section class="card" id="visionBoardCard">
         <details class="section-details" open>
           <summary><h2>Vision Board</h2></summary>
