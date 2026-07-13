@@ -251,6 +251,12 @@ button.link-button {
 .attention-item .attention-body { flex: 1 1 auto; min-width: 0; }
 .attention-item .attention-title { font-weight: 700; color: var(--text); font-size: 13px; }
 .attention-item .attention-detail { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+/* ---- Global Task List + page-level task widgets (spec sections 3-7) ---- */
+.checklist-row .attention-body { min-width: 0; }
+.checklist-row .attention-title { font-weight: 700; color: var(--text); font-size: 13px; }
+.checklist-row .attention-detail { color: var(--muted); font-size: 12px; margin-top: 2px; }
+#progressTaskSections .category-section:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
 .bar-row { display: grid; grid-template-columns: 130px 1fr 70px; gap: 10px; align-items: center; margin: 10px 0; }
 .bar-row span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bar-row b { text-align: right; font-size: 13px; color: var(--text); }

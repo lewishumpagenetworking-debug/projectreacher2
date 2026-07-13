@@ -77,6 +77,12 @@
         <button type="button" class="hero-cta" id="heroStartWorkoutBtn" data-goto-tab="train">Start / Resume Workout</button>
       </section>
 
+      <section class="card" id="progressTaskListCard">
+        <h2>Task List</h2>
+        <div id="progressTaskSummary"></div>
+        <div id="progressTaskSections"></div>
+      </section>
+
       <section class="card" id="attentionPanelCard" hidden>
         <h2>Requires Attention</h2>
         <p class="small">Ranked by urgency — tap any item to jump straight to it.</p>
@@ -269,6 +275,7 @@
     <!-- ================= TRAIN ================= -->
     <section class="tab-panel" data-tab="train" hidden>
       <div id="visual-train"></div>
+      <div id="trainPageTasks" hidden></div>
 
       <section class="card">
         <div class="section-title">
@@ -415,6 +422,7 @@
 
     <!-- ================= BODY ================= -->
     <section class="tab-panel" data-tab="body" hidden>
+      <div id="bodyPageTasks" hidden></div>
       <section class="card">
         <h2>Daily Bodyweight</h2>
         <div class="form-grid">
@@ -610,6 +618,7 @@
     <!-- ================= NUTRITION ================= -->
     <section class="tab-panel" data-tab="nutrition" hidden>
       <div id="visual-meals"></div>
+      <div id="nutritionPageTasks" hidden></div>
 
       <section class="card">
         <h2>Log a Meal</h2>
@@ -811,6 +820,7 @@
 
     <!-- ================= RECOVERY ================= -->
     <section class="tab-panel" data-tab="recovery" hidden>
+      <div id="recoveryPageTasks" hidden></div>
       <section class="card command-hero">
         <h2>Recovery Command Centre</h2>
         <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="performanceCoachChatInput">Ask Performance Coach</button>

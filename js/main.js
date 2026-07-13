@@ -42,6 +42,7 @@ import { renderMilestonesTimeline, setupMilestonesEventDelegation } from "./rend
 import { renderImageLibrary, setupImageLibraryEventDelegation } from "./render-image-library.js";
 import { renderSessionNutritionCards, renderBodyweightReviewNotice } from "./render-session-nutrition.js";
 import { renderConstraintPage, completeWeeklyReview } from "./render-constraint.js";
+import { renderProgressTaskList, renderPageTasks } from "./render-task-list.js";
 
 export function refreshAll() {
   const data = getData();
@@ -81,6 +82,11 @@ export function refreshAll() {
   renderLibrary(data);
   renderReviewCentre(data);
   renderConstraintPage(data);
+  renderProgressTaskList(data);
+  renderPageTasks(data, "train", "trainPageTasks");
+  renderPageTasks(data, "body", "bodyPageTasks");
+  renderPageTasks(data, "nutrition", "nutritionPageTasks");
+  renderPageTasks(data, "recovery", "recoveryPageTasks");
   renderTasks(data);
   renderReminders(data);
   renderGoals(data);
