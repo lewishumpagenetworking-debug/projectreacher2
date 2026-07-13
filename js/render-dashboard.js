@@ -15,6 +15,8 @@ import { DEFAULT_TRAINING_PROGRAM, MUSCLE_GROUPS } from "./program.js";
 import { SUPPLEMENT_DATABASE } from "./recovery-data.js";
 import { lineChart, donutChart, barRows } from "./charts.js";
 import { parseLogDate } from "./dates.js";
+import { resolveImageUrls, openLightbox } from "./image-gallery.js";
+import { getImagesFor } from "./vision-images.js";
 
 // Per-widget chart-type / time-range preferences. View-state only — deliberately kept out of
 // the main "projectReacher" data object (same isolated-storage pattern as claude-client.js's API key).
@@ -44,6 +46,7 @@ export function renderDashboard(data) {
 
   renderHeroMission(data, currentWeight);
   renderAttentionPanel(data);
+  renderVisionPreview(data);
   renderDailyMonthlyChecklist(data);
   renderProgressCommandGrid(data);
   renderRecoveryDashboardCards(data);
@@ -691,6 +694,34 @@ function renderAttentionPanel(data) {
 
 function totalsHasMeal(data, todayISO) {
   return dailyMealTotals(data.mealLogs || [], todayISO).mealCount > 0;
+}
+
+/** Compact rotating preview of the user's Vision Board — small and secondary by design, never a hero element. */
+async function renderVisionPreview(data) {
+  const card = $("visionPreviewCard");
+  const strip = $("visionPreviewStrip");
+  if (!card || !strip) return;
+
+  // Pure Vision Board images only (relatedEntityType: null) — goal/milestone images stay
+  // where they belong (Goals/Milestones pages), not folded into this general preview.
+  const images = getImagesFor({ relatedEntityType: null }, data);
+  if (!images.length) { card.hidden = true; return; }
+  card.hidden = false;
+
+  // Deterministic daily rotation (same day-of-year approach already used for motivational
+  // captions) so the preview changes day to day without needing any stored rotation state.
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  const maxShown = Math.min(5, images.length);
+  const startIndex = dayOfYear % images.length;
+  const rotated = images.slice(startIndex).concat(images.slice(0, startIndex)).slice(0, maxShown);
+
+  const urlMap = await resolveImageUrls(rotated);
+  strip.innerHTML = rotated.map(img =>
+    `<img src="${esc(urlMap.get(img.id) || "")}" alt="${esc(img.caption || "")}" loading="lazy" data-vision-preview-open="${esc(img.id)}">`
+  ).join("");
+  strip.querySelectorAll("[data-vision-preview-open]").forEach(el => {
+    el.addEventListener("click", () => openLightbox(rotated, urlMap, el.dataset.visionPreviewOpen));
+  });
 }
 
 export function setupDashboardChartEventDelegation() {
