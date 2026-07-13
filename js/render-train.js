@@ -723,13 +723,13 @@ export function renderWorkoutHistory(data) {
   const full = $("workoutHistory");
   if (full) {
     full.innerHTML = data.workouts.slice().reverse().map(w => `
-      <div class="history-item">
-        <strong>${esc(w.date)}</strong> · ${esc(w.day)} · Volume ${Math.round(totalVolume(w))}kg<br>
-        ${(w.exercises || []).map(e => `${esc(e.name)}: ${e.set1Weight}x${e.set1Reps}, ${e.set2Weight}x${e.set2Reps}${e.increaseNextWeek ? " ⬆️" : ""}`).join("<br>")}
+      <details class="history-item expandable-card">
+        <summary><strong>${esc(w.date)}</strong> · ${esc(w.day)} · Volume ${Math.round(totalVolume(w))}kg</summary>
+        <p class="small">${(w.exercises || []).map(e => `${esc(e.name)}: ${e.set1Weight}x${e.set1Reps}, ${e.set2Weight}x${e.set2Reps}${e.increaseNextWeek ? " ⬆️" : ""}`).join("<br>")}</p>
         <div class="actions">
           <button class="danger" data-delete="workouts" data-id="${w.id}">Delete</button>
         </div>
-      </div>`).join("") || "<p class='small'>No workouts logged yet.</p>";
+      </details>`).join("") || "<p class='small'>No workouts logged yet.</p>";
   }
   const recent = $("sessionHistory");
   if (recent) {

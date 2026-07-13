@@ -199,18 +199,19 @@ textarea { min-height: 88px; margin: 12px 0; resize: vertical; }
 }
 .history-item strong { color: var(--text); display: inline; font-size: 15px; }
 
-/* Compact expandable meal card (progressive disclosure): collapsed shows only the
-   summary line, full breakdown appears on expand. Uses the native <details> element
-   already used elsewhere in the app (e.g. .advanced-restore) for consistency. */
-.meal-card { cursor: default; }
-.meal-card summary {
+/* Compact expandable card (progressive disclosure): collapsed shows only the summary
+   line, full detail appears on expand. Uses the native <details> element already used
+   elsewhere in the app (e.g. .advanced-restore) for consistency. .expandable-card is the
+   generic name; .meal-card is kept as an alias so existing meal-card markup is untouched. */
+.meal-card, .expandable-card { cursor: default; }
+.meal-card summary, .expandable-card summary {
   cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px;
   flex-wrap: wrap; padding: 2px 0;
 }
-.meal-card summary::-webkit-details-marker { display: none; }
-.meal-card summary::before { content: "▸"; color: var(--muted); flex: none; }
-.meal-card[open] summary::before { content: "▾"; }
-.meal-card summary strong { flex: 1 1 auto; min-width: 0; }
+.meal-card summary::-webkit-details-marker, .expandable-card summary::-webkit-details-marker { display: none; }
+.meal-card summary::before, .expandable-card summary::before { content: "▸"; color: var(--muted); flex: none; }
+.meal-card[open] summary::before, .expandable-card[open] summary::before { content: "▾"; }
+.meal-card summary strong, .expandable-card summary strong { flex: 1 1 auto; min-width: 0; }
 .small { color: var(--muted); font-size: 12px; margin-top: 6px; }
 .chart-box { width: 100%; min-height: 210px; overflow: hidden; }
 .small-chart { min-height: 120px; }
@@ -433,6 +434,9 @@ body.drawer-open { overflow: hidden; }
 }
 
 /* ---- Warnings / badges / checklists ---- */
+/* Icon prefixes via ::before so meaning is never colour-only, without touching every
+   render call site that already produces .warning-banner/.ok-banner markup (spec: status
+   must always be paired with an icon and text, not colour alone). */
 .warning-banner {
   border: 1px solid var(--danger);
   background: var(--danger-soft);
@@ -442,6 +446,7 @@ body.drawer-open { overflow: hidden; }
   margin-bottom: 8px;
   font-size: 13px;
 }
+.warning-banner::before { content: "⚠️ "; }
 .ok-banner {
   border: 1px solid var(--good);
   background: var(--good-soft);
@@ -451,6 +456,7 @@ body.drawer-open { overflow: hidden; }
   margin-bottom: 8px;
   font-size: 13px;
 }
+.ok-banner::before { content: "✅ "; }
 /* Generic status system: success/warning/error/info/neutral, always paired with an icon
    and text so meaning is never colour-only (spec: consistent colour-coded states). */
 .status-banner {

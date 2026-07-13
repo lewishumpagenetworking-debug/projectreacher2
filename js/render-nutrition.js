@@ -49,11 +49,11 @@ export function renderNutrition(data) {
   const history = $("nutritionHistory");
   if (history) {
     history.innerHTML = data.nutritionLogs.slice().reverse().slice(0, 20).map(n => `
-      <div class="history-item">
-        <strong>${esc(n.date)}</strong> · ${n.calories}kcal · P${n.protein} C${n.carbs} F${n.fat} · Fibre ${n.fibre ?? "-"}g
-        ${n.notes ? `<br>${esc(n.notes)}` : ""}
+      <details class="history-item expandable-card">
+        <summary><strong>${esc(n.date)}</strong> · ${n.calories}kcal · P${n.protein} C${n.carbs} F${n.fat} · Fibre ${n.fibre ?? "-"}g</summary>
+        ${n.notes ? `<p class="small">${esc(n.notes)}</p>` : ""}
         <div class="actions"><button class="danger" data-delete="nutritionLogs" data-id="${n.id}">Delete</button></div>
-      </div>`).join("") || "<p class='small'>No nutrition logs yet.</p>";
+      </details>`).join("") || "<p class='small'>No nutrition logs yet.</p>";
   }
 }
 

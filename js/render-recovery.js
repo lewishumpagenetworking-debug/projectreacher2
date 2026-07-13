@@ -34,11 +34,11 @@ export function renderRecoveryHistory(data) {
   const el = $("recoveryHistory");
   if (!el) return;
   el.innerHTML = data.recoveryLogs.slice().reverse().slice(0, 20).map(r => `
-    <div class="history-item">
-      <strong>${esc(r.date)}</strong> · Sleep ${r.sleepDuration}h (Q${r.sleepQuality}/5) · Recovery ${r.recoveryScore}/5 · Energy ${r.energyScore}/5 · Soreness ${r.sorenessScore}/5
-      ${r.notes ? `<br>${esc(r.notes)}` : ""}
+    <details class="history-item expandable-card">
+      <summary><strong>${esc(r.date)}</strong> · Sleep ${r.sleepDuration}h (Q${r.sleepQuality}/5) · Recovery ${r.recoveryScore}/5 · Energy ${r.energyScore}/5 · Soreness ${r.sorenessScore}/5</summary>
+      ${r.notes ? `<p class="small">${esc(r.notes)}</p>` : ""}
       <div class="actions"><button class="danger" data-delete="recoveryLogs" data-id="${r.id}">Delete</button></div>
-    </div>`).join("") || "<p class='small'>No recovery logs yet. Note: your fixed 5-6hr sleep schedule is treated as normal here — warnings only fire on performance/recovery trends, not sleep duration alone.</p>";
+    </details>`).join("") || "<p class='small'>No recovery logs yet. Note: your fixed 5-6hr sleep schedule is treated as normal here — warnings only fire on performance/recovery trends, not sleep duration alone.</p>";
 }
 
 export function saveStimulants() {

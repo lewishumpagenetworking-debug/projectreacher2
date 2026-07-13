@@ -32,10 +32,11 @@ export function renderBodyweight(data) {
   const container = $("bodyweightHistory");
   if (container) {
     container.innerHTML = data.bodyweightLogs.slice().reverse().slice(0, 20).map(b => `
-      <div class="history-item">
-        <strong>${esc(b.date)}</strong> · ${b.morningBodyweight}kg ${b.sevenDayAverage != null ? `· 7d avg ${fmt(b.sevenDayAverage)}kg` : ""} ${b.notes ? `<br>${esc(b.notes)}` : ""}
+      <details class="history-item expandable-card">
+        <summary><strong>${esc(b.date)}</strong> · ${b.morningBodyweight}kg ${b.sevenDayAverage != null ? `· 7d avg ${fmt(b.sevenDayAverage)}kg` : ""}</summary>
+        ${b.notes ? `<p class="small">${esc(b.notes)}</p>` : ""}
         <div class="actions"><button class="danger" data-delete="bodyweightLogs" data-id="${b.id}">Delete</button></div>
-      </div>`).join("") || "<p class='small'>No bodyweight entries yet.</p>";
+      </details>`).join("") || "<p class='small'>No bodyweight entries yet.</p>";
   }
   const chart = $("weightChart");
   if (chart) {
@@ -72,11 +73,11 @@ export function saveCheckin() {
 
 export function renderCheckinHistory(data) {
   $("history").innerHTML = data.checkins.slice().reverse().map(c => `
-    <div class="history-item">
-      <strong>${esc(c.date)}</strong> · ${c.weight}kg · Protein ${c.protein}g · Sessions ${c.sessions}/5<br>
-      ${c.notes ? esc(c.notes) : ""}
+    <details class="history-item expandable-card">
+      <summary><strong>${esc(c.date)}</strong> · ${c.weight}kg · Protein ${c.protein}g · Sessions ${c.sessions}/5</summary>
+      ${c.notes ? `<p class="small">${esc(c.notes)}</p>` : ""}
       <div class="actions"><button class="danger" data-delete="checkins" data-id="${c.id}">Delete</button></div>
-    </div>`).join("") || "<p class='small'>No check-ins yet.</p>";
+    </details>`).join("") || "<p class='small'>No check-ins yet.</p>";
 
   const chart = $("bodyweightChart");
   if (chart) {
