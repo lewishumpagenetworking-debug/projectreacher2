@@ -922,6 +922,9 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .session-nutrition-during { margin-top: 10px; }
 .session-nutrition-resolved-label { color: var(--accent); font-weight: 700; margin-bottom: 4px; }
 .session-nutrition-history { margin: 10px 0; }
+.session-nutrition-editor h4 { margin: 14px 0 6px; }
+.session-nutrition-editor .form-grid { margin-bottom: 4px; }
+.session-nutrition-restore-defaults { margin-top: 10px; }
 @media (max-width: 620px) {
   .session-nutrition-grid { grid-template-columns: repeat(2, 1fr); }
 }
