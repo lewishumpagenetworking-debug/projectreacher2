@@ -1,6 +1,7 @@
 // Data layer: localStorage persistence, versioned schema, non-destructive migration.
 import { DEFAULT_TRAINING_PROGRAM, EXERCISE_DATABASE, DEFAULT_SUPPLEMENTS, DEFAULT_PRS } from "./program.js";
 import { exportAllImagesAsBase64, importImagesFromBase64Map } from "./image-store.js";
+import { DEFAULT_SESSION_NUTRITION } from "./session-nutrition.js";
 
 export const STORAGE_KEY = "projectReacher";
 export const SCHEMA_VERSION = 2;
@@ -65,6 +66,7 @@ function emptyData() {
     profile: { ...DEFAULT_PROFILE },
     trainingProgram: structuredClone(DEFAULT_TRAINING_PROGRAM),
     exercises: structuredClone(EXERCISE_DATABASE),
+    sessionNutrition: structuredClone(DEFAULT_SESSION_NUTRITION),
     checkins: [],
     measurements: [],
     workouts: [],
@@ -268,7 +270,12 @@ export function migrateData() {
   }));
 
   data.workouts = data.workouts.map(w => withDefaults(w, {
-    programDay: w.day || null, sessionName: w.day || null
+    programDay: w.day || null, sessionName: w.day || null,
+    // Timing/snapshot fields only exist on workouts saved after this feature shipped —
+    // historical workouts stay null here and resolve their nutrition guidance dynamically
+    // from the current programme-day config instead (see session-nutrition.js), never
+    // retroactively backfilled with a guessed time.
+    startedAt: null, completedAt: null, sessionNutritionSnapshot: null
   }));
   data.workouts.forEach(w => {
     w.exercises = (w.exercises || []).map(e => withDefaults(e, {
@@ -327,6 +334,18 @@ export function migrateData() {
   Object.entries(DEFAULT_TRAINING_PROGRAM).forEach(([day, exercises]) => {
     if (!(day in data.trainingProgram)) {
       data.trainingProgram[day] = structuredClone(exercises);
+      changed = true;
+    }
+  });
+
+  // Session nutrition: same additive-restore pattern as the training program above.
+  // A day the user has already customised (or already has, canonical or otherwise) is
+  // never touched; only entirely-missing days (older data saved before this feature, or
+  // a newly-introduced programme day) get the canonical default.
+  if (!data.sessionNutrition) { data.sessionNutrition = {}; changed = true; }
+  Object.entries(DEFAULT_SESSION_NUTRITION).forEach(([day, config]) => {
+    if (!(day in data.sessionNutrition)) {
+      data.sessionNutrition[day] = structuredClone(config);
       changed = true;
     }
   });
@@ -526,6 +545,29 @@ function preserveCurrentProgramTemplate(current, imported) {
   return { merged, daysAdded };
 }
 
+/**
+ * Session nutrition merge priority (per spec): (1) the current device's user-customised
+ * value for a day always wins and is never touched, (2) a day missing locally is filled
+ * from the imported file if it has a valid config for that day, (3) anything still
+ * missing after that is filled from the canonical day-specific defaults. Safe fallback
+ * values are a runtime-only concern (see getSessionNutritionForDay) — never persisted.
+ */
+function mergeSessionNutrition(current, imported) {
+  const merged = { ...(current || {}) };
+  let daysAdded = 0, daysFromImport = 0, daysFromCanonical = 0;
+  const allDays = new Set([...Object.keys(DEFAULT_SESSION_NUTRITION), ...Object.keys(imported || {}), ...Object.keys(current || {})]);
+  allDays.forEach(day => {
+    if (day in merged) return;
+    if (imported && imported[day] && typeof imported[day] === "object") {
+      merged[day] = imported[day]; daysAdded++; daysFromImport++; return;
+    }
+    if (DEFAULT_SESSION_NUTRITION[day]) {
+      merged[day] = structuredClone(DEFAULT_SESSION_NUTRITION[day]); daysAdded++; daysFromCanonical++;
+    }
+  });
+  return { merged, daysAdded, daysFromImport, daysFromCanonical };
+}
+
 /** Never lets an older/partial import remove an exercise (or the form-guide fields already backfilled onto it) the current app's code defines — only ADDS entirely-missing exercises. */
 function preserveCurrentExerciseDatabase(current, imported) {
   const byId = new Map((current || []).map(e => [e.id, e]));
@@ -572,10 +614,10 @@ function migrateImportedDataToCurrentSchema(imported) {
   return migrated;
 }
 
-function generateImportSummary({ collectionResults, programDaysAdded, exercisesAdded, prResult, day6Preserved, activeDraftAction, errors }) {
+function generateImportSummary({ collectionResults, programDaysAdded, exercisesAdded, sessionNutritionDaysAdded, prResult, day6Preserved, activeDraftAction, errors }) {
   return {
     collections: collectionResults,
-    programDaysAdded, exercisesAdded,
+    programDaysAdded, exercisesAdded, sessionNutritionDaysAdded,
     prsAdded: prResult.added,
     prLegacyGoalsPreserved: prResult.legacyGoalsPreserved,
     day6Preserved, activeDraftAction,
@@ -652,6 +694,9 @@ export function importAndMergeData(importedRaw, currentState) {
   const exerciseResult = preserveCurrentExerciseDatabase(current.exercises, imported.exercises);
   merged.exercises = exerciseResult.merged;
 
+  const sessionNutritionResult = mergeSessionNutrition(current.sessionNutrition, imported.sessionNutrition);
+  merged.sessionNutrition = sessionNutritionResult.merged;
+
   merged.supplements = mergeByIdGeneric(current.supplements, imported.supplements, (list, c) => list.find(x => x.supplementName === c.supplementName)).merged;
   const prResult = mergePRs(current.prs, imported.prs);
   merged.prs = prResult.merged;
@@ -679,6 +724,7 @@ export function importAndMergeData(importedRaw, currentState) {
 
   const summary = generateImportSummary({
     collectionResults, programDaysAdded: programResult.daysAdded, exercisesAdded: exerciseResult.added,
+    sessionNutritionDaysAdded: sessionNutritionResult.daysAdded,
     prResult, day6Preserved: "Day 6 - Arm + Forearm + Delt Specialisation" in merged.trainingProgram,
     activeDraftAction, errors: []
   });

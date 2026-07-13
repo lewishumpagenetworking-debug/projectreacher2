@@ -40,12 +40,15 @@ import { renderVisionBoard, setupVisionBoardEventDelegation } from "./render-vis
 import { renderGoals, setupGoalsEventDelegation } from "./render-goals.js";
 import { renderMilestonesTimeline, setupMilestonesEventDelegation } from "./render-milestones.js";
 import { renderImageLibrary, setupImageLibraryEventDelegation } from "./render-image-library.js";
+import { renderSessionNutritionCards, renderBodyweightReviewNotice } from "./render-session-nutrition.js";
 
 export function refreshAll() {
   const data = getData();
   renderDashboard(data);
   renderDaySelect(data);
   renderWorkoutForm(data);
+  renderSessionNutritionCards(data, $("daySelect")?.value || Object.keys(data.trainingProgram)[0]);
+  renderBodyweightReviewNotice(data);
   renderWorkoutHistory(data);
   renderMiniVolumeChart(data);
   renderHistoricalSummary(data);
@@ -128,6 +131,7 @@ function formatImportSummary(summary) {
   });
   if (summary.exercisesAdded) lines.push(`Exercises restored from the import: ${summary.exercisesAdded}`);
   if (summary.programDaysAdded) lines.push(`Training program days restored: ${summary.programDaysAdded}`);
+  if (summary.sessionNutritionDaysAdded) lines.push(`Session nutrition targets restored: ${summary.sessionNutritionDaysAdded} day(s)`);
   if (summary.prsAdded) lines.push(`PR reference goals added: ${summary.prsAdded}`);
   if (summary.prLegacyGoalsPreserved) lines.push(`Conflicting PR goals from the file kept as a legacy reference (your current goals were not changed): ${summary.prLegacyGoalsPreserved}`);
   lines.push(`Day 6 present: ${summary.day6Preserved ? "yes" : "no"}`);
@@ -160,6 +164,7 @@ function setupEventListeners() {
   $("daySelect").addEventListener("change", () => {
     const data = getData();
     renderWorkoutForm(data);
+    renderSessionNutritionCards(data, $("daySelect").value);
     startMission(data);
   });
   $("saveWorkout").addEventListener("click", saveWorkout);

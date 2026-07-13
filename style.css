@@ -902,6 +902,30 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .category-section[open] summary::before { content: "▾"; }
 .category-section summary strong { flex: 1 1 auto; }
 
+/* ---- Session pre/post-workout nutrition cards ---- */
+.session-nutrition-card { border: 1px solid var(--accent); }
+.session-nutrition-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0; }
+.session-nutrition-cell {
+  display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px;
+  background: var(--card-hi); border: 1px solid var(--line);
+}
+.session-nutrition-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.session-nutrition-value { font-size: 16px; font-weight: 800; color: var(--text); }
+.session-nutrition-explanation { color: var(--text); }
+.session-nutrition-daily-note {
+  display: inline-block; color: var(--accent); font-weight: 700; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.03em; margin-top: 4px;
+}
+.session-nutrition-progress { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
+.session-nutrition-progress-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text); margin: 3px 0; }
+.session-nutrition-no-time { margin-top: 8px; }
+.session-nutrition-during { margin-top: 10px; }
+.session-nutrition-resolved-label { color: var(--accent); font-weight: 700; margin-bottom: 4px; }
+.session-nutrition-history { margin: 10px 0; }
+@media (max-width: 620px) {
+  .session-nutrition-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* =====================================================================
    TACTICAL COMMAND-CENTRE COMPONENTS (design/engagement layer)
    ===================================================================== */
