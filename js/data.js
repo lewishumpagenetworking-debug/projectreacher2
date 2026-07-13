@@ -1,5 +1,6 @@
 // Data layer: localStorage persistence, versioned schema, non-destructive migration.
 import { DEFAULT_TRAINING_PROGRAM, EXERCISE_DATABASE, DEFAULT_SUPPLEMENTS, DEFAULT_PRS } from "./program.js";
+import { exportAllImagesAsBase64, importImagesFromBase64Map } from "./image-store.js";
 
 export const STORAGE_KEY = "projectReacher";
 export const SCHEMA_VERSION = 2;
@@ -102,7 +103,11 @@ function emptyData() {
     reviews: [],
     reminders: [],
     savedMeals: [],
-    tasks: []
+    tasks: [],
+    images: [],
+    imageCategories: [],
+    goals: [],
+    milestones: []
   };
 }
 
@@ -158,7 +163,8 @@ export function migrateData() {
    "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared",
    "aiSavedInsights", "aiProposedChanges", "aiAuditLog",
    "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
-   "reviews", "reminders", "savedMeals", "tasks"].forEach(key => {
+   "reviews", "reminders", "savedMeals", "tasks",
+   "images", "imageCategories", "goals", "milestones"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -224,6 +230,30 @@ export function migrateData() {
     timesPerDay: 1, additionalTimes: [], startDate: null, endDate: null,
     enabled: true, notificationIdentifier: null, lastFiredAt: null, suggested: false,
     createdAt: r.createdAt || new Date().toISOString(), updatedAt: r.createdAt || new Date().toISOString()
+  }));
+
+  // Image metadata only — the actual image bytes live in IndexedDB (js/image-store.js),
+  // addressed by this record's own id. relatedEntityType/relatedEntityId lets one image
+  // system serve goals, milestones, and the (formerly cloud-URL) motivational visual
+  // placements, the same relatedEntityType/relatedEntityId pattern already used for tasks/reminders.
+  data.images = data.images.map(i => withDefaults(i, {
+    category: "custom", relatedEntityType: null, relatedEntityId: null,
+    caption: "", order: 0, status: "active", width: null, height: null,
+    uploadedAt: i.createdAt || new Date().toISOString()
+  }));
+
+  data.imageCategories = data.imageCategories.map(c => withDefaults(c, {
+    label: c.id || "Custom", createdAt: c.createdAt || new Date().toISOString()
+  }));
+
+  data.goals = data.goals.map(g => withDefaults(g, {
+    title: "", category: "custom", description: "", status: "active",
+    createdAt: g.createdAt || new Date().toISOString(), updatedAt: g.createdAt || new Date().toISOString()
+  }));
+
+  data.milestones = data.milestones.map(m => withDefaults(m, {
+    title: "", category: "personal", description: "", date: m.createdAt ? m.createdAt.slice(0, 10) : null,
+    relatedGoalId: null, createdAt: m.createdAt || new Date().toISOString()
   }));
 
   data.sleepLogs = data.sleepLogs.map(s => withDefaults(s, {
@@ -327,8 +357,23 @@ export function migrateData() {
   return data;
 }
 
-export function exportData() {
-  const blob = new Blob([JSON.stringify(getData(), null, 2)], { type: "application/json" });
+/**
+ * Exports the full app state as one JSON file. Bundles every stored image (from
+ * IndexedDB) into the same file as base64 under __images, so a single backup file
+ * still captures everything — IndexedDB is only the day-to-day storage engine, not
+ * a second place backups have to separately account for. If image bundling fails for
+ * any reason, the export still proceeds with metadata only rather than failing outright.
+ */
+export async function exportData() {
+  const data = getData();
+  let images = {};
+  try {
+    images = await exportAllImagesAsBase64();
+  } catch (err) {
+    console.warn("[Project Reacher] Could not bundle images into this export.", err);
+  }
+  const payload = { ...data, __images: images };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -351,7 +396,8 @@ const COLLECTION_KEYS = [
   "skinLogs", "hairLogs", "productExperiments", "appearanceCheckins",
   "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared", "aiSavedInsights",
   "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
-  "reviews", "savedMeals", "tasks"
+  "reviews", "savedMeals", "tasks",
+  "images", "imageCategories", "goals", "milestones"
   // "reminders" is deliberately excluded — per-device notification scheduling state,
   // the same reasoning as aiProposedChanges/aiAuditLog below.
 ];
@@ -586,6 +632,11 @@ export function importAndMergeData(importedRaw, currentState) {
   record("reviews", mergeByIdGeneric(current.reviews, imported.reviews, detectDuplicateById));
   record("savedMeals", mergeByIdGeneric(current.savedMeals, imported.savedMeals, (list, c) => list.find(x => x.contentHash && x.contentHash === c.contentHash) || detectDuplicateById(list, c)));
   record("tasks", mergeByIdGeneric(current.tasks, imported.tasks, detectDuplicateById));
+  record("images", mergeByIdGeneric(current.images, imported.images, detectDuplicateById));
+  record("imageCategories", mergeByIdGeneric(current.imageCategories, imported.imageCategories,
+    (list, c) => detectDuplicateById(list, c) || list.find(x => (x.label || "").toLowerCase() === (c.label || "").toLowerCase())));
+  record("goals", mergeByIdGeneric(current.goals, imported.goals, detectDuplicateById));
+  record("milestones", mergeByIdGeneric(current.milestones, imported.milestones, detectDuplicateById));
   // reminders deliberately not merged — never restore stale/old notification schedules from a backup.
 
   // aiSettings: current device's consent/permissions always win (consent must never be
@@ -642,7 +693,7 @@ export function importAndMergeData(importedRaw, currentState) {
  * Snapshots the pre-import state first and rolls back automatically if the merge
  * or save fails partway through, so a bad import never leaves the app half-changed.
  */
-export function importData(jsonText) {
+export async function importData(jsonText) {
   const imported = JSON.parse(jsonText);
   if (typeof imported !== "object" || imported === null) throw new Error("Invalid backup file.");
 
@@ -653,6 +704,10 @@ export function importData(jsonText) {
     const { merged, summary } = importAndMergeData(imported, current);
     saveData(merged);
     const data = migrateData();
+    if (imported.__images) {
+      try { await importImagesFromBase64Map(imported.__images); }
+      catch (err) { console.warn("[Project Reacher] Some images from this backup could not be restored.", err); }
+    }
     return { data, summary };
   } catch (err) {
     rollbackImport(current);
@@ -667,14 +722,20 @@ export function importData(jsonText) {
  * state first, and still runs migrateData() afterward so current-app repairs
  * (e.g. restoring Day 6 if the restored file predates it) still apply on top.
  */
-export function fullRestoreFromBackup(jsonText) {
+export async function fullRestoreFromBackup(jsonText) {
   const imported = JSON.parse(jsonText);
   if (typeof imported !== "object" || imported === null) throw new Error("Invalid backup file.");
   const current = getData();
   createPreImportBackup(current);
+  const { __images: importedImages, ...importedWithoutImages } = imported;
   try {
-    saveData(imported);
-    return migrateData();
+    saveData(importedWithoutImages);
+    const data = migrateData();
+    if (importedImages) {
+      try { await importImagesFromBase64Map(importedImages); }
+      catch (err) { console.warn("[Project Reacher] Some images from this backup could not be restored.", err); }
+    }
+    return data;
   } catch (err) {
     rollbackImport(current);
     throw new Error(`Full restore failed and was rolled back to your previous data: ${err.message}`);

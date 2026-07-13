@@ -102,7 +102,8 @@ const COLLECTION_LABELS = {
   aiSavedInsights: "Saved AI insights",
   foodTemplates: "Food templates", preWorkoutLogs: "Pre-workout logs", postWorkoutLogs: "Post-workout logs",
   interventions: "Interventions", reviews: "Reviews", savedMeals: "Saved meals (My Meals)", tasks: "Tasks",
-  reminders: "Reminders"
+  reminders: "Reminders", images: "Vision images", imageCategories: "Custom image categories",
+  goals: "Goals", milestones: "Milestones"
 };
 
 function formatImportSummary(summary) {
@@ -224,15 +225,15 @@ function setupEventListeners() {
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         if (fullRestore) {
-          fullRestoreFromBackup(reader.result);
+          await fullRestoreFromBackup(reader.result);
           refreshAll();
           alert("Full restore complete. Your app now matches the uploaded file exactly (a safety backup of your previous data was saved first).");
           if ($("fullRestoreToggle")) $("fullRestoreToggle").checked = false;
         } else {
-          const { summary } = importData(reader.result);
+          const { summary } = await importData(reader.result);
           refreshAll();
           alert(formatImportSummary(summary));
         }
