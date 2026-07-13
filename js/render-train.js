@@ -5,6 +5,9 @@ import { metricLabel } from "./metric-info.js";
 import { showMissionStart, celebrateSetRow, celebrateExerciseComplete, showOperationComplete, formatVolumeComparison } from "./reward-system.js";
 import { getSessionNutritionForDay } from "./session-nutrition.js";
 import { renderSavedWorkoutSessionNutrition } from "./render-session-nutrition.js";
+import { CONSTRAINT_ENGINE_VERSION } from "./constraint-engine.js";
+import { CONSTRAINT_LIBRARY_VERSION } from "./constraint-library.js";
+import { generateProgressTasks, TASK_SECTIONS } from "./task-engine.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -664,6 +667,19 @@ export function saveWorkout() {
     const sessionNutritionSnapshot = structuredClone(getSessionNutritionForDay(data, day));
     const sessionReview = readSessionReviewFromLiveForm();
 
+    // Historical snapshot + versioning (spec section 26): captured once, at the exact
+    // moment of saving, so a later constraint-case status change or task-list state can
+    // never retroactively alter what this specific completed session's record shows.
+    const activeInterventionSnapshot = structuredClone(
+      (data.constraintCases || []).filter(c => ["active", "improving", "escalated"].includes(c.status))
+    );
+    const nowDate = new Date();
+    const taskCompletionSnapshot = structuredClone(
+      generateProgressTasks(data, nowDate)
+        .filter(t => [TASK_SECTIONS.ACT_NOW, TASK_SECTIONS.COMPLETE_TODAY].includes(t.section))
+        .map(t => ({ id: t.id, title: t.title, priority: t.priority, section: t.section }))
+    );
+
     const workout = {
       id: uid(),
       date: new Date().toLocaleDateString("en-CA"),
@@ -672,7 +688,8 @@ export function saveWorkout() {
       sessionName: day,
       exercises,
       startedAt, completedAt: now, sessionNutritionSnapshot, sessionReview,
-      activeInterventionSnapshot: null, taskCompletionSnapshot: null, engineVersion: null
+      activeInterventionSnapshot, taskCompletionSnapshot,
+      engineVersion: `${CONSTRAINT_ENGINE_VERSION}+${CONSTRAINT_LIBRARY_VERSION}`
     };
     data.workouts.push(workout);
     data.activeWorkoutDraft = null;

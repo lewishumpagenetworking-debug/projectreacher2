@@ -6,6 +6,7 @@ import { $, esc } from "./dom.js";
 import { getData, saveData } from "./data.js";
 import { startOfWeek } from "./dates.js";
 import { runWeeklyReview, applyWeeklyReviewResultToCases, WEEKLY_STATES } from "./weekly-review-engine.js";
+import { generateProgressTasks, TASK_SECTIONS } from "./task-engine.js";
 
 const WEEKLY_STATE_LABELS = {
   [WEEKLY_STATES.NO_CONSTRAINT_DETECTED]: "No limiting constraint was identified this week. Maintain the current plan.",
@@ -111,6 +112,13 @@ export function completeWeeklyReview() {
   const data = getData();
   const { weekStart, weekEnd } = currentWeekRange();
   const analysis = runWeeklyReview(data, { weekStart, weekEnd });
+
+  // Task state (spec section 26): what was still outstanding at the moment this week's
+  // diagnosis was made, so a later change to task-generation logic can never retroactively
+  // alter what this specific historical review recorded.
+  analysis.taskState = generateProgressTasks(data, new Date())
+    .filter(t => [TASK_SECTIONS.ACT_NOW, TASK_SECTIONS.COMPLETE_TODAY, TASK_SECTIONS.PROTECT_WEEK].includes(t.section))
+    .map(t => ({ id: t.id, title: t.title, priority: t.priority, section: t.section }));
 
   data.constraintCases = applyWeeklyReviewResultToCases(analysis, data.constraintCases);
 
