@@ -12,6 +12,7 @@ import {
 import { MUSCLE_GROUPS } from "./program.js";
 import { lineChart, donutChart, barRows } from "./charts.js";
 import { parseLogDate } from "./dates.js";
+import { autoCountUp } from "./motion.js";
 
 const CHART_PREF_KEY = "reacherChartPrefs";
 function getChartPref(widgetId, fallback) {
@@ -58,14 +59,18 @@ function renderLabSummaryStrip(data) {
   const openCases = (data.constraintCases || []).filter(c => ["observing", "active", "improving", "escalated"].includes(c.status)).length;
 
   const stat = (label, value) => `<div class="hero-stat"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
+  const countStat = (label, value, decimals, suffix) =>
+    `<div class="hero-stat"><span>${esc(label)}</span><strong data-count-target="${value}" data-count-decimals="${decimals}" data-count-suffix="${esc(suffix)}"></strong></div>`;
+
   el.innerHTML = `<div class="hero-stat-row">${[
-    stat("7-day avg bodyweight", avg7 != null ? `${fmt(avg7)}kg` : "--"),
+    avg7 != null ? countStat("7-day avg bodyweight", avg7, 1, "kg") : stat("7-day avg bodyweight", "--"),
     stat("Weekly rate of gain", rate != null ? `${rate >= 0 ? "+" : ""}${fmt(rate, 2)}kg/wk` : "--"),
-    stat("Session compliance", `${compliance}%`),
-    stat("Weekly hard sets", `${totalSets}`),
-    stat("7-day avg sleep", sStats.hasData && sStats.sevenDayAverage != null ? `${fmt(sStats.sevenDayAverage)}h` : "--"),
-    stat("Open constraint cases", `${openCases}`)
+    countStat("Session compliance", compliance, 0, "%"),
+    countStat("Weekly hard sets", totalSets, 0, ""),
+    sStats.hasData && sStats.sevenDayAverage != null ? countStat("7-day avg sleep", sStats.sevenDayAverage, 1, "h") : stat("7-day avg sleep", "--"),
+    countStat("Open constraint cases", openCases, 0, "")
   ].join("")}</div>`;
+  autoCountUp(el);
 }
 
 const LAB_WEIGHT_RANGES = [

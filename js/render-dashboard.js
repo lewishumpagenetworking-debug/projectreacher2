@@ -17,6 +17,7 @@ import { lineChart, donutChart, barRows } from "./charts.js";
 import { parseLogDate } from "./dates.js";
 import { resolveImageUrls, openLightbox } from "./image-gallery.js";
 import { getImagesFor } from "./vision-images.js";
+import { countUpText } from "./motion.js";
 
 // Per-widget chart-type / time-range preferences. View-state only — deliberately kept out of
 // the main "projectReacher" data object (same isolated-storage pattern as claude-client.js's API key).
@@ -42,7 +43,7 @@ export function renderDashboard(data) {
   const profile = data.profile;
   const latestBw = data.bodyweightLogs[data.bodyweightLogs.length - 1];
   const currentWeight = latestBw ? Number(latestBw.morningBodyweight) : (data.checkins.at(-1)?.weight ?? profile.currentWeight ?? profile.startingWeight);
-  $("currentWeight").textContent = `${fmt(currentWeight)}kg`;
+  countUpText($("currentWeight"), currentWeight, { decimals: 1, suffix: "kg" });
 
   renderHeroMission(data, currentWeight);
   renderHeroTargetImage(data);
@@ -57,7 +58,8 @@ export function renderDashboard(data) {
   renderNextObjective(data);
 
   const sevenDay = sevenDayAverage(data.bodyweightLogs, "morningBodyweight");
-  $("sevenDayAvg").textContent = sevenDay != null ? `${fmt(sevenDay)}kg` : "--";
+  if (sevenDay != null) countUpText($("sevenDayAvg"), sevenDay, { decimals: 1, suffix: "kg" });
+  else $("sevenDayAvg").textContent = "--";
 
   const rate = weeklyRateOfGain(data.bodyweightLogs);
   $("weeklyGain").textContent = rate != null ? `${rate >= 0 ? "+" : ""}${fmt(rate, 2)}kg/wk` : "--";

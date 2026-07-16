@@ -1097,6 +1097,29 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .photo-compare-images img { width: 100%; max-width: 130px; border-radius: 8px; object-fit: cover; }
 @media (max-width: 620px) { .photo-compare-grid { grid-template-columns: 1fr; } }
 
+/* ---- Chart / bar draw-in (Phase 3 motion system): plays once on element mount since
+   re-renders that only change a `style="width:%"` attribute don't retrigger a CSS
+   @keyframes animation — live width changes (e.g. workout progress ticking up) still use
+   the existing `transition: width` rules untouched, this is purely the entrance. ---- */
+.chart-svg .line {
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+  animation: line-draw-in 900ms var(--ease) forwards;
+}
+@keyframes line-draw-in { to { stroke-dashoffset: 0; } }
+.donut-svg { animation: chart-pop-in 500ms var(--ease); transform-origin: center; }
+@keyframes chart-pop-in { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: scale(1); } }
+.bar-bg > div, .tile-bar-fill, .workout-progress-fill {
+  transform-origin: left;
+  animation: bar-grow-in 0.6s var(--ease);
+}
+@keyframes bar-grow-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* ---- Target Physique Board cover entrance (Phase 3) ---- */
+.target-physique-board .physique-board-cover-filled .image-upload-slot-filled img {
+  animation: hero-image-zoom 1.4s ease-out;
+}
+
 /* ---- Progression Feed (spec 6.9) ---- */
 .progression-feed-item { padding: 8px 0; border-top: 1px solid var(--line); color: var(--text); }
 .progression-feed-item:first-child { border-top: 0; }
