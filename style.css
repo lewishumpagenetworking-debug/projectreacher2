@@ -1065,6 +1065,38 @@ table.data-table th { color: var(--muted); font-weight: 700; }
   letter-spacing: -0.01em;
 }
 
+/* ---- Target Physique Board (spec 8.1): cinematic cover treatment for the "physique"
+   Vision Board category, reusing the standard image-upload-slot component underneath. ---- */
+.target-physique-board .physique-board-cover { position: relative; margin: 10px 0; }
+.target-physique-board .physique-board-cover .image-upload-slot { margin-top: 0; }
+.target-physique-board .physique-board-cover-filled .image-upload-slot-filled img {
+  max-height: 380px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-glow);
+}
+.target-physique-board .physique-board-cover-filled .image-upload-dropzone,
+.target-physique-board .physique-board-cover:not(.physique-board-cover-filled) .image-upload-dropzone {
+  min-height: 220px;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.physique-board-tag {
+  position: absolute; top: 10px; left: 10px; z-index: 1;
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 5px 10px; border-radius: 999px; background: rgba(8, 9, 10, 0.7);
+  border: 1px solid var(--accent); color: var(--accent);
+}
+
+/* ---- Session Images (Train tab, spec 8.3) ---- */
+.session-images-section { margin: 12px 0; }
+
+/* ---- Progress Photo Comparison (spec 8.4) ---- */
+.photo-compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
+.photo-compare-col { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: var(--surface-deep); }
+.photo-compare-images { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.photo-compare-images img { width: 100%; max-width: 130px; border-radius: 8px; object-fit: cover; }
+@media (max-width: 620px) { .photo-compare-grid { grid-template-columns: 1fr; } }
+
 /* ---- Progression Feed (spec 6.9) ---- */
 .progression-feed-item { padding: 8px 0; border-top: 1px solid var(--line); color: var(--text); }
 .progression-feed-item:first-child { border-top: 0; }

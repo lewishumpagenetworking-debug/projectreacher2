@@ -295,6 +295,12 @@
         </div>
         <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="performanceCoachChatInput">Ask Performance Coach</button>
         <div id="trainReadinessChip" class="readiness-chip-row"></div>
+        <details class="category-section session-images-section" id="sessionImagesSection">
+          <summary><strong>Session Images</strong> <span class="badge" id="sessionImagesCount"></span></summary>
+          <p class="small">Form-check photos or reference images for this specific session day — separate from the Target Physique Board.</p>
+          <div id="sessionImagesGallery" class="image-gallery-slot"></div>
+          <div id="sessionImagesUploader"></div>
+        </details>
         <div id="sessionNutritionBodyweightNotice" hidden></div>
         <div id="preWorkoutFuelCardSlot"></div>
         <div id="preWorkoutReadinessGate" class="warning-banner" hidden>
@@ -557,6 +563,20 @@
         <button id="savePhotos">Save Photo Check-In</button>
         <div id="photoReminder" class="small"></div>
         <div id="photoHistory"></div>
+      </section>
+
+      <section class="card" id="photoCompareCard" hidden>
+        <p class="eyebrow">VISUAL COMPARISON</p>
+        <h2>Compare Progress Photos</h2>
+        <div class="form-grid">
+          <label class="small">Earlier
+            <select id="photoCompareA"></select>
+          </label>
+          <label class="small">Later
+            <select id="photoCompareB"></select>
+          </label>
+        </div>
+        <div id="photoCompareResult"></div>
       </section>
 
       <section class="card" id="bodyMilestoneVisionCard" hidden>
@@ -1186,6 +1206,15 @@
           <label><input type="checkbox" id="imageLibraryShowArchived"> Show archived</label>
         </div>
         <div id="imageLibraryList"></div>
+      </section>
+
+      <section class="card target-physique-board" id="targetPhysiqueBoardCard">
+        <p class="eyebrow">VISION</p>
+        <h2>Target Physique Board</h2>
+        <p class="small">The physique you're training toward — the primary image here also drives the Dashboard hero. Images live on your device only.</p>
+        <div id="physiqueBoardCover" class="physique-board-cover" hidden></div>
+        <div id="physiqueBoardGallery" class="image-gallery-slot"></div>
+        <div id="physiqueBoardUploader"></div>
       </section>
 
       <section class="card" id="visionBoardCard">
