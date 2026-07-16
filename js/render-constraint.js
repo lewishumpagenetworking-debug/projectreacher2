@@ -31,7 +31,7 @@ function causeCardHtml(evaluation, label) {
   if (!evaluation) return "";
   return `
     <div class="history-item">
-      <strong>${esc(label)}: ${esc(evaluation.title)}</strong>
+      <strong class="constraint-cause-title">${esc(label)}: ${esc(evaluation.title)}</strong>
       <p class="small">Category: ${esc(evaluation.category)} · Confidence: ${esc(evaluation.confidence)}</p>
       ${evidenceListHtml(evaluation.evidenceDetail, "No evidence detail recorded.")}
     </div>`;
@@ -68,7 +68,7 @@ export function renderConstraintPage(data) {
   }
 
   previewEl.innerHTML = `
-    <div class="status-banner status-info"><span class="status-icon">🔵</span><span>${esc(WEEKLY_STATE_LABELS[analysis.weeklyState])}</span></div>
+    <div class="status-banner status-info"><span class="status-icon">🔵</span><span class="weekly-outcome-banner">${esc(WEEKLY_STATE_LABELS[analysis.weeklyState])}</span></div>
     ${causeCardHtml(analysis.primary, "Primary constraint")}
     ${analysis.contributing.length ? `<h3>Contributing</h3>${analysis.contributing.map(c => causeCardHtml(c, "Contributing")).join("")}` : ""}
     ${analysis.lowerConfidence.length ? `<h3>Lower-confidence possibilities</h3>${analysis.lowerConfidence.map(c => causeCardHtml(c, "Possible")).join("")}` : ""}
@@ -98,7 +98,7 @@ export function renderConstraintPage(data) {
 function caseCardHtml(c) {
   return `
     <details class="history-item expandable-card">
-      <summary><strong>${esc(c.rankedCauses?.[0]?.title || c.primaryRuleId)}</strong> · <span class="badge">${esc(c.status)}</span></summary>
+      <summary><strong class="constraint-cause-title">${esc(c.rankedCauses?.[0]?.title || c.primaryRuleId)}</strong> · <span class="badge">${esc(c.status)}</span></summary>
       <p class="small">Opened ${esc(c.weekStart)} · Category: ${esc(c.outcomeType || "--")}</p>
       ${c.selectedPlan ? `<p class="small"><strong>Plan:</strong> ${esc(c.selectedPlan.immediateAction || "")}</p>` : ""}
       <p class="small"><strong>Monitoring window:</strong> ${esc(c.monitoringWindow || "--")}</p>

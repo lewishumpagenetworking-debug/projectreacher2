@@ -8,7 +8,8 @@ import {
 } from "./render-train.js";
 import {
   saveBodyweight, renderBodyweight, saveCheckin, renderCheckinHistory,
-  saveMeasurements, renderMeasurementsHistory, savePhotoCheckin, renderPhotos, renderBodyMilestoneVision
+  saveMeasurements, renderMeasurementsHistory, savePhotoCheckin, renderPhotos, renderBodyMilestoneVision,
+  renderPhotoCompare, renderPhotoCompareResult
 } from "./render-body.js";
 import {
   saveSkinLog, saveHairLog, saveProductExperiment, saveAppearanceCheckin,
@@ -36,13 +37,15 @@ import { renderReviewCentre, setupReviewEventDelegation } from "./render-reviews
 import { renderTasks, setupTasksEventDelegation } from "./render-tasks.js";
 import { setupDashboardChartEventDelegation } from "./render-dashboard.js";
 import { renderReminders, setupRemindersEventDelegation, startReminderScheduler } from "./render-reminders.js";
-import { renderVisionBoard, setupVisionBoardEventDelegation } from "./render-vision-board.js";
+import { renderVisionBoard, renderTargetPhysiqueBoard, setupVisionBoardEventDelegation } from "./render-vision-board.js";
 import { renderGoals, setupGoalsEventDelegation } from "./render-goals.js";
 import { renderMilestonesTimeline, setupMilestonesEventDelegation } from "./render-milestones.js";
 import { renderImageLibrary, setupImageLibraryEventDelegation } from "./render-image-library.js";
 import { renderSessionNutritionCards, renderBodyweightReviewNotice } from "./render-session-nutrition.js";
 import { renderConstraintPage, completeWeeklyReview } from "./render-constraint.js";
 import { renderProgressTaskList, renderPageTasks } from "./render-task-list.js";
+import { renderProgressLab, setupProgressLabEventDelegation } from "./render-progress-lab.js";
+import { renderSessionImages, setupSessionImagesEventDelegation } from "./render-session-images.js";
 
 export function refreshAll() {
   const data = getData();
@@ -50,6 +53,7 @@ export function refreshAll() {
   renderDaySelect(data);
   renderWorkoutForm(data);
   renderSessionNutritionCards(data, $("daySelect")?.value || Object.keys(data.trainingProgram)[0]);
+  renderSessionImages(data, $("daySelect")?.value || Object.keys(data.trainingProgram)[0]);
   renderBodyweightReviewNotice(data);
   renderWorkoutHistory(data);
   renderMiniVolumeChart(data);
@@ -60,6 +64,7 @@ export function refreshAll() {
   renderCheckinHistory(data);
   renderMeasurementsHistory(data);
   renderPhotos(data);
+  renderPhotoCompare(data);
   renderBodyMilestoneVision(data);
   renderAppearance(data);
   renderAiSpecialists(data);
@@ -82,6 +87,7 @@ export function refreshAll() {
   renderLibrary(data);
   renderReviewCentre(data);
   renderConstraintPage(data);
+  renderProgressLab(data);
   renderProgressTaskList(data);
   renderPageTasks(data, "train", "trainPageTasks");
   renderPageTasks(data, "body", "bodyPageTasks");
@@ -93,6 +99,7 @@ export function refreshAll() {
   renderMilestonesTimeline(data);
   renderImageLibrary(data);
   renderVisionBoard(data);
+  renderTargetPhysiqueBoard(data);
 }
 
 function setupNav() {
@@ -173,6 +180,7 @@ function setupEventListeners() {
     const data = getData();
     renderWorkoutForm(data);
     renderSessionNutritionCards(data, $("daySelect").value);
+    renderSessionImages(data, $("daySelect").value);
     startMission(data);
   });
   $("saveWorkout").addEventListener("click", saveWorkout);
@@ -181,6 +189,8 @@ function setupEventListeners() {
   $("saveCheckin").addEventListener("click", saveCheckin);
   $("saveMeasurements").addEventListener("click", saveMeasurements);
   $("savePhotos").addEventListener("click", savePhotoCheckin);
+  $("photoCompareA").addEventListener("change", () => renderPhotoCompareResult(getData()));
+  $("photoCompareB").addEventListener("change", () => renderPhotoCompareResult(getData()));
 
   $("saveSkinLog")?.addEventListener("click", saveSkinLog);
   $("saveHairLog")?.addEventListener("click", saveHairLog);
@@ -321,6 +331,8 @@ setupLibraryEventDelegation();
 setupReviewEventDelegation();
 setupTasksEventDelegation();
 setupDashboardChartEventDelegation();
+setupProgressLabEventDelegation();
+setupSessionImagesEventDelegation();
 setupRemindersEventDelegation();
 startReminderScheduler();
 setupVisionBoardEventDelegation();

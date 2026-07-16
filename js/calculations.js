@@ -1134,10 +1134,10 @@ export function caffeineLoadStatus(stimulantLogs, referenceDate = new Date(), bo
     message = `${totalMg}mg is within the normal training range (~${bands.normalMin}-${bands.normalMax}mg at your bodyweight).`;
   } else if (totalMg < bands.priorityMax) {
     status = "Moderate"; label = "Priority-Session Range";
-    message = "Caffeine is above the normal Project Reacher performance range and may impair recovery.";
+    message = "Caffeine is above the normal Aesthetic Protocol performance range and may impair recovery.";
   } else if (totalMg < bands.cautionMax) {
     status = "High"; label = "Caution";
-    message = "Caffeine is above the normal Project Reacher performance range and may impair recovery.";
+    message = "Caffeine is above the normal Aesthetic Protocol performance range and may impair recovery.";
   } else {
     status = "Excessive / caution"; label = "Concern";
     message = "High caffeine day. Do not add further stimulants.";

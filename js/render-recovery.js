@@ -349,7 +349,7 @@ function renderSupplementDatabase() {
       <div class="section-title"><strong>${esc(s.name)}</strong><span class="badge ${RECOMMENDATION_BADGE_CLASS[s.recommendationStyle] || ""}">${esc(s.evidenceLevel)}</span></div>
       <p class="small">${esc(s.category)} · ${esc(s.purpose)}</p>
       ${s.doseGuidance ? `<p class="small">Dose: ${esc(s.doseGuidance)}${s.timing ? ` · Timing: ${esc(s.timing)}` : ""}</p>` : ""}
-      <p class="small"><strong>Project Reacher use:</strong> ${esc(s.projectReacherUse)}</p>
+      <p class="small"><strong>Aesthetic Protocol use:</strong> ${esc(s.projectReacherUse)}</p>
       ${s.cautions ? `<p class="small">Caution: ${esc(s.cautions)}</p>` : ""}
       <p class="small" style="opacity:.7">${esc(s.notReplacementNote)}</p>
     </div>

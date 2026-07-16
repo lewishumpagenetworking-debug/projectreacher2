@@ -220,6 +220,64 @@ export function renderPhotos(data) {
     </div>`).join("") || "<p class='small'>No progress photos yet.</p>";
 }
 
+/** Side-by-side progress-photo comparison (spec 8.4) — reads the same data.progressPhotos
+ * check-ins already collected above; no new storage, purely a second read-only view of it. */
+export function renderPhotoCompare(data) {
+  const card = $("photoCompareCard");
+  const selectA = $("photoCompareA");
+  const selectB = $("photoCompareB");
+  const resultEl = $("photoCompareResult");
+  if (!card || !selectA || !selectB || !resultEl) return;
+
+  const photos = data.progressPhotos || [];
+  if (photos.length < 2) { card.hidden = true; return; }
+  card.hidden = false;
+
+  const prevA = selectA.value, prevB = selectB.value;
+  const optionsHtml = photos.map(p => `<option value="${esc(p.id)}">${esc(p.date)}</option>`).join("");
+  selectA.innerHTML = optionsHtml;
+  selectB.innerHTML = optionsHtml;
+  selectA.value = photos.some(p => p.id === prevA) ? prevA : photos[0].id;
+  selectB.value = photos.some(p => p.id === prevB) ? prevB : photos[photos.length - 1].id;
+
+  renderPhotoCompareResult(data);
+}
+
+function photoCompareColumnHtml(label, p) {
+  if (!p) return `<div class="photo-compare-col"><p class="small">No photo selected.</p></div>`;
+  return `
+    <div class="photo-compare-col">
+      <p class="small"><strong>${esc(label)}</strong> · ${esc(p.date)}${p.bodyweightAtPhoto ? ` · ${esc(p.bodyweightAtPhoto)}kg` : ""}</p>
+      <div class="photo-compare-images">
+        ${p.frontPhoto ? `<img src="${p.frontPhoto}" alt="front">` : ""}
+        ${p.sidePhoto ? `<img src="${p.sidePhoto}" alt="side">` : ""}
+        ${p.backPhoto ? `<img src="${p.backPhoto}" alt="back">` : ""}
+      </div>
+    </div>`;
+}
+
+export function renderPhotoCompareResult(data) {
+  const selectA = $("photoCompareA");
+  const selectB = $("photoCompareB");
+  const resultEl = $("photoCompareResult");
+  if (!selectA || !selectB || !resultEl) return;
+
+  const photos = data.progressPhotos || [];
+  const a = photos.find(p => p.id === selectA.value);
+  const b = photos.find(p => p.id === selectB.value);
+
+  const deltaHtml = (a?.bodyweightAtPhoto && b?.bodyweightAtPhoto)
+    ? `<p class="small instrument-readout">${(Number(b.bodyweightAtPhoto) - Number(a.bodyweightAtPhoto)) >= 0 ? "+" : ""}${fmt(Number(b.bodyweightAtPhoto) - Number(a.bodyweightAtPhoto))}kg between selections</p>`
+    : "";
+
+  resultEl.innerHTML = `
+    <div class="photo-compare-grid">
+      ${photoCompareColumnHtml("Earlier", a)}
+      ${photoCompareColumnHtml("Later", b)}
+    </div>
+    ${deltaHtml}`;
+}
+
 /** Compact, secondary strip of recent progress/bodyweight Milestone images — hidden unless any exist. Fully separate from the progressPhotos check-in system above. */
 export async function renderBodyMilestoneVision(data) {
   const card = $("bodyMilestoneVisionCard");

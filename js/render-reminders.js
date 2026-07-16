@@ -67,7 +67,7 @@ function checkAndFireReminders() {
     const fireKey = `${todayISO}T${dueTime}`;
     if (r.lastFiredAt === fireKey) return; // duplicate-prevention: this exact slot already fired today
 
-    new Notification(r.title || "Project Reacher reminder", {
+    new Notification(r.title || "Aesthetic Protocol reminder", {
       body: r.description || "Time for your scheduled reminder.",
       tag: r.id
     });

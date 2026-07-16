@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Project Reacher</title>
+  <title>Aesthetic Protocol</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -15,8 +15,8 @@
       </button>
       <span id="mobilePageTitle" class="mobile-page-title">Dashboard</span>
       <div class="header-titles">
-        <p class="eyebrow">PROJECT REACHER</p>
-        <h1>Physique OS</h1>
+        <p class="eyebrow">PHYSIQUE DEVELOPMENT SYSTEM</p>
+        <h1>Aesthetic Protocol</h1>
         <span id="cloudBadge" class="sync-badge"></span>
       </div>
       <button id="exportBtn">Export</button>
@@ -26,8 +26,8 @@
     <nav id="navDrawer" class="nav-drawer" aria-hidden="true" aria-label="Main navigation">
       <div class="nav-drawer-header">
         <div>
-          <p class="eyebrow">PROJECT REACHER</p>
-          <h2>Physique OS</h2>
+          <p class="eyebrow">PHYSIQUE DEVELOPMENT SYSTEM</p>
+          <h2>Aesthetic Protocol</h2>
         </div>
         <button id="closeDrawerBtn" class="close-btn" aria-label="Close navigation menu">✕</button>
       </div>
@@ -39,6 +39,7 @@
         <button class="nav-btn" data-tab="nutrition"><span class="drawer-icon">🍽️</span> Nutrition</button>
         <button class="nav-btn" data-tab="recovery"><span class="drawer-icon">😴</span> Recovery</button>
         <button class="nav-btn" data-tab="constraint"><span class="drawer-icon">🧭</span> Constraint</button>
+        <button class="nav-btn" data-tab="progress-lab"><span class="drawer-icon">📈</span> Progress Lab</button>
         <button class="nav-btn" data-tab="library"><span class="drawer-icon">📚</span> Library</button>
         <button class="nav-btn" data-tab="more"><span class="drawer-icon">⚙️</span> More</button>
       </div>
@@ -56,6 +57,7 @@
       <button class="nav-btn" data-tab="nutrition">Nutrition</button>
       <button class="nav-btn" data-tab="recovery">Recovery</button>
       <button class="nav-btn" data-tab="constraint">Constraint</button>
+      <button class="nav-btn" data-tab="progress-lab">Progress Lab</button>
       <button class="nav-btn" data-tab="library">Library</button>
       <button class="nav-btn" data-tab="more">More</button>
     </nav>
@@ -66,15 +68,18 @@
       <div id="visual-dashboard"></div>
 
       <section class="card command-hero" id="heroMissionCard">
-        <p class="mission-tag">Today's Mission</p>
-        <p class="hero-headline" id="heroNextWorkoutName">--</p>
-        <div class="hero-stat-row">
-          <div class="hero-stat"><span>Phase</span><strong id="heroPhase">--</strong></div>
-          <div class="hero-stat"><span>Bodyweight</span><strong id="heroWeight">--</strong></div>
-          <div class="hero-stat"><span>Weekly Gain Target</span><strong id="heroGainTarget">--</strong></div>
-          <div class="hero-stat"><span>Recovery Status</span><strong id="heroRecovery">--</strong></div>
+        <div id="heroTargetImageLayer" class="hero-target-image-layer" hidden></div>
+        <div class="hero-content">
+          <p class="mission-tag">Today's Mission</p>
+          <p class="hero-headline" id="heroNextWorkoutName">--</p>
+          <div class="hero-stat-row">
+            <div class="hero-stat"><span>Phase</span><strong id="heroPhase">--</strong></div>
+            <div class="hero-stat"><span>Bodyweight</span><strong id="heroWeight">--</strong></div>
+            <div class="hero-stat"><span>Weekly Gain Target</span><strong id="heroGainTarget">--</strong></div>
+            <div class="hero-stat"><span>Recovery Status</span><strong id="heroRecovery">--</strong></div>
+          </div>
+          <button type="button" class="hero-cta" id="heroStartWorkoutBtn" data-goto-tab="train">Start / Resume Workout</button>
         </div>
-        <button type="button" class="hero-cta" id="heroStartWorkoutBtn" data-goto-tab="train">Start / Resume Workout</button>
       </section>
 
       <section class="card" id="progressTaskListCard">
@@ -151,6 +156,11 @@
       <section class="card">
         <h2>Reward Unlocks</h2>
         <div id="badgeGrid" class="badge-tile-grid"></div>
+      </section>
+
+      <section class="card" id="progressionFeedCard" hidden>
+        <h2>Progression Feed</h2>
+        <div id="progressionFeed"></div>
       </section>
 
       <section class="grid stats">
@@ -278,12 +288,19 @@
       <div id="trainPageTasks" hidden></div>
 
       <section class="card">
+        <p class="eyebrow">ACTIVE SESSION</p>
         <div class="section-title">
           <h2>Today's Workout</h2>
           <select id="daySelect"></select>
         </div>
         <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="performanceCoachChatInput">Ask Performance Coach</button>
         <div id="trainReadinessChip" class="readiness-chip-row"></div>
+        <details class="category-section session-images-section" id="sessionImagesSection">
+          <summary><strong>Session Images</strong> <span class="badge" id="sessionImagesCount"></span></summary>
+          <p class="small">Form-check photos or reference images for this specific session day — separate from the Target Physique Board.</p>
+          <div id="sessionImagesGallery" class="image-gallery-slot"></div>
+          <div id="sessionImagesUploader"></div>
+        </details>
         <div id="sessionNutritionBodyweightNotice" hidden></div>
         <div id="preWorkoutFuelCardSlot"></div>
         <div id="preWorkoutReadinessGate" class="warning-banner" hidden>
@@ -548,6 +565,20 @@
         <div id="photoHistory"></div>
       </section>
 
+      <section class="card" id="photoCompareCard" hidden>
+        <p class="eyebrow">VISUAL COMPARISON</p>
+        <h2>Compare Progress Photos</h2>
+        <div class="form-grid">
+          <label class="small">Earlier
+            <select id="photoCompareA"></select>
+          </label>
+          <label class="small">Later
+            <select id="photoCompareB"></select>
+          </label>
+        </div>
+        <div id="photoCompareResult"></div>
+      </section>
+
       <section class="card" id="bodyMilestoneVisionCard" hidden>
         <div class="section-title"><h2>Progress Milestones</h2><button type="button" class="card-link-hint link-button" data-goto-tab="more" data-goto-anchor="milestonesCard">Open Milestones →</button></div>
         <div id="bodyMilestoneVisionStrip" class="vision-preview-strip"></div>
@@ -558,7 +589,7 @@
     <section class="tab-panel" data-tab="appearance" hidden>
       <section class="card">
         <h2>Appearance Overview</h2>
-        <p class="small">Skin, hair, grooming and product experiments — tracked the same non-diagnostic way as the rest of Project Reacher. This data is only used by the Appearance Director if you grant it permission in AI Settings.</p>
+        <p class="small">Skin, hair, grooming and product experiments — tracked the same non-diagnostic way as the rest of Aesthetic Protocol. This data is only used by the Appearance Director if you grant it permission in AI Settings.</p>
         <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="appearanceDirectorChatInput">Ask Appearance Director</button>
       </section>
 
@@ -1177,6 +1208,15 @@
         <div id="imageLibraryList"></div>
       </section>
 
+      <section class="card target-physique-board" id="targetPhysiqueBoardCard">
+        <p class="eyebrow">VISION</p>
+        <h2>Target Physique Board</h2>
+        <p class="small">The physique you're training toward — the primary image here also drives the Dashboard hero. Images live on your device only.</p>
+        <div id="physiqueBoardCover" class="physique-board-cover" hidden></div>
+        <div id="physiqueBoardGallery" class="image-gallery-slot"></div>
+        <div id="physiqueBoardUploader"></div>
+      </section>
+
       <section class="card" id="visionBoardCard">
         <details class="section-details" open>
           <summary><h2>Vision Board</h2></summary>
@@ -1241,7 +1281,7 @@
 
       <section class="card">
         <h2>Claude Integration</h2>
-        <div class="warning-banner">Project Reacher is a static site with no backend server. This connects directly from your browser to Anthropic's API using your own API key, stored only in this browser's local storage. Anyone with access to this device/browser could read that key. This is a deliberate trade-off you're choosing, not the server-side setup Anthropic recommends for production apps.</div>
+        <div class="warning-banner">Aesthetic Protocol is a static site with no backend server. This connects directly from your browser to Anthropic's API using your own API key, stored only in this browser's local storage. Anyone with access to this device/browser could read that key. This is a deliberate trade-off you're choosing, not the server-side setup Anthropic recommends for production apps.</div>
         <div class="form-grid">
           <label>Anthropic API Key <input id="claudeApiKeyInput" type="password" placeholder="sk-ant-..." autocomplete="off"></label>
           <label>Preferred Model <select id="claudeModelSelect"></select></label>
@@ -1325,6 +1365,7 @@
     <!-- ================= CONSTRAINT ANALYSIS ================= -->
     <section class="tab-panel" data-tab="constraint" hidden>
       <section class="card">
+        <p class="eyebrow">WEEKLY DIAGNOSIS</p>
         <h2>This Week</h2>
         <p class="small">Formal diagnosis only happens here, in the weekly review. During the week this app collects evidence and shows neutral observations — it never declares a plateau or activates a plan mid-week.</p>
         <div id="constraintReadiness"></div>
@@ -1346,11 +1387,58 @@
       </section>
     </section>
 
+    <!-- ================= PROGRESS LAB ================= -->
+    <section class="tab-panel" data-tab="progress-lab" id="progressLabRoot" hidden>
+      <section class="card">
+        <p class="eyebrow">ANALYTICS</p>
+        <h2>Progress Lab</h2>
+        <p class="small">An expanded, aggregated read of the same data already tracked across Dashboard, Train, Body and Recovery — nothing here is calculated differently, it's just denser.</p>
+        <div id="progressLabSummaryStrip"></div>
+      </section>
+
+      <section class="card">
+        <h2>Bodyweight Trend</h2>
+        <div id="progressLabWeightRange" class="time-range-toggle" role="group" aria-label="Bodyweight trend time range"></div>
+        <div id="progressLabWeightChart" class="chart-box"></div>
+      </section>
+
+      <section class="card">
+        <h2>Weekly Training Volume by Muscle Group</h2>
+        <div id="progressLabVolumeChartType" class="chart-type-toggle" role="group" aria-label="Volume chart type"></div>
+        <div id="progressLabVolumeChart" class="chart-box"></div>
+      </section>
+
+      <section class="card">
+        <h2>Nutrition Adherence — Last 7 Days</h2>
+        <div id="progressLabNutritionChart" class="chart-box"></div>
+      </section>
+
+      <section class="card">
+        <h2>Exercise Progression</h2>
+        <div id="progressLabProgressionList"></div>
+      </section>
+
+      <section class="card">
+        <h2>Waist Measurement Trend</h2>
+        <div id="progressLabMeasurementsChart" class="chart-box"></div>
+      </section>
+
+      <section class="card">
+        <h2>Sleep &amp; Recovery</h2>
+        <div id="progressLabSleepRecovery"></div>
+      </section>
+
+      <section class="card">
+        <h2>Constraint History</h2>
+        <div id="progressLabConstraintHistory"></div>
+      </section>
+    </section>
+
     <!-- ================= LIBRARY ================= -->
     <section class="tab-panel" data-tab="library" hidden>
       <section class="card library-search-card">
         <h2>Knowledge Library</h2>
-        <p class="small">A searchable, beginner-friendly sports-science glossary for Project Reacher — tap any term to expand it.</p>
+        <p class="small">A searchable, beginner-friendly sports-science glossary for Aesthetic Protocol — tap any term to expand it.</p>
         <input id="librarySearch" type="search" class="library-search-input" placeholder="Search RPE, protein, hypertrophy, creatine...">
         <div id="libraryCategoryChips" class="library-chip-row" role="tablist" aria-label="Filter by category"></div>
         <div id="libraryDifficultyChips" class="library-chip-row" role="tablist" aria-label="Filter by difficulty"></div>
