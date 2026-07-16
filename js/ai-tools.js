@@ -109,7 +109,7 @@ export const AI_TOOLS = [
     run: (data, input) => measurementsData(data, input)
   },
   {
-    name: "search_library", description: "Search the Project Reacher Knowledge Library (training/nutrition/recovery/supplement reference articles) for a term.",
+    name: "search_library", description: "Search the Aesthetic Protocol Knowledge Library (training/nutrition/recovery/supplement reference articles) for a term.",
     permissionCategory: null,
     inputSchema: { type: "object", properties: { query: { type: "string", description: "Search term" } }, required: ["query"] },
     run: (data, input) => searchLibraryData(input?.query, input)

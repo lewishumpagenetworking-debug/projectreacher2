@@ -1,4 +1,4 @@
-// Static content for the Project Reacher Knowledge Library — a searchable,
+// Static content for the Aesthetic Protocol Knowledge Library — a searchable,
 // beginner-friendly sports-science glossary layered on top of the existing app.
 // Single source of truth for Library articles, tooltips and quick explanations.
 // Read-only reference data; nothing here touches user-entered save data.
@@ -23,7 +23,7 @@ export const LIBRARY_CATEGORIES = [
   "App Metrics & Scores",
   "Acronyms & Definitions",
   "Injury & Safety Basics",
-  "Project Reacher System",
+  "Aesthetic Protocol System",
   "Medical / Education Only"
 ];
 
@@ -56,7 +56,7 @@ export const LEARNING_PATHS = [
   },
   {
     id: "physique-path",
-    title: "Project Reacher Physique Path",
+    title: "Aesthetic Protocol Physique Path",
     slugs: ["what-physique-are-we-building", "shoulder-to-waist-ratio", "why-these-muscle-groups",
       "why-waist-control-matters", "waist-control-score", "lean-gain-quality-score"]
   }
@@ -99,7 +99,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Hypertrophy is the process of a muscle getting bigger over time in response to training stress.",
     beginnerExplanation: "Hypertrophy means making a muscle bigger over time through hard training, enough food, and enough recovery.",
     sportsScienceExplanation: "Growth is driven mainly by mechanical tension from hard sets taken close to failure, accumulated across enough weekly volume, repeated consistently for months.",
-    whyItMatters: "It's the entire point of the training side of Project Reacher — everything else (RPE, ROM, volume, protein) exists to make hypertrophy happen reliably.",
+    whyItMatters: "It's the entire point of the training side of Aesthetic Protocol — everything else (RPE, ROM, volume, protein) exists to make hypertrophy happen reliably.",
     projectReacherApplication: "The goal isn't just to gain scale weight — it's to grow shoulders, upper chest, lats, arms, traps and legs while keeping waist gain controlled.",
     practicalAction: ["Train each muscle with enough hard sets weekly.", "Progress load or reps over time.", "Eat and sleep enough to recover from it."],
     commonMistakes: ["Chasing soreness or pump instead of progressive overload.", "Changing exercises too often to build real trend data."],
@@ -140,7 +140,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Time under tension is the cumulative duration a muscle spends working during a set, shaped by rep count and tempo.",
     beginnerExplanation: "It's simply how long the muscle is working across a set — more reps or slower tempo both increase it.",
     whyItMatters: "It's a useful lens for understanding tempo and rep range, but it's a byproduct of good execution, not a target to chase on its own.",
-    projectReacherApplication: "Controlled tempo through Project Reacher's rep ranges naturally produces reasonable time under tension — no need to count seconds manually.",
+    projectReacherApplication: "Controlled tempo through Aesthetic Protocol's rep ranges naturally produces reasonable time under tension — no need to count seconds manually.",
     practicalAction: ["Control tempo rather than rushing reps to hit a number."],
     commonMistakes: ["Deliberately slowing every rep to an extreme, sacrificing load and total volume."],
     relatedTerms: ["tempo-eccentric-concentric-isometric"], tags: ["TUT", "tempo"], readingTimeMin: 1, evidenceTier: "Mixed"
@@ -151,7 +151,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Mind-muscle connection is deliberately focusing on and feeling the target muscle doing the work during a rep.",
     beginnerExplanation: "It's the difference between just moving the weight and actually feeling the intended muscle doing the job.",
     whyItMatters: "Good mind-muscle connection usually means better exercise execution and more consistent target-muscle loading, which supports real hypertrophy.",
-    projectReacherApplication: "Project Reacher logs a Target Muscle Connection score per exercise so you can flag when a lift stops feeling like it's hitting the right area.",
+    projectReacherApplication: "Aesthetic Protocol logs a Target Muscle Connection score per exercise so you can flag when a lift stops feeling like it's hitting the right area.",
     practicalAction: ["Slow down and consciously feel the target muscle on isolation work.", "Reduce load slightly if you can't feel the target muscle working."],
     commonMistakes: ["Using so much weight that other muscles or momentum take over the rep."],
     relatedTerms: ["target-muscle-loading", "mechanical-tension"], tags: ["mind-muscle connection", "target muscle"],
@@ -201,7 +201,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Technical failure is the point a rep can no longer be completed with valid form; muscular failure is the point the muscle simply can't produce more force; form failure is when technique breaks down before either of those.",
     beginnerExplanation: "Technical failure = can't do another clean rep. Muscular failure = the muscle physically can't move the weight at all. Form failure = technique broke down and the rep no longer counts, even if you 'moved' the weight.",
     whyItMatters: "Only reps up to technical failure should count toward progression — grinding past that with broken form adds fatigue without adding useful stimulus.",
-    projectReacherApplication: "Project Reacher's failure rules per exercise (e.g. 'Set 2 to technical failure') are written this way deliberately — the app should stop counting reps once form breaks, not once the weight physically stops moving.",
+    projectReacherApplication: "Aesthetic Protocol's failure rules per exercise (e.g. 'Set 2 to technical failure') are written this way deliberately — the app should stop counting reps once form breaks, not once the weight physically stops moving.",
     practicalAction: ["Stop the set at technical failure, not at all-out muscular failure.", "If form is breaking down early, that's form failure — reduce load next session."],
     commonMistakes: ["Grinding out ugly reps past technical failure and counting them.", "Confusing form failure (technique problem) with muscular failure (genuine capacity limit)."],
     relatedTerms: ["rpe", "rir", "valid-rep-standard"], tags: ["failure", "technical failure", "muscular failure", "form failure"],
@@ -213,7 +213,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Load progression adds weight; rep progression adds reps at the same weight; double progression alternates — build up reps to the top of the range, then add weight and drop back to the bottom of the range.",
     beginnerExplanation: "Double progression is the simplest system to follow: at a given weight, keep adding reps until you hit the top of the target rep range with good form, then add a small amount of weight and start climbing the rep range again.",
     whyItMatters: "It gives clear, unambiguous rules for when to add weight instead of guessing, which is exactly what a logbook-based app needs.",
-    projectReacherApplication: "This is the logic behind Project Reacher's progression recommendation on each exercise card — hit the top of the rep range on both sets with good form, and the app suggests a load increase.",
+    projectReacherApplication: "This is the logic behind Aesthetic Protocol's progression recommendation on each exercise card — hit the top of the rep range on both sets with good form, and the app suggests a load increase.",
     practicalAction: ["Use double progression as the default rule for most compound and isolation work."],
     commonMistakes: ["Adding weight before consistently hitting the top of the rep range."],
     relatedTerms: ["progressive-overload", "logbook-progression"], tags: ["double progression", "load progression", "rep progression"],
@@ -248,7 +248,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Periodisation is the deliberate planning of training variables over time; a mesocycle is a multi-week training block (often 4–8 weeks); a microcycle is typically one training week within it.",
     beginnerExplanation: "Rather than training randomly, you plan in blocks — a few weeks of a consistent approach (mesocycle), made up of individual training weeks (microcycles), before adjusting the plan.",
     whyItMatters: "It gives structure to when to push, when to hold steady and when to deload, instead of reacting week to week with no plan.",
-    projectReacherApplication: "A lean-bulk phase in Project Reacher (e.g. 'Lean Bulk 1') functions as a mesocycle — a sustained multi-week block reviewed and adjusted at weekly (microcycle) and monthly checkpoints.",
+    projectReacherApplication: "A lean-bulk phase in Aesthetic Protocol (e.g. 'Lean Bulk 1') functions as a mesocycle — a sustained multi-week block reviewed and adjusted at weekly (microcycle) and monthly checkpoints.",
     practicalAction: ["Think in multi-week blocks rather than judging progress from any single session."],
     commonMistakes: ["Changing the whole program every week based on one good or bad session."],
     relatedTerms: ["adaptation-overreaching-deload-plateau"], tags: ["periodisation", "mesocycle", "microcycle"],
@@ -262,7 +262,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Training volume is the total hard sets performed for a muscle group over a period, usually a week; effective reps are the reps close enough to failure to drive growth; junk volume is sets/reps too far from failure to meaningfully contribute.",
     beginnerExplanation: "Not every set counts equally. A set stopped 5+ reps short of failure adds fatigue with little growth benefit — that's junk volume. The reps near the end of a hard set are the ones doing most of the work.",
     whyItMatters: "More sets isn't automatically better if they aren't hard enough — quality of effort matters as much as quantity of sets.",
-    projectReacherApplication: "Project Reacher's two-hard-working-sets structure is designed to maximise effective reps per exercise rather than padding volume with easy sets.",
+    projectReacherApplication: "Aesthetic Protocol's two-hard-working-sets structure is designed to maximise effective reps per exercise rather than padding volume with easy sets.",
     practicalAction: ["Prioritise finishing every working set close to the target RPE/RIR over adding more sets."],
     commonMistakes: ["Adding extra sets that are stopped far from failure just to feel like you did more."],
     relatedTerms: ["rpe", "why-two-hard-working-sets"], tags: ["volume", "effective reps", "junk volume", "SFR"],
@@ -285,7 +285,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Warm-up sets prepare the joints/muscles and rehearse the movement at light load; working sets are the sets logged toward the exercise's target; hard sets are working sets taken close enough to failure to count as effective volume.",
     beginnerExplanation: "Warm-ups don't count toward progress — they're preparation. Working sets are what you log. A working set only becomes a 'hard set' if it was actually taken close to failure.",
     whyItMatters: "Confusing a warm-up for a working set, or a half-effort working set for a hard set, quietly inflates your perceived training volume without the growth stimulus to match.",
-    projectReacherApplication: "Project Reacher's set-logging form has a separate warm-up checkbox so warm-ups are tracked but never counted toward progression logic.",
+    projectReacherApplication: "Aesthetic Protocol's set-logging form has a separate warm-up checkbox so warm-ups are tracked but never counted toward progression logic.",
     practicalAction: ["Use warm-ups to rehearse the movement, not to pre-fatigue the muscle.", "Only judge progression from logged working sets."],
     commonMistakes: ["Doing too many warm-up sets, arriving fatigued at the actual working sets."],
     relatedTerms: ["training-volume-effective-reps", "technical-muscular-form-failure"], tags: ["warm-up", "working sets", "hard sets"],
@@ -297,7 +297,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Exercise selection is choosing movements that load the intended muscle effectively; specificity is the principle that adaptation matches the demands you actually train.",
     beginnerExplanation: "The right exercises for the goal matter more than an impressive-looking exercise list — pick movements you can load and feel working the target area consistently.",
     whyItMatters: "The wrong exercise for your levers or goals wastes training time even with perfect effort.",
-    projectReacherApplication: "Every exercise in the Project Reacher program was chosen for a specific target muscle relevant to the shoulders/chest/back/arms proportions goal — see each exercise's own Library article for why it's included.",
+    projectReacherApplication: "Every exercise in the Aesthetic Protocol program was chosen for a specific target muscle relevant to the shoulders/chest/back/arms proportions goal — see each exercise's own Library article for why it's included.",
     practicalAction: ["If an exercise never lets you feel the target muscle working, consider substituting it (see Exercise Substitutions)."],
     commonMistakes: ["Swapping proven exercises frequently, losing comparable logbook data."],
     relatedTerms: ["exercise-substitutions", "target-muscle-loading"], tags: ["exercise selection", "specificity"],
@@ -518,7 +518,7 @@ export const LIBRARY_ENTRIES = [
     instantMeaning: "Primary upper-chest builder.",
     shortDefinition: "A dumbbell press on an incline bench targeting the upper chest and front delts.",
     beginnerExplanation: "Pressing dumbbells up and slightly together on an incline bench, emphasising the upper chest.",
-    whyItMatters: "Upper chest fullness is a key part of the broad, proportionate upper-body look Project Reacher targets.",
+    whyItMatters: "Upper chest fullness is a key part of the broad, proportionate upper-body look Aesthetic Protocol targets.",
     projectReacherApplication: "Set 1 ~1 RIR, Set 2 technical failure. Pack the shoulders before each rep.",
     practicalAction: ["Lower the dumbbells under control to a comfortable stretch before pressing back up."],
     commonMistakes: ["Flaring the elbows so far that the shoulder takes over from the chest."],
@@ -617,7 +617,7 @@ export const LIBRARY_ENTRIES = [
     instantMeaning: "Lat-width-focused pulldown.",
     shortDefinition: "A cable pulldown with a wide overhand grip, emphasising lat width.",
     beginnerExplanation: "Pulling a wide bar down to the upper chest, emphasising the outer lats for width.",
-    whyItMatters: "Lat width is a major driver of the visual V-taper Project Reacher is targeting.",
+    whyItMatters: "Lat width is a major driver of the visual V-taper Aesthetic Protocol is targeting.",
     projectReacherApplication: "Set 1 ~1 RIR, Set 2 technical failure — noted in the program specifically for lat width.",
     practicalAction: ["Focus on driving the elbows down and out rather than just pulling with the arms."],
     commonMistakes: ["Gripping so wide that range of motion at the top gets cut short."],
@@ -875,7 +875,7 @@ export const LIBRARY_ENTRIES = [
   E({
     slug: "macro-tracking-ai-estimation", title: "Macro Tracking and AI Macro Estimation", category: "Nutrition Basics", difficulty: "Basic",
     instantMeaning: "Estimated macros from a meal description.",
-    shortDefinition: "Macro tracking is logging calories/protein/carbs/fat/fibre per meal; AI macro estimation is Project Reacher's local estimate of those macros from a meal description when exact values aren't known.",
+    shortDefinition: "Macro tracking is logging calories/protein/carbs/fat/fibre per meal; AI macro estimation is Aesthetic Protocol's local estimate of those macros from a meal description when exact values aren't known.",
     beginnerExplanation: "The app estimates calories, protein, carbs, fat and fibre from what you typed about a meal when you don't have exact packaging numbers.",
     whyItMatters: "Consistent tracking, even estimated, is far more useful for spotting trends than no tracking at all.",
     projectReacherApplication: "Use the estimate as a starting point, then correct it when portion sizes or exact macros are known — see Confidence Score for how sure the app is about a given estimate.",
@@ -972,7 +972,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Sodium and other electrolytes (potassium, magnesium) regulate fluid balance and muscle/nerve function, and directly affect day-to-day scale-weight fluctuation.",
     beginnerExplanation: "A higher-sodium meal pulls in extra water, which shows up on the scale the next day — that's water, not fat.",
     whyItMatters: "Understanding this stops sodium-driven weight swings from being misread as sudden fat gain.",
-    projectReacherApplication: "This is part of why Project Reacher uses a 7-day average bodyweight trend instead of any single day's number.",
+    projectReacherApplication: "This is part of why Aesthetic Protocol uses a 7-day average bodyweight trend instead of any single day's number.",
     practicalAction: ["Don't panic over a single high scale-weight day after a salty meal — check the 7-day trend instead."],
     relatedTerms: ["seven-day-average", "water"], tags: ["sodium", "electrolytes", "electrolyte balance"],
     synonyms: ["sodium", "electrolytes"], readingTimeMin: 1, evidenceTier: "Consensus"
@@ -1256,7 +1256,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Bodyweight is the number on the scale; physique (measurements, photos, visible muscle/fat) is what actually reflects progress toward the goal — the two can diverge, especially during recomposition.",
     beginnerExplanation: "Two people at the same bodyweight can look completely different — the scale alone can't tell muscle from fat, or where either is distributed.",
     whyItMatters: "Over-focusing on scale weight alone can lead to poor decisions (e.g. cutting too early because the scale 'stalled' while the physique was actually still improving).",
-    projectReacherApplication: "Track bodyweight trend alongside measurements and progress photos — Project Reacher's targets are ultimately about proportions (shoulder-to-waist ratio, arm/chest/neck size), not a specific scale number alone.",
+    projectReacherApplication: "Track bodyweight trend alongside measurements and progress photos — Aesthetic Protocol's targets are ultimately about proportions (shoulder-to-waist ratio, arm/chest/neck size), not a specific scale number alone.",
     practicalAction: ["Review measurements and photos monthly alongside the weekly bodyweight trend."],
     commonMistakes: ["Judging progress from the scale alone and ignoring measurements/photos."],
     relatedTerms: ["seven-day-average", "progress-photos"], tags: ["bodyweight", "scale weight"], readingTimeMin: 1, evidenceTier: "Consensus"
@@ -1332,7 +1332,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Regular tape measurements of waist, shoulders, chest, arms, neck, thighs and calves track physique change with more detail than bodyweight alone.",
     beginnerExplanation: "Measure the same spot, the same way, at the same time of day (ideally morning, unflexed unless noted) each time for the numbers to be comparable.",
     whyItMatters: "Measurements can reveal muscle gain in target areas and fat gain around the waist even when the scale trend looks unremarkable.",
-    projectReacherApplication: "Waist trend in particular feeds Project Reacher's fat-gain monitoring; shoulder/chest/arm/neck trend feeds progress toward the target proportions.",
+    projectReacherApplication: "Waist trend in particular feeds Aesthetic Protocol's fat-gain monitoring; shoulder/chest/arm/neck trend feeds progress toward the target proportions.",
     practicalAction: ["Measure consistently — same tape tension, same body position, same time of day."],
     commonMistakes: ["Measuring inconsistently (different time of day, flexed vs relaxed) and mistaking the noise for real change."],
     relatedTerms: ["shoulder-to-waist-ratio"], tags: ["waist measurement", "shoulder measurement", "chest measurement", "arm measurement", "neck measurement", "thigh measurement", "calf measurement"],
@@ -1342,7 +1342,7 @@ export const LIBRARY_ENTRIES = [
   E({
     slug: "shoulder-to-waist-ratio", title: "Shoulder-to-Waist and Chest-to-Waist Ratio", category: "Measurements & Ratios", difficulty: "Basic",
     instantMeaning: "The proportions behind the V-taper look.",
-    shortDefinition: "Shoulder-to-waist and chest-to-waist ratio compare shoulder/chest circumference to waist circumference — the core proportions behind the visually broad, tapered physique Project Reacher targets.",
+    shortDefinition: "Shoulder-to-waist and chest-to-waist ratio compare shoulder/chest circumference to waist circumference — the core proportions behind the visually broad, tapered physique Aesthetic Protocol targets.",
     beginnerExplanation: "A wider shoulder/chest measurement relative to a controlled waist measurement is what creates the classic 'V-taper' look, more than either number alone.",
     whyItMatters: "It reframes the goal around proportion rather than just getting bigger everywhere, including the waist.",
     projectReacherApplication: "Target shoulder-to-waist ratio is roughly 1.6-1.7 — presented as a directional target based on typical proportion goals, not a guarantee.",
@@ -1508,7 +1508,7 @@ export const LIBRARY_ENTRIES = [
   E({
     slug: "ai-coach-recommendations", title: "AI Coach Recommendations", category: "App Metrics & Scores", difficulty: "Basic",
     instantMeaning: "Rule-based coaching advice generated from your own logged data.",
-    shortDefinition: "Project Reacher's exercise-level coaching advice is generated locally from your logged entries and each exercise's guide content using deterministic rules — it is not a live AI chat calling an external model.",
+    shortDefinition: "Aesthetic Protocol's exercise-level coaching advice is generated locally from your logged entries and each exercise's guide content using deterministic rules — it is not a live AI chat calling an external model.",
     beginnerExplanation: "When the app gives advice like a next-set cue or a progression decision, it's built from clear if/then rules applied to your own logged numbers, not from a live conversation with an AI.",
     whyItMatters: "It's important to understand what kind of 'AI' this is — honest, rule-based logic you can inspect and trust, not a black box.",
     projectReacherApplication: "Used in the Train tab's exercise advice and in the Library's own Ask-About-This feature — both are local and rule-based, clearly labelled as such. On arm, forearm and side-delt isolation work it will not recommend reducing volume unless recovery, pain or performance data actually supports it — arms and forearms are a deliberate priority, not something to quietly deprioritise.",
@@ -1608,14 +1608,14 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "1RM is the actual heaviest weight liftable for one rep; e1RM is a formula-based estimate of that number from a submaximal set (e.g. 8 reps at a given weight).",
     beginnerExplanation: "You don't need to actually test a 1RM to estimate it — formulas can approximate it from a normal working set.",
     whyItMatters: "Testing a true 1RM carries injury risk and isn't necessary for hypertrophy-focused training.",
-    projectReacherApplication: "Project Reacher's rep-range-based logging avoids needing 1RM testing at all — progress is tracked via logged working sets instead.",
+    projectReacherApplication: "Aesthetic Protocol's rep-range-based logging avoids needing 1RM testing at all — progress is tracked via logged working sets instead.",
     practicalAction: ["Skip 1RM testing — track working-set progression instead."], relatedTerms: ["logbook-progression"],
     tags: ["1RM", "e1RM", "acronym"], synonyms: ["1RM", "e1RM"], readingTimeMin: 1
   }),
   E({
     slug: "acr-amrap", title: "AMRAP", acronym: "As Many Reps As Possible", category: "Acronyms & Definitions",
     instantMeaning: "A set taken to genuine technical failure.", shortDefinition: "As Many Reps As Possible — performing every valid rep possible at a given weight, until technical failure.",
-    beginnerExplanation: "Similar in spirit to Project Reacher's 'Set 2 to technical failure' rule.", whyItMatters: "A useful way to gauge true effort on a final set.",
+    beginnerExplanation: "Similar in spirit to Aesthetic Protocol's 'Set 2 to technical failure' rule.", whyItMatters: "A useful way to gauge true effort on a final set.",
     projectReacherApplication: "Appears in: exercise failure rules (e.g. 'both sets to technical failure').", practicalAction: ["Stop at technical failure, not at all-out muscular failure with broken form."],
     relatedTerms: ["technical-muscular-form-failure"], tags: ["AMRAP", "acronym"], readingTimeMin: 1
   }),
@@ -1701,9 +1701,9 @@ export const LIBRARY_ENTRIES = [
 
   // ============ PROJECT REACHER SYSTEM ============
   E({
-    slug: "what-is-project-reacher", title: "What is Project Reacher?", category: "Project Reacher System", difficulty: "Basic",
+    slug: "what-is-project-reacher", title: "What is Aesthetic Protocol?", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "A tracking app for a natural, proportion-focused physique goal.",
-    shortDefinition: "Project Reacher is a training, nutrition and recovery tracking app built around one specific natural bodybuilding goal — building broad, proportionate, Alan Ritchson / Jack Reacher-style shoulders, chest, back and arms over a controlled waist, entirely drug-free.",
+    shortDefinition: "Aesthetic Protocol is a training, nutrition and recovery tracking app built around one specific natural bodybuilding goal — building broad, proportionate, Alan Ritchson / Jack Reacher-style shoulders, chest, back and arms over a controlled waist, entirely drug-free.",
     beginnerExplanation: "It logs your workouts, meals, bodyweight, measurements and recovery, then uses that data to give you specific, personalised feedback instead of generic advice.",
     whyItMatters: "Generic fitness advice doesn't account for your specific starting point, constraints (like a fixed sleep schedule) or goal — this app is built around exactly those specifics.",
     projectReacherApplication: "Every feature — Train, Nutrition, Recovery, Weekly/Monthly Review, and this Library — exists to support that one specific, natural, proportion-focused goal, including a dedicated Saturday Day 6 — Arm + Forearm + Delt Specialisation session, since arms are already a strong feature the plan wants to preserve and amplify while bringing lagging forearms up and emphasising side delts for shoulder-to-waist ratio.",
@@ -1712,7 +1712,7 @@ export const LIBRARY_ENTRIES = [
     readingTimeMin: 2, evidenceTier: "Implementation"
   }),
   E({
-    slug: "what-physique-are-we-building", title: "What Physique Are We Building?", category: "Project Reacher System", difficulty: "Basic",
+    slug: "what-physique-are-we-building", title: "What Physique Are We Building?", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "Broad shoulders, full upper chest, wide back, developed arms, controlled waist.",
     shortDefinition: "The target physique is a natural, athletic build emphasising shoulder width, upper chest fullness, lat width, arm size and trap/neck development, over a controlled waist — directionally similar to the Alan Ritchson / Jack Reacher look.",
     beginnerExplanation: "It's not about maximum size everywhere — it's about proportion: a wide upper body tapering to a controlled waist.",
@@ -1723,7 +1723,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["shoulder-to-waist-ratio", "why-these-muscle-groups"], tags: ["physique goal"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "why-these-muscle-groups", title: "Why These Muscle Groups: Shoulders, Chest, Back, Arms, Traps & Neck", category: "Project Reacher System", difficulty: "Intermediate",
+    slug: "why-these-muscle-groups", title: "Why These Muscle Groups: Shoulders, Chest, Back, Arms, Traps & Neck", category: "Aesthetic Protocol System", difficulty: "Intermediate",
     instantMeaning: "The specific muscles driving the target look, and why each matters.",
     shortDefinition: "Broad shoulders and lat width drive the V-taper; upper chest fullness and traps/neck add upper-body power and presence; arm size fills out the overall proportion — each is deliberately prioritised in exercise selection.",
     beginnerExplanation: "Shoulders (delts) create width at the top of the frame. Upper chest adds visible fullness above the pecs' lower mass. Lats/back width widen the frame from behind and create the V-taper with the waist. Arms fill out the silhouette from the front and side. Traps and neck add a powerful, proportionate look to the upper body.",
@@ -1734,7 +1734,7 @@ export const LIBRARY_ENTRIES = [
     readingTimeMin: 2, evidenceTier: "Implementation"
   }),
   E({
-    slug: "why-waist-control-matters", title: "Why Waist Control Matters", category: "Project Reacher System", difficulty: "Basic",
+    slug: "why-waist-control-matters", title: "Why Waist Control Matters", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "A controlled waist is what makes the upper-body width actually show.",
     shortDefinition: "Waist control preserves the shoulder-to-waist ratio that defines the visual goal — the same shoulder width looks far more dramatic over a controlled waist than a wide one.",
     beginnerExplanation: "Broad shoulders matter less visually if the waist grows just as fast — proportion, not just size, is what creates the look.",
@@ -1744,7 +1744,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["waist-control-score", "shoulder-to-waist-ratio", "mini-cut"], tags: ["waist control"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "why-hack-squat-useful", title: "Why Hack Squat is Useful for This Goal", category: "Project Reacher System", difficulty: "Basic",
+    slug: "why-hack-squat-useful", title: "Why Hack Squat is Useful for This Goal", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "Efficient, safe, high-effort leg training that fits the overall recovery budget.",
     shortDefinition: "Hack Squat lets legs be trained hard and close to failure with lower technical demand and lower systemic fatigue cost than a free-weight squat, which matters given a fixed, limited sleep/recovery budget.",
     beginnerExplanation: "It gives most of the leg-building benefit of squatting with less balance/stability skill required and less total-body fatigue, leaving more recovery capacity for the upper-body-focused goal.",
@@ -1754,7 +1754,7 @@ export const LIBRARY_ENTRIES = [
     tags: ["hack squat", "leg training"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "why-two-hard-working-sets", title: "Why Two Hard Working Sets Can Work", category: "Project Reacher System", difficulty: "Intermediate",
+    slug: "why-two-hard-working-sets", title: "Why Two Hard Working Sets Can Work", category: "Aesthetic Protocol System", difficulty: "Intermediate",
     instantMeaning: "Fewer, harder sets can be as effective as more, easier ones — with less time and fatigue cost.",
     shortDefinition: "Two genuinely hard working sets (Set 1 ~1 RIR, Set 2 to technical failure) per exercise can deliver most of the effective-reps benefit of a higher-volume approach, at a lower total time and fatigue cost.",
     beginnerExplanation: "It's not about doing less — it's about making the sets you do count for more, so total training time and fatigue stay manageable.",
@@ -1765,9 +1765,9 @@ export const LIBRARY_ENTRIES = [
     readingTimeMin: 2, evidenceTier: "Good"
   }),
   E({
-    slug: "form-quality-controls-progression", title: "Why Form Quality Controls Progression", category: "Project Reacher System", difficulty: "Intermediate",
+    slug: "form-quality-controls-progression", title: "Why Form Quality Controls Progression", category: "Aesthetic Protocol System", difficulty: "Intermediate",
     instantMeaning: "A heavier, sloppier lift is not real progress.",
-    shortDefinition: "Progression recommendations in Project Reacher are gated on form quality, ROM, tempo and pain — a load increase is only suggested when reps hit the target range with good form, sufficient effort, consistent ROM, controlled tempo and no pain.",
+    shortDefinition: "Progression recommendations in Aesthetic Protocol are gated on form quality, ROM, tempo and pain — a load increase is only suggested when reps hit the target range with good form, sufficient effort, consistent ROM, controlled tempo and no pain.",
     beginnerExplanation: "The app deliberately won't tell you to add weight just because you hit more reps — it also checks whether those reps actually looked right.",
     whyItMatters: "Without this gate, progression tracking would reward exactly the kind of technique breakdown that leads to injury and wasted training time.",
     projectReacherApplication: "Do not expect a load-increase recommendation unless: reps hit the target range, RPE/RIR shows sufficient effort, form quality is high, ROM is consistent, tempo is controlled, and no pain/discomfort is logged.",
@@ -1775,7 +1775,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["valid-rep-standard", "progressive-overload"], tags: ["form quality", "progression gating"], readingTimeMin: 2, evidenceTier: "Implementation"
   }),
   E({
-    slug: "why-weekly-reviews-matter", title: "Why Weekly Reviews Matter", category: "Project Reacher System", difficulty: "Basic",
+    slug: "why-weekly-reviews-matter", title: "Why Weekly Reviews Matter", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "A regular checkpoint to catch trends early.",
     shortDefinition: "The Weekly Review aggregates the week's training, nutrition, bodyweight and recovery data into a single checkpoint, catching drift early rather than only noticing it after a month.",
     beginnerExplanation: "It's much easier to make a small correction after one off-track week than to notice a problem after a month of it compounding.",
@@ -1785,7 +1785,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["weekly-verdicts"], tags: ["weekly review"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "why-meal-tracking-matters", title: "Why Meal Tracking Matters", category: "Project Reacher System", difficulty: "Basic",
+    slug: "why-meal-tracking-matters", title: "Why Meal Tracking Matters", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "You can't manage what you don't measure.",
     shortDefinition: "Meal tracking gives visibility into whether actual intake matches the calorie/protein targets driving the lean bulk, without which calorie adjustments are just guesswork.",
     beginnerExplanation: "It's very easy to underestimate intake without tracking — meal tracking closes that gap so calorie/protein decisions are based on real data.",
@@ -1795,7 +1795,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["macro-tracking-ai-estimation", "confidence-score"], tags: ["meal tracking"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "why-sleep-monitored-not-preached", title: "Why Sleep is Monitored but Not Over-Preached", category: "Project Reacher System", difficulty: "Intermediate",
+    slug: "why-sleep-monitored-not-preached", title: "Why Sleep is Monitored but Not Over-Preached", category: "Aesthetic Protocol System", difficulty: "Intermediate",
     instantMeaning: "The app works within the sleep constraint instead of repeating unhelpful advice.",
     shortDefinition: "Given a genuine, fixed 5-6 hour sleep constraint from business workload, repeatedly telling the user to 'sleep 8 hours' isn't useful — instead the app monitors recovery through other signals and adjusts training within that real constraint.",
     beginnerExplanation: "The advice 'just sleep more' isn't actionable for everyone — so instead of repeating it, the app watches how the body is coping through performance, energy, soreness and other trend data.",
@@ -1805,7 +1805,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["fixed-sleep-constraint"], tags: ["sleep philosophy"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "why-ai-recommendations-require-approval", title: "Why AI Recommendations Require Approval", category: "Project Reacher System", difficulty: "Basic",
+    slug: "why-ai-recommendations-require-approval", title: "Why AI Recommendations Require Approval", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "The app suggests; you decide.",
     shortDefinition: "Every AI Coach or progression recommendation is a suggestion requiring your review and approval — nothing is auto-applied to your training or nutrition targets.",
     beginnerExplanation: "The app can be wrong, or miss context it doesn't have — keeping you as the final decision-maker is safer and keeps you learning the underlying principles, not just following orders.",
@@ -1815,7 +1815,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["ai-coach-recommendations", "suggested-edits"], tags: ["AI approval", "human in the loop"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "how-to-use-train-tab", title: "How to Use the Train Tab", category: "Project Reacher System", difficulty: "Basic",
+    slug: "how-to-use-train-tab", title: "How to Use the Train Tab", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "Select your day, log your sets, check the guide if unsure.",
     shortDefinition: "Pick the current training day, log each exercise's sets (weight, reps, RIR/RPE, form scores), expand the Technique Guide if unsure of form, and save the workout.",
     beginnerExplanation: "Each exercise card shows your last logged session so you know what to aim to beat — log honestly, including any pain flags.",
@@ -1825,7 +1825,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["logbook-progression", "valid-rep-standard"], tags: ["how to use train tab"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "how-to-use-meal-tab", title: "How to Use the Meal Tab", category: "Project Reacher System", difficulty: "Basic",
+    slug: "how-to-use-meal-tab", title: "How to Use the Meal Tab", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "Describe the meal, review the estimate, correct if needed.",
     shortDefinition: "Describe what you ate, let AI Macro Estimation suggest calories/macros, check the confidence score, correct the numbers if you know the real values, then save.",
     beginnerExplanation: "The more specific the meal description (brand, portion, cooking method), the more reliable the estimate will be.",
@@ -1835,7 +1835,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["macro-tracking-ai-estimation", "confidence-score"], tags: ["how to use meal tab"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "how-to-use-weekly-review", title: "How to Use the Weekly Review", category: "Project Reacher System", difficulty: "Basic",
+    slug: "how-to-use-weekly-review", title: "How to Use the Weekly Review", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "Generate it, read every verdict, act on what's weakest.",
     shortDefinition: "Generate the Weekly Check-In, read each sub-verdict (bodyweight, nutrition, training, recovery, stimulant), and act on whichever area is weakest rather than only the headline verdict.",
     beginnerExplanation: "It's built from that week's logged data, so consistent daily/session logging makes the review far more useful.",
@@ -1845,7 +1845,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["weekly-verdicts", "why-weekly-reviews-matter"], tags: ["how to use weekly review"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "how-to-interpret-ai-coach", title: "How to Interpret AI Coach Recommendations", category: "Project Reacher System", difficulty: "Basic",
+    slug: "how-to-interpret-ai-coach", title: "How to Interpret AI Coach Recommendations", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "Read the reasoning, not just the verdict.",
     shortDefinition: "Every AI Coach recommendation comes with a stated reason drawn from your logged data — read that reasoning to judge whether it fits your own sense of the session, not just the headline suggestion.",
     beginnerExplanation: "If a recommendation doesn't match how the session actually felt, that's worth a second look — the app only knows what you logged.",
@@ -1855,7 +1855,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["ai-coach-recommendations"], tags: ["interpreting AI coach"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "how-to-decide-increase-weight", title: "How to Decide Whether to Increase Weight", category: "Project Reacher System", difficulty: "Intermediate",
+    slug: "how-to-decide-increase-weight", title: "How to Decide Whether to Increase Weight", category: "Aesthetic Protocol System", difficulty: "Intermediate",
     instantMeaning: "Top of the rep range, good form, no pain — then add a small increment.",
     shortDefinition: "Increase load when both working sets hit the top of the target rep range with good form quality, consistent ROM, controlled tempo, and no pain — then add a small increment and drop back toward the bottom of the rep range.",
     beginnerExplanation: "This is double progression in practice — see the Progression Methods article for the full underlying logic.",
@@ -1865,7 +1865,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["progression-methods", "form-quality-controls-progression"], tags: ["deciding to increase weight"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "what-counts-as-good-progress", title: "What Counts as Good Progress", category: "Project Reacher System", difficulty: "Basic",
+    slug: "what-counts-as-good-progress", title: "What Counts as Good Progress", category: "Aesthetic Protocol System", difficulty: "Basic",
     instantMeaning: "Multiple signals moving the right direction together, not just one number.",
     shortDefinition: "Good progress means strength trending up, measurements moving toward target proportions, waist staying controlled relative to that, and recovery holding up — not any single metric alone.",
     beginnerExplanation: "A single great session, or a single week of fast scale-weight gain, doesn't tell the whole story — look for several signals agreeing over several weeks.",
@@ -1875,7 +1875,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["reacher-score", "lean-gain-quality-score"], tags: ["good progress"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "how-to-know-calories-should-increase", title: "How to Know if Calories Should Increase", category: "Project Reacher System", difficulty: "Intermediate",
+    slug: "how-to-know-calories-should-increase", title: "How to Know if Calories Should Increase", category: "Aesthetic Protocol System", difficulty: "Intermediate",
     instantMeaning: "Weekly rate of gain consistently below target, with training performance still fine.",
     shortDefinition: "Consider increasing calories if the 7-day average weight trend runs consistently below the ~+0.25 kg/week target for 2+ weeks, especially if training performance is also flat or declining.",
     beginnerExplanation: "A slow gain rate over several weeks, not just one, is the signal — plus checking that low energy/performance isn't a separate recovery issue instead.",
@@ -1885,7 +1885,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["weekly-rate-of-gain", "calories-energy-balance"], tags: ["increasing calories"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "how-to-know-volume-should-increase", title: "How to Know if Volume Should Increase", category: "Project Reacher System", difficulty: "Intermediate",
+    slug: "how-to-know-volume-should-increase", title: "How to Know if Volume Should Increase", category: "Aesthetic Protocol System", difficulty: "Intermediate",
     instantMeaning: "Only once recovery clearly supports it.",
     shortDefinition: "Consider adding volume (an extra set or exercise) only once current volume is consistently well-recovered from — stable or improving Recovery/Energy scores, no persistent soreness, and strength still climbing.",
     beginnerExplanation: "More volume is not automatically better, especially given a fixed, limited sleep budget — it should be added deliberately, not by default.",
@@ -1895,7 +1895,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["recovery-resilience-score", "training-volume-effective-reps"], tags: ["increasing volume"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "how-to-know-recovery-limiting", title: "How to Know if Recovery is Limiting Progress", category: "Project Reacher System", difficulty: "Intermediate",
+    slug: "how-to-know-recovery-limiting", title: "How to Know if Recovery is Limiting Progress", category: "Aesthetic Protocol System", difficulty: "Intermediate",
     instantMeaning: "Multiple recovery signals trending down together, alongside stalling performance.",
     shortDefinition: "Recovery is likely the limiting factor if Recovery/Energy scores trend down, soreness stays elevated, and performance (reps/weight) flattens or drops across multiple exercises simultaneously.",
     beginnerExplanation: "One bad session rarely means recovery is the bottleneck — a pattern across several sessions and several signals together is the real signal.",
@@ -1905,7 +1905,7 @@ export const LIBRARY_ENTRIES = [
     relatedTerms: ["deload-readiness", "recovery-resilience-score"], tags: ["recovery limiting progress"], readingTimeMin: 1, evidenceTier: "Implementation"
   }),
   E({
-    slug: "how-to-adapt-training-to-your-own-style", title: "How to Adapt Training to Your Own Style", category: "Project Reacher System", difficulty: "Advanced",
+    slug: "how-to-adapt-training-to-your-own-style", title: "How to Adapt Training to Your Own Style", category: "Aesthetic Protocol System", difficulty: "Advanced",
     instantMeaning: "Methods can change; the underlying principles don't.",
     shortDefinition: "Over time, exercises, rep ranges and set counts can reasonably be adapted to individual preference and response — as long as progressive overload, form quality, recovery, calories, protein and waist control remain the guiding principles.",
     beginnerExplanation: "The specific program here is one valid way to apply the principles, not the only way — the goal is to eventually understand the principles well enough to adapt intelligently.",
@@ -2091,7 +2091,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "BCAAs (branched-chain amino acids) are low priority for a lifter already hitting their daily protein target — a complete protein source already provides them.",
     beginnerExplanation: "BCAAs are three amino acids that are also part of any complete protein — supplementing them separately mainly matters if total protein intake is genuinely insufficient.",
     whyItMatters: "This is one of the most over-marketed supplement categories relative to its actual evidence base for someone already eating enough protein.",
-    projectReacherApplication: "At roughly 140g protein/day, BCAAs are not treated as important in Project Reacher's supplement guidance.",
+    projectReacherApplication: "At roughly 140g protein/day, BCAAs are not treated as important in Aesthetic Protocol's supplement guidance.",
     practicalAction: ["Prioritise hitting total daily protein through food/whey before considering BCAAs at all."],
     cautionNuance: "Not harmful in normal doses — just not the priority supplement people often assume.",
     relatedTerms: ["beta-alanine-library", "creatine-monohydrate-library"], tags: ["supplements", "low priority"], readingTimeMin: 1, evidenceTier: "Low"
@@ -2133,7 +2133,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "Peptides are a broad, unevenly-regulated compound class sometimes discussed in fitness contexts; this app provides education only, never dosing, sourcing or cycle guidance.",
     beginnerExplanation: "Quality, legality, purity and medical suitability vary enormously — this is a medical decision, not a supplement decision.",
     whyItMatters: "Unregulated sourcing carries real health risk, and evidence for fitness-marketing claims is often much weaker than presented.",
-    projectReacherApplication: "Project Reacher's natural, evidence-first approach does not require or recommend this category — sleep, food, hydration and training load are the foundation.",
+    projectReacherApplication: "Aesthetic Protocol's natural, evidence-first approach does not require or recommend this category — sleep, food, hydration and training load are the foundation.",
     practicalAction: ["Discuss with a qualified healthcare professional before considering this category for any reason.", "Do not self-prescribe."],
     cautionNuance: "Educational only. The app does not recommend this as a protocol, and does not provide dosing, sourcing, or cycles.",
     relatedTerms: ["bpc-157-library", "when-to-seek-professional-help"], tags: ["medical", "education only"], readingTimeMin: 2, evidenceTier: "Low"
@@ -2144,7 +2144,7 @@ export const LIBRARY_ENTRIES = [
     shortDefinition: "BPC-157 is a synthetic peptide sometimes discussed in relation to soft-tissue recovery; human evidence is limited, sourcing/purity are unverifiable outside medical supply chains, and this app does not recommend it as a protocol.",
     beginnerExplanation: "Most of what's circulated about this compound comes from limited preclinical evidence, not established human clinical use for this purpose.",
     whyItMatters: "Persistent tendon or joint pain deserves a proper assessment, not a self-sourced compound.",
-    projectReacherApplication: "For persistent tendon/joint discomfort, Project Reacher's Joint/Tendon Warning Protocol points toward load management and a sports physio — never toward this.",
+    projectReacherApplication: "For persistent tendon/joint discomfort, Aesthetic Protocol's Joint/Tendon Warning Protocol points toward load management and a sports physio — never toward this.",
     practicalAction: ["See a sports physio or qualified medical professional for persistent soft-tissue pain instead."],
     cautionNuance: "Educational only. Not FDA-approved for this use; legal status varies. Do not self-prescribe.",
     relatedTerms: ["peptides-education-library", "when-to-seek-professional-help"], tags: ["medical", "education only"], readingTimeMin: 2, evidenceTier: "Low"

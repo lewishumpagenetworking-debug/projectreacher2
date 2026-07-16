@@ -82,7 +82,7 @@ export function readFileAsText(file) {
 export async function parseReviewFile(file, currentData) {
   const ext = fileExtension(file.name);
   if (UNSUPPORTED_EXTENSIONS.includes(ext)) {
-    throw new Error(`"${ext.toUpperCase()}" files aren't supported yet — Project Reacher runs entirely in your browser with no server to process Word or PDF documents. Please export your GPT review as .txt, .md or .json and upload that instead.`);
+    throw new Error(`"${ext.toUpperCase()}" files aren't supported yet — Aesthetic Protocol runs entirely in your browser with no server to process Word or PDF documents. Please export your GPT review as .txt, .md or .json and upload that instead.`);
   }
   if (!SUPPORTED_EXTENSIONS.includes(ext)) {
     throw new Error(`Unsupported file type ".${ext}". Supported formats: ${SUPPORTED_EXTENSIONS.map(e => "." + e).join(", ")}.`);

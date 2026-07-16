@@ -2,7 +2,7 @@ import { $ } from "./dom.js";
 
 const TAB_TITLES = {
   dashboard: "Dashboard", train: "Train", body: "Body", appearance: "Appearance",
-  nutrition: "Nutrition", recovery: "Recovery", library: "Library", more: "More"
+  nutrition: "Nutrition", recovery: "Recovery", constraint: "Constraint", library: "Library", more: "More"
 };
 
 let isOpen = false;
