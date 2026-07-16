@@ -1020,6 +1020,51 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .hero-stat strong { font-size: 19px; margin-top: 4px; }
 .hero-cta { width: 100%; margin-top: 6px; font-size: 15.5px; padding: 15px 16px; }
 
+/* ---- Instrument-readout numeric style (spec: "instrument readout" typography for
+   large/live numbers) — reused for session progress %, active-set inputs, etc. ---- */
+.instrument-readout {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  color: var(--accent);
+}
+
+/* ---- Active Workout Screen (Phase 2b): stronger exercise-name hierarchy + bolder
+   set-logging inputs, visual only — no change to markup structure or handlers. ---- */
+.exercise h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.exercise.is-active h3 { color: var(--accent); }
+.set-row input {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  text-align: center;
+}
+.workout-progress-label span:last-child {
+  font-family: var(--font-display);
+  font-weight: 900;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+
+/* ---- Weekly Review / Constraint screen (Phase 2b): bolder primary-outcome headline ---- */
+.weekly-outcome-banner {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.constraint-cause-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
 /* ---- Progression Feed (spec 6.9) ---- */
 .progression-feed-item { padding: 8px 0; border-top: 1px solid var(--line); color: var(--text); }
 .progression-feed-item:first-child { border-top: 0; }

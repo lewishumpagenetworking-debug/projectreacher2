@@ -211,7 +211,7 @@ function renderLabConstraintHistory(data) {
   const closed = (data.constraintCases || []).filter(c => ["resolved", "dismissed"].includes(c.status)).slice(-6).reverse();
 
   el.innerHTML = closed.length
-    ? closed.map(c => `<div class="history-item"><strong>${esc(c.rankedCauses?.[0]?.title || c.primaryRuleId)}</strong> · <span class="badge">${esc(c.status)}</span> <span class="small">Category: ${esc(c.outcomeType || "--")}</span></div>`).join("")
+    ? closed.map(c => `<div class="history-item"><strong class="constraint-cause-title">${esc(c.rankedCauses?.[0]?.title || c.primaryRuleId)}</strong> · <span class="badge">${esc(c.status)}</span> <span class="small">Category: ${esc(c.outcomeType || "--")}</span></div>`).join("")
     : "<p class='small'>No closed constraint cases yet — see the Constraint tab for anything currently active.</p>";
 }
 
