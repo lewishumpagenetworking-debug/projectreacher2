@@ -43,6 +43,7 @@ import { renderImageLibrary, setupImageLibraryEventDelegation } from "./render-i
 import { renderSessionNutritionCards, renderBodyweightReviewNotice } from "./render-session-nutrition.js";
 import { renderConstraintPage, completeWeeklyReview } from "./render-constraint.js";
 import { renderProgressTaskList, renderPageTasks } from "./render-task-list.js";
+import { renderProgressLab, setupProgressLabEventDelegation } from "./render-progress-lab.js";
 
 export function refreshAll() {
   const data = getData();
@@ -82,6 +83,7 @@ export function refreshAll() {
   renderLibrary(data);
   renderReviewCentre(data);
   renderConstraintPage(data);
+  renderProgressLab(data);
   renderProgressTaskList(data);
   renderPageTasks(data, "train", "trainPageTasks");
   renderPageTasks(data, "body", "bodyPageTasks");
@@ -321,6 +323,7 @@ setupLibraryEventDelegation();
 setupReviewEventDelegation();
 setupTasksEventDelegation();
 setupDashboardChartEventDelegation();
+setupProgressLabEventDelegation();
 setupRemindersEventDelegation();
 startReminderScheduler();
 setupVisionBoardEventDelegation();

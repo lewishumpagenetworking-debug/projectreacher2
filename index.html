@@ -39,6 +39,7 @@
         <button class="nav-btn" data-tab="nutrition"><span class="drawer-icon">🍽️</span> Nutrition</button>
         <button class="nav-btn" data-tab="recovery"><span class="drawer-icon">😴</span> Recovery</button>
         <button class="nav-btn" data-tab="constraint"><span class="drawer-icon">🧭</span> Constraint</button>
+        <button class="nav-btn" data-tab="progress-lab"><span class="drawer-icon">📈</span> Progress Lab</button>
         <button class="nav-btn" data-tab="library"><span class="drawer-icon">📚</span> Library</button>
         <button class="nav-btn" data-tab="more"><span class="drawer-icon">⚙️</span> More</button>
       </div>
@@ -56,6 +57,7 @@
       <button class="nav-btn" data-tab="nutrition">Nutrition</button>
       <button class="nav-btn" data-tab="recovery">Recovery</button>
       <button class="nav-btn" data-tab="constraint">Constraint</button>
+      <button class="nav-btn" data-tab="progress-lab">Progress Lab</button>
       <button class="nav-btn" data-tab="library">Library</button>
       <button class="nav-btn" data-tab="more">More</button>
     </nav>
@@ -1351,6 +1353,53 @@
       <section class="card">
         <h2>Case History</h2>
         <div id="constraintCaseHistory"></div>
+      </section>
+    </section>
+
+    <!-- ================= PROGRESS LAB ================= -->
+    <section class="tab-panel" data-tab="progress-lab" id="progressLabRoot" hidden>
+      <section class="card">
+        <p class="eyebrow">ANALYTICS</p>
+        <h2>Progress Lab</h2>
+        <p class="small">An expanded, aggregated read of the same data already tracked across Dashboard, Train, Body and Recovery — nothing here is calculated differently, it's just denser.</p>
+        <div id="progressLabSummaryStrip"></div>
+      </section>
+
+      <section class="card">
+        <h2>Bodyweight Trend</h2>
+        <div id="progressLabWeightRange" class="time-range-toggle" role="group" aria-label="Bodyweight trend time range"></div>
+        <div id="progressLabWeightChart" class="chart-box"></div>
+      </section>
+
+      <section class="card">
+        <h2>Weekly Training Volume by Muscle Group</h2>
+        <div id="progressLabVolumeChartType" class="chart-type-toggle" role="group" aria-label="Volume chart type"></div>
+        <div id="progressLabVolumeChart" class="chart-box"></div>
+      </section>
+
+      <section class="card">
+        <h2>Nutrition Adherence — Last 7 Days</h2>
+        <div id="progressLabNutritionChart" class="chart-box"></div>
+      </section>
+
+      <section class="card">
+        <h2>Exercise Progression</h2>
+        <div id="progressLabProgressionList"></div>
+      </section>
+
+      <section class="card">
+        <h2>Waist Measurement Trend</h2>
+        <div id="progressLabMeasurementsChart" class="chart-box"></div>
+      </section>
+
+      <section class="card">
+        <h2>Sleep &amp; Recovery</h2>
+        <div id="progressLabSleepRecovery"></div>
+      </section>
+
+      <section class="card">
+        <h2>Constraint History</h2>
+        <div id="progressLabConstraintHistory"></div>
       </section>
     </section>
 
