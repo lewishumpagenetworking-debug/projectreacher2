@@ -1,6 +1,6 @@
 import { $, esc } from "./dom.js";
 import { VISION_BOARD_CATEGORIES } from "./image-constants.js";
-import { galleryGridHtml, galleryUploaderHtml, uploadSlotHtml, resolveImageUrls, bindGalleryContainer } from "./image-gallery.js";
+import { galleryGridHtml, galleryUploaderHtml, uploadSlotHtml, resolveImageUrls, bindGalleryContainer, openLightbox } from "./image-gallery.js";
 import { getImagesFor, addImagesFromFiles, replaceImageFile, removeImage, reorderImages, addCustomCategory } from "./vision-images.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
@@ -13,6 +13,8 @@ function allVisionCategories(data) {
 }
 
 const PHYSIQUE_COVER_FIELD = "physique-board-cover";
+let lastCover = null;
+let lastCoverUrlMap = new Map();
 
 export async function renderTargetPhysiqueBoard(data) {
   const coverEl = $("physiqueBoardCover");
@@ -23,6 +25,8 @@ export async function renderTargetPhysiqueBoard(data) {
   const images = getImagesFor({ category: "physique", relatedEntityType: null }, data);
   const urlMap = await resolveImageUrls(images);
   const cover = images[0] || null;
+  lastCover = cover;
+  lastCoverUrlMap = urlMap;
 
   coverEl.hidden = false;
   coverEl.classList.toggle("physique-board-cover-filled", !!cover);
@@ -114,6 +118,8 @@ export function setupVisionBoardEventDelegation() {
     if (e.target.closest("#addVisionCategoryBtn")) { addVisionCategory(); return; }
     const coverRemoveBtn = e.target.closest("#physiqueBoardCover [data-gallery-remove]");
     if (coverRemoveBtn) { handlePhysiqueBoardCoverRemove(coverRemoveBtn.dataset.galleryRemove); return; }
+    const coverLightboxBtn = e.target.closest("#physiqueBoardCover [data-gallery-open-lightbox]");
+    if (coverLightboxBtn && lastCover) { openLightbox([lastCover], lastCoverUrlMap, lastCover.id); return; }
   });
   document.addEventListener("change", (e) => {
     const categoryInput = e.target.closest("#visionBoardCategories [data-gallery-upload]");
