@@ -66,15 +66,18 @@
       <div id="visual-dashboard"></div>
 
       <section class="card command-hero" id="heroMissionCard">
-        <p class="mission-tag">Today's Mission</p>
-        <p class="hero-headline" id="heroNextWorkoutName">--</p>
-        <div class="hero-stat-row">
-          <div class="hero-stat"><span>Phase</span><strong id="heroPhase">--</strong></div>
-          <div class="hero-stat"><span>Bodyweight</span><strong id="heroWeight">--</strong></div>
-          <div class="hero-stat"><span>Weekly Gain Target</span><strong id="heroGainTarget">--</strong></div>
-          <div class="hero-stat"><span>Recovery Status</span><strong id="heroRecovery">--</strong></div>
+        <div id="heroTargetImageLayer" class="hero-target-image-layer" hidden></div>
+        <div class="hero-content">
+          <p class="mission-tag">Today's Mission</p>
+          <p class="hero-headline" id="heroNextWorkoutName">--</p>
+          <div class="hero-stat-row">
+            <div class="hero-stat"><span>Phase</span><strong id="heroPhase">--</strong></div>
+            <div class="hero-stat"><span>Bodyweight</span><strong id="heroWeight">--</strong></div>
+            <div class="hero-stat"><span>Weekly Gain Target</span><strong id="heroGainTarget">--</strong></div>
+            <div class="hero-stat"><span>Recovery Status</span><strong id="heroRecovery">--</strong></div>
+          </div>
+          <button type="button" class="hero-cta" id="heroStartWorkoutBtn" data-goto-tab="train">Start / Resume Workout</button>
         </div>
-        <button type="button" class="hero-cta" id="heroStartWorkoutBtn" data-goto-tab="train">Start / Resume Workout</button>
       </section>
 
       <section class="card" id="progressTaskListCard">
@@ -151,6 +154,11 @@
       <section class="card">
         <h2>Reward Unlocks</h2>
         <div id="badgeGrid" class="badge-tile-grid"></div>
+      </section>
+
+      <section class="card" id="progressionFeedCard" hidden>
+        <h2>Progression Feed</h2>
+        <div id="progressionFeed"></div>
       </section>
 
       <section class="grid stats">

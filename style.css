@@ -982,10 +982,28 @@ table.data-table th { color: var(--muted); font-weight: 700; }
     linear-gradient(160deg, var(--card-hi), var(--card));
   border: 1px solid var(--line-hi);
   box-shadow: var(--shadow), inset 0 0 0 1px rgba(201, 255, 59, 0.06);
+  position: relative;
+  overflow: hidden;
 }
 .command-hero .mission-tag { color: var(--accent-2); }
 .command-hero h1, .command-hero h2 { margin-bottom: 4px; }
-.hero-headline { font-size: 21px; font-weight: 800; margin: 2px 0 10px; text-transform: none; letter-spacing: 0; }
+.hero-headline { font-family: var(--font-display); font-size: 21px; font-weight: 900; margin: 2px 0 10px; text-transform: none; letter-spacing: -0.01em; }
+/* Cinematic target-physique backdrop (spec 6.1) — the user's own Vision Board image, a
+   dark gradient scrim for legibility, and a slow zoom on load. .hero-content sits above it. */
+.hero-target-image-layer {
+  position: absolute; inset: 0; z-index: 0;
+  background-size: cover; background-position: center;
+  animation: hero-image-zoom 12s ease-out forwards;
+}
+.hero-target-image-layer::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(8, 9, 10, 0.35) 0%, rgba(8, 9, 10, 0.92) 100%);
+}
+@keyframes hero-image-zoom {
+  from { transform: scale(1.06); }
+  to { transform: scale(1); }
+}
+.hero-content { position: relative; z-index: 1; }
 .hero-stat-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
@@ -1001,6 +1019,10 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .hero-stat span { display: block; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
 .hero-stat strong { font-size: 19px; margin-top: 4px; }
 .hero-cta { width: 100%; margin-top: 6px; font-size: 15.5px; padding: 15px 16px; }
+
+/* ---- Progression Feed (spec 6.9) ---- */
+.progression-feed-item { padding: 8px 0; border-top: 1px solid var(--line); color: var(--text); }
+.progression-feed-item:first-child { border-top: 0; }
 
 /* ---- Progress command grid / tiles ---- */
 .command-tile { display: flex; flex-direction: column; gap: 6px; }

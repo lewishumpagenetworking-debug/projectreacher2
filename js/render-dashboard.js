@@ -45,6 +45,7 @@ export function renderDashboard(data) {
   $("currentWeight").textContent = `${fmt(currentWeight)}kg`;
 
   renderHeroMission(data, currentWeight);
+  renderHeroTargetImage(data);
   renderAttentionPanel(data);
   renderVisionPreview(data);
   renderDailyMonthlyChecklist(data);
@@ -52,6 +53,7 @@ export function renderDashboard(data) {
   renderRecoveryDashboardCards(data);
   renderStreaks(data);
   renderBadges(data);
+  renderProgressionFeed(data);
   renderNextObjective(data);
 
   const sevenDay = sevenDayAverage(data.bodyweightLogs, "morningBodyweight");
@@ -180,6 +182,64 @@ function renderHeroMission(data, currentWeight) {
   const latestRecovery = data.recoveryLogs.at(-1);
   const heroRecovery = $("heroRecovery");
   if (heroRecovery) heroRecovery.textContent = latestRecovery ? `${latestRecovery.recoveryScore ?? "--"}/5` : "--";
+}
+
+/**
+ * Cinematic hero backdrop (spec section 6.1): shows the user's own "Physique" Vision Board
+ * reference image, if one exists, behind the mission card with a gradient overlay for
+ * legibility. Purely presentational — reuses the existing image upload/storage backend
+ * (js/vision-images.js, js/image-gallery.js) exactly as the Vision Preview card already
+ * does; adds no new image data model, no crop/focal-point behaviour.
+ */
+async function renderHeroTargetImage(data) {
+  const layer = $("heroTargetImageLayer");
+  if (!layer) return;
+  const images = getImagesFor({ category: "physique", relatedEntityType: null }, data);
+  if (!images.length) { layer.hidden = true; layer.style.backgroundImage = ""; return; }
+  const primary = images[0];
+  const urlMap = await resolveImageUrls([primary]);
+  const url = urlMap.get(primary.id);
+  if (!url) { layer.hidden = true; return; }
+  layer.style.backgroundImage = `url("${url}")`;
+  layer.hidden = false;
+}
+
+/**
+ * Compact recent-wins feed (spec section 6.9): assembled entirely from data the app
+ * already computes elsewhere (flagged load increases, bodyweight rate of gain, weekly
+ * compliance, recently-achieved PRs) — no new calculation logic, purely a presentational
+ * selection/formatting pass.
+ */
+function renderProgressionFeed(data) {
+  const card = $("progressionFeedCard");
+  const el = $("progressionFeed");
+  if (!card || !el) return;
+
+  const items = [];
+  const lastWorkout = data.workouts.at(-1);
+  if (lastWorkout) {
+    (lastWorkout.exercises || []).filter(e => e.increaseNextWeek).slice(0, 3).forEach(e => {
+      items.push(`${esc(e.name)} flagged to increase load next session`);
+    });
+  }
+  const rate = weeklyRateOfGain(data.bodyweightLogs);
+  if (rate != null && rate > 0) {
+    items.push(`Bodyweight moving average trending +${fmt(rate, 2)}kg/week`);
+  }
+  const compliance = weeklyComplianceRate(data.workouts, data.trainingProgram, new Date());
+  if (compliance != null && compliance >= 80) {
+    items.push(`Weekly session adherence at ${compliance}%`);
+  }
+  const recentPr = data.prs
+    .filter(p => p.dateAchieved && (Date.now() - new Date(p.dateAchieved).getTime()) / 86400000 <= 14)
+    .sort((a, b) => new Date(b.dateAchieved) - new Date(a.dateAchieved))[0];
+  if (recentPr) {
+    items.push(`${esc(recentPr.exerciseName)} PR logged: ${esc(recentPr.currentBest || recentPr.goal)}`);
+  }
+
+  if (!items.length) { card.hidden = true; return; }
+  card.hidden = false;
+  el.innerHTML = items.map(text => `<p class="small progression-feed-item">${text}</p>`).join("");
 }
 
 function renderProgressCommandGrid(data) {
