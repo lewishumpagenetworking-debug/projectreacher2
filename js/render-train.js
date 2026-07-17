@@ -1,5 +1,5 @@
 import { $, esc } from "./dom.js";
-import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore, farmersCarryAnalytics, exerciseProgressionStatus, recoveryMealCompliance, preWorkoutReadinessToday, sessionReviewMissingFields } from "./calculations.js";
+import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore, farmersCarryAnalytics, exerciseProgressionStatus, recoveryMealCompliance, preWorkoutReadinessToday, sessionReviewMissingFields, exerciseCompletedInCustomSessionThisWeek } from "./calculations.js";
 import { getData, saveData, uid, DEFAULT_SESSION_REVIEW } from "./data.js";
 import { metricLabel } from "./metric-info.js";
 import { showMissionStart, celebrateSetRow, celebrateExerciseComplete, showOperationComplete, formatVolumeComparison } from "./reward-system.js";
@@ -8,8 +8,27 @@ import { renderSavedWorkoutSessionNutrition } from "./render-session-nutrition.j
 import { CONSTRAINT_ENGINE_VERSION } from "./constraint-engine.js";
 import { CONSTRAINT_LIBRARY_VERSION } from "./constraint-library.js";
 import { generateProgressTasks, TASK_SECTIONS } from "./task-engine.js";
+import { isCustomSessionDay, customSessionIdFromDay, getCustomSession } from "./custom-sessions.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
+
+// Sentinel daySelect value for the bottom "Create Custom Session" dropdown option (spec:
+// contingency training feature). Never a real program day or a "custom:<id>" key, so it
+// can never collide with a real session or accidentally get treated as one to render/save.
+export const CREATE_CUSTOM_SESSION_VALUE = "__create_custom_session__";
+
+/** A day's exercise list, whether it's a real programme day or a custom session's own list — same {name, repRange, note}-shaped entries either way, so every caller downstream (card rendering, mission focus points, saving) needs no further branching. */
+function getSessionExercises(data, day) {
+  if (isCustomSessionDay(day)) {
+    const cs = getCustomSession(data, customSessionIdFromDay(day));
+    return cs ? cs.exercises : [];
+  }
+  return data.trainingProgram[day] || [];
+}
+
+function customSessionForDay(data, day) {
+  return isCustomSessionDay(day) ? getCustomSession(data, customSessionIdFromDay(day)) : null;
+}
 
 // In-memory only — resets on page reload, i.e. "remembered for the current workout".
 // Also persisted into the active workout draft (see below) so it survives a reload too.
@@ -52,7 +71,13 @@ function calcDistance(entry, trackLength) {
 export function renderDaySelect(data) {
   const select = $("daySelect");
   const days = Object.keys(data.trainingProgram);
-  select.innerHTML = days.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join("");
+  const customOptions = (data.customSessions || []).map(cs =>
+    `<option value="custom:${esc(cs.id)}">⚡ ${esc(cs.name)} (Custom)</option>`
+  ).join("");
+  select.innerHTML =
+    days.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join("") +
+    customOptions +
+    `<option value="${CREATE_CUSTOM_SESSION_VALUE}">Create Custom Session</option>`;
 }
 
 const VALID_REP_ITEMS = [
@@ -104,7 +129,9 @@ function renderGuideContent(def) {
 
 export function renderWorkoutForm(data) {
   const day = $("daySelect").value || Object.keys(data.trainingProgram)[0];
-  const exercises = data.trainingProgram[day] || [];
+  if (day === CREATE_CUSTOM_SESSION_VALUE) return; // handled by main.js's daySelect change handler, which opens the builder instead
+  const exercises = getSessionExercises(data, day);
+  const activeCustomSession = customSessionForDay(data, day);
   const trackLength = data.profile?.functionalTrackLengthMetres || 15;
   const readiness = readinessScore(data);
   const rawMealCompliance = recoveryMealCompliance(data.mealLogs);
@@ -128,6 +155,13 @@ export function renderWorkoutForm(data) {
     const reasonLine = nextSession ? `<p class="small">Reason: ${esc(nextSession.reason)}</p>` : "";
     const lastDisplay = isDistanceBased ? formatDistanceSet(history.lastSession, trackLength) : formatSet(history.lastSession);
     const bestDisplay = isDistanceBased ? formatDistanceSet(history.previousBest, trackLength) : formatSet(history.previousBest);
+    // Custom Session Builder (contingency training feature): the app tracks exercises
+    // rather than relying on session names, so an exercise already logged this week in a
+    // DIFFERENT session (custom or, indirectly, the current one) is flagged here rather
+    // than left looking untouched — prevents accidentally repeating it later in the week.
+    const completedElsewhere = exerciseCompletedInCustomSessionThisWeek(data.workouts, x.name);
+    const completedElsewhereBadge = (completedElsewhere && completedElsewhere.day !== day)
+      ? `<span class="exercise-state-tag tag-progression">Completed in Custom Session</span>` : "";
 
     return `
     <div class="exercise" data-exercise="${esc(x.name)}" ${isDistanceBased ? `data-distance-based="true" data-track-length="${trackLength}"` : ""}>
@@ -138,6 +172,7 @@ export function renderWorkoutForm(data) {
             <span class="exercise-state-tag tag-active" hidden>Active Exercise</span>
             <span class="exercise-state-tag tag-complete" hidden>Exercise Complete</span>
             ${exerciseDef?.primaryMuscle ? `<span class="exercise-state-tag tag-muscle">${esc(exerciseDef.primaryMuscle)}</span>` : ""}
+            ${completedElsewhereBadge}
           </div>
           <div class="small">Target: ${esc(x.repRange)} · Last: ${lastDisplay} · Best: ${bestDisplay}</div>
           ${recBadge ? `<div class="badge-row">${recBadge}</div>` : ""}
@@ -296,7 +331,7 @@ function handleWorkoutInputReward(target) {
 }
 
 export function getMissionFocusPoints(data, day) {
-  const exercises = data.trainingProgram[day] || [];
+  const exercises = getSessionExercises(data, day);
   const cues = [];
   exercises.forEach(x => {
     const def = data.exercises.find(e => e.name === x.name);
@@ -307,8 +342,9 @@ export function getMissionFocusPoints(data, day) {
 
 export function startMission(data) {
   const day = $("daySelect")?.value || Object.keys(data.trainingProgram)[0];
-  if (!day) return;
-  showMissionStart(day, getMissionFocusPoints(data, day));
+  if (!day || day === CREATE_CUSTOM_SESSION_VALUE) return;
+  const displayName = customSessionForDay(data, day)?.name || day;
+  showMissionStart(displayName, getMissionFocusPoints(data, day));
 }
 
 function readEntryFromCard(el) {
@@ -564,7 +600,7 @@ function buildCompletionSummary(workout, exercises, data, prs) {
     ? `Add reps or load to ${progressionCandidates[0]} next session.`
     : "Repeat this session's loads with cleaner form and full range of motion.";
   return {
-    day: workout.day,
+    day: workout.sessionName || workout.day,
     date: workout.date,
     exerciseCount: exercises.length,
     setCount,
@@ -680,16 +716,28 @@ export function saveWorkout() {
         .map(t => ({ id: t.id, title: t.title, priority: t.priority, section: t.section }))
     );
 
+    // Custom Session Builder (contingency training feature): a custom session's "day" is
+    // its own synthetic key (never a real programme day, so it can never be mistaken for
+    // completing that programme day) — programDay stays null since a split/redistributed
+    // session usually isn't "standing in" for exactly one day, sessionName carries the
+    // human-readable name instead, and sourceSessions/constraintReason are copied from
+    // the plan so a completed workout still shows where its exercises originally came
+    // from even if the plan is edited or deleted later.
+    const activeCustomSession = customSessionForDay(data, day);
     const workout = {
       id: uid(),
       date: new Date().toLocaleDateString("en-CA"),
       day,
-      programDay: day,
-      sessionName: day,
+      programDay: activeCustomSession ? null : day,
+      sessionName: activeCustomSession ? activeCustomSession.name : day,
       exercises,
       startedAt, completedAt: now, sessionNutritionSnapshot, sessionReview,
       activeInterventionSnapshot, taskCompletionSnapshot,
-      engineVersion: `${CONSTRAINT_ENGINE_VERSION}+${CONSTRAINT_LIBRARY_VERSION}`
+      engineVersion: `${CONSTRAINT_ENGINE_VERSION}+${CONSTRAINT_LIBRARY_VERSION}`,
+      isCustomSession: !!activeCustomSession,
+      customSessionId: activeCustomSession ? activeCustomSession.id : null,
+      sourceSessions: activeCustomSession ? activeCustomSession.sourceSessions : [],
+      constraintReason: activeCustomSession ? (activeCustomSession.constraintReason || null) : null
     };
     data.workouts.push(workout);
     data.activeWorkoutDraft = null;
@@ -876,8 +924,9 @@ export function renderWorkoutHistory(data) {
   if (full) {
     full.innerHTML = data.workouts.slice().reverse().map(w => `
       <details class="history-item expandable-card">
-        <summary><strong>${esc(w.date)}</strong> · ${esc(w.day)} · Volume ${Math.round(totalVolume(w))}kg</summary>
+        <summary><strong>${esc(w.date)}</strong> · ${w.isCustomSession ? `<span class="badge custom-session-label">CUSTOM SESSION</span> ` : ""}${esc(w.sessionName || w.day)} · Volume ${Math.round(totalVolume(w))}kg</summary>
         <p class="small">${(w.exercises || []).map(e => `${esc(e.name)}: ${e.set1Weight}x${e.set1Reps}, ${e.set2Weight}x${e.set2Reps}${e.increaseNextWeek ? " ⬆️" : ""}`).join("<br>")}</p>
+        ${w.constraintReason ? `<p class="small">Reason: ${esc(w.constraintReason)}</p>` : ""}
         ${renderSavedWorkoutSessionNutrition(w, data)}
         ${sessionReviewEditorHtml(w)}
         <div class="actions">
@@ -888,7 +937,7 @@ export function renderWorkoutHistory(data) {
   const recent = $("sessionHistory");
   if (recent) {
     recent.innerHTML = data.workouts.slice(-5).reverse().map(w => `
-      <div class="history-item"><strong>${esc(w.date)}</strong> · ${esc(w.day)} · Volume ${Math.round(totalVolume(w))}kg</div>
+      <div class="history-item"><strong>${esc(w.date)}</strong> · ${w.isCustomSession ? `<span class="badge custom-session-label">CUSTOM SESSION</span> ` : ""}${esc(w.sessionName || w.day)} · Volume ${Math.round(totalVolume(w))}kg</div>
     `).join("") || "<p class='small'>No workouts logged yet.</p>";
   }
 }

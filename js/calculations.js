@@ -505,6 +505,43 @@ export function workoutsInWeek(workouts, referenceDate = new Date()) {
   });
 }
 
+function hasLoggedSets(e) {
+  return Number(e.set1Reps) > 0 || Number(e.set2Reps) > 0;
+}
+
+/**
+ * Custom Session Builder support (spec: "the app must track exercises rather than
+ * relying solely on session names"). Was `exerciseName` already logged with real sets
+ * inside a custom session this week? Returns that workout (so the caller can show which
+ * day it landed on) or null. Used to badge the ORIGINAL programmed session's card
+ * "Completed in Custom Session" once its exercise has already been done elsewhere this
+ * week, so the user isn't misled into repeating it.
+ */
+export function exerciseCompletedInCustomSessionThisWeek(workouts, exerciseName, referenceDate = new Date()) {
+  const weekCustomWorkouts = workoutsInWeek(workouts, referenceDate).filter(w => w.isCustomSession);
+  for (const w of weekCustomWorkouts) {
+    const entry = (w.exercises || []).find(e => e.name === exerciseName && hasLoggedSets(e));
+    if (entry) return w;
+  }
+  return null;
+}
+
+/**
+ * Before a custom session template is saved, checks its proposed exercise list against
+ * everything already logged (with real sets) this week — in any workout, custom or
+ * normal — and returns the names that would duplicate already-completed work. An empty
+ * result means no warning is needed; a non-empty one lists exactly which exercises to
+ * flag, per spec's "clearly identify the duplicated exercises" requirement. Never blocks
+ * saving — purely informational.
+ */
+export function customSessionVolumeWarnings(exerciseNames, workouts, referenceDate = new Date()) {
+  const alreadyLogged = new Set();
+  workoutsInWeek(workouts, referenceDate).forEach(w => {
+    (w.exercises || []).forEach(e => { if (hasLoggedSets(e)) alreadyLogged.add(e.name); });
+  });
+  return [...new Set(exerciseNames)].filter(name => alreadyLogged.has(name));
+}
+
 // Custom weekly-set targets for the arm/forearm/delt specialisation groups — these
 // have their own moderate/strong guidance rather than the generic priority-muscle
 // [16, 20] band, since 2-working-set-per-exercise programming realistically lands

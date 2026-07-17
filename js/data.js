@@ -121,7 +121,13 @@ function emptyData() {
     imageCategories: [],
     goals: [],
     milestones: [],
-    constraintCases: []
+    constraintCases: [],
+    // Custom Session Builder (contingency training feature) — session *templates* the
+    // user assembles from copied/added exercises, scheduled to a date, optionally linked
+    // to an externalConstraintLogs entry. Logging one produces a normal data.workouts
+    // entry (see saveWorkout in render-train.js) — these records are just the plan.
+    customSessions: [],
+    externalConstraintLogs: []
   };
 }
 
@@ -178,7 +184,8 @@ export function migrateData() {
    "aiSavedInsights", "aiProposedChanges", "aiAuditLog",
    "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
    "reviews", "reminders", "savedMeals", "tasks",
-   "images", "imageCategories", "goals", "milestones", "constraintCases"].forEach(key => {
+   "images", "imageCategories", "goals", "milestones", "constraintCases",
+   "customSessions", "externalConstraintLogs"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -274,6 +281,17 @@ export function migrateData() {
     relatedGoalId: null, createdAt: m.createdAt || new Date().toISOString()
   }));
 
+  data.customSessions = data.customSessions.map(cs => withDefaults(cs, {
+    name: "Custom Session", exercises: [], sourceSessions: [], scheduledDate: null,
+    constraintReason: "", externalConstraintLogId: null,
+    createdAt: cs.createdAt || new Date().toISOString(), updatedAt: cs.createdAt || new Date().toISOString()
+  }));
+
+  data.externalConstraintLogs = data.externalConstraintLogs.map(l => withDefaults(l, {
+    date: l.createdAt ? l.createdAt.slice(0, 10) : new Date().toLocaleDateString("en-CA"),
+    reason: "", createdAt: l.createdAt || new Date().toISOString()
+  }));
+
   data.sleepLogs = data.sleepLogs.map(s => withDefaults(s, {
     bedtime: null, wakeTime: null, calculatedDurationHours: null, timeToFallAsleepMinutes: null,
     awakenings: null, sleepQuality: null, morningEnergy: null, napDurationMinutes: null, napTime: null,
@@ -299,7 +317,10 @@ export function migrateData() {
     // Snapshots captured only for workouts saved after the constraint-engine/task-list
     // system shipped (spec section 26) — older workouts stay null and are simply excluded
     // from historical-snapshot display, never backfilled with a guessed reconstruction.
-    activeInterventionSnapshot: null, taskCompletionSnapshot: null, engineVersion: w.engineVersion || null
+    activeInterventionSnapshot: null, taskCompletionSnapshot: null, engineVersion: w.engineVersion || null,
+    // Custom Session Builder (spec: contingency training feature) — additive fields only.
+    // Older/normal workouts stay false/null, i.e. "an ordinary programmed session".
+    isCustomSession: false, customSessionId: null, sourceSessions: [], constraintReason: null
   }));
   data.workouts.forEach(w => {
     w.exercises = (w.exercises || []).map(e => withDefaults(e, {
@@ -440,7 +461,8 @@ const COLLECTION_KEYS = [
   "aiConversationsPerformance", "aiConversationsAppearance", "aiConversationsShared", "aiSavedInsights",
   "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
   "reviews", "savedMeals", "tasks",
-  "images", "imageCategories", "goals", "milestones", "constraintCases"
+  "images", "imageCategories", "goals", "milestones", "constraintCases",
+  "customSessions", "externalConstraintLogs"
   // "reminders" is deliberately excluded — per-device notification scheduling state,
   // the same reasoning as aiProposedChanges/aiAuditLog below.
 ];
@@ -704,6 +726,8 @@ export function importAndMergeData(importedRaw, currentState) {
   record("goals", mergeByIdGeneric(current.goals, imported.goals, detectDuplicateById));
   record("milestones", mergeByIdGeneric(current.milestones, imported.milestones, detectDuplicateById));
   record("constraintCases", mergeByIdGeneric(current.constraintCases, imported.constraintCases, detectDuplicateById));
+  record("customSessions", mergeByIdGeneric(current.customSessions, imported.customSessions, detectDuplicateById));
+  record("externalConstraintLogs", mergeByIdGeneric(current.externalConstraintLogs, imported.externalConstraintLogs, detectDuplicateById));
   // reminders deliberately not merged — never restore stale/old notification schedules from a backup.
 
   // aiSettings: current device's consent/permissions always win (consent must never be

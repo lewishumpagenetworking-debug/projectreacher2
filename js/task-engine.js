@@ -98,7 +98,7 @@ export function generateProgressTasks(data, referenceDate = new Date()) {
   // 5. Incomplete Session Reviews this week — Protect This Week's Data, blocks weekly analysis.
   const sessionsThisWeek = (data.workouts || []).filter(w => withinDays(w.date, referenceDate, 7));
   sessionsThisWeek.filter(w => !isSessionReviewComplete(w.sessionReview)).forEach(w => tasks.push(Task({
-    id: `session-review-${w.id}`, type: "session-review", title: `Finish session review: ${w.day || w.programDay || "session"}`,
+    id: `session-review-${w.id}`, type: "session-review", title: `Finish session review: ${w.sessionName || w.day || w.programDay || "session"}`,
     instruction: "The workout is saved, but required review fields are missing. Complete them before the weekly analysis.",
     reason: "Weekly analysis needs this review to judge whether this session is usable evidence.",
     priority: "high", urgencyState: "due_today",

@@ -4,7 +4,7 @@ import { renderDashboard } from "./render-dashboard.js";
 import {
   renderDaySelect, renderWorkoutForm, saveWorkout, renderWorkoutHistory,
   renderMiniVolumeChart, renderHistoricalSummary, renderPrTracker, setupTrainEventDelegation,
-  startMission, renderFarmersCarryAnalytics
+  startMission, renderFarmersCarryAnalytics, CREATE_CUSTOM_SESSION_VALUE
 } from "./render-train.js";
 import {
   saveBodyweight, renderBodyweight, saveCheckin, renderCheckinHistory,
@@ -46,6 +46,7 @@ import { renderConstraintPage, completeWeeklyReview } from "./render-constraint.
 import { renderProgressTaskList, renderPageTasks } from "./render-task-list.js";
 import { renderProgressLab, setupProgressLabEventDelegation } from "./render-progress-lab.js";
 import { renderSessionImages, setupSessionImagesEventDelegation } from "./render-session-images.js";
+import { renderCustomSessionsList, setupCustomSessionBuilderEventDelegation, openCustomSessionBuilder } from "./render-custom-sessions.js";
 
 export function refreshAll() {
   const data = getData();
@@ -100,6 +101,7 @@ export function refreshAll() {
   renderImageLibrary(data);
   renderVisionBoard(data);
   renderTargetPhysiqueBoard(data);
+  renderCustomSessionsList(data);
 }
 
 function setupNav() {
@@ -130,7 +132,8 @@ const COLLECTION_LABELS = {
   foodTemplates: "Food templates", preWorkoutLogs: "Pre-workout logs", postWorkoutLogs: "Post-workout logs",
   interventions: "Interventions", reviews: "Reviews", savedMeals: "Saved meals (My Meals)", tasks: "Tasks",
   reminders: "Reminders", images: "Vision images", imageCategories: "Custom image categories",
-  goals: "Goals", milestones: "Milestones"
+  goals: "Goals", milestones: "Milestones",
+  customSessions: "Custom sessions", externalConstraintLogs: "External constraint logs"
 };
 
 function formatImportSummary(summary) {
@@ -177,6 +180,15 @@ function setupReadinessGateDelegation() {
 
 function setupEventListeners() {
   $("daySelect").addEventListener("change", () => {
+    // "Create Custom Session" is a secondary action disguised as the bottom dropdown
+    // option (spec placement rule), not a real selectable day — opening the builder here
+    // and reverting the select stops it from ever being treated as an actual session to
+    // render/save/mission-start.
+    if ($("daySelect").value === CREATE_CUSTOM_SESSION_VALUE) {
+      $("daySelect").value = Object.keys(getData().trainingProgram)[0];
+      openCustomSessionBuilder();
+      return;
+    }
     const data = getData();
     renderWorkoutForm(data);
     renderSessionNutritionCards(data, $("daySelect").value);
@@ -333,6 +345,7 @@ setupTasksEventDelegation();
 setupDashboardChartEventDelegation();
 setupProgressLabEventDelegation();
 setupSessionImagesEventDelegation();
+setupCustomSessionBuilderEventDelegation();
 setupRemindersEventDelegation();
 startReminderScheduler();
 setupVisionBoardEventDelegation();

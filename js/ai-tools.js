@@ -13,7 +13,7 @@ const PERMISSION_DENIED = (category) => ({ error: `Permission not granted for "$
 
 function recentWorkoutsData(data, { limit = 10 } = {}) {
   return data.workouts.slice(-limit).reverse().map(w => ({
-    date: w.date, day: w.day || w.programDay,
+    date: w.date, day: w.sessionName || w.day || w.programDay,
     exercises: (w.exercises || []).map(e => ({
       name: e.name, set1: `${e.set1Weight ?? "-"}x${e.set1Reps ?? "-"}`, set2: `${e.set2Weight ?? "-"}x${e.set2Reps ?? "-"}`,
       increaseNextWeek: !!e.increaseNextWeek, painFlag: !!e.painFlag, technicalFailureReached: !!e.technicalFailureReached
