@@ -1153,8 +1153,11 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .csb-exercise-drag-handle { color: var(--muted); font-size: 16px; flex: none; }
 .csb-exercise-info { flex: 1 1 auto; min-width: 0; }
 .csb-exercise-info strong { display: block; }
-.csb-exercise-row-controls { display: flex; gap: 4px; flex: none; }
-.csb-exercise-row-controls .image-tile-btn { background: var(--card-hi); color: var(--text); border-color: var(--line-hi); }
+.csb-exercise-row-controls { display: flex; gap: 6px; flex: none; }
+.csb-exercise-row-controls .image-tile-btn {
+  width: 32px; height: 32px; font-size: 14px;
+  background: var(--card-hi); color: var(--text); border-color: var(--line-hi);
+}
 .csb-exercise-row-controls .image-tile-btn-danger { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
 
 .csb-browse-results { max-height: 260px; overflow-y: auto; margin: 8px 0; }
@@ -1162,6 +1165,7 @@ table.data-table th { color: var(--muted); font-weight: 700; }
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 8px 0; border-top: 1px solid var(--line);
 }
+#csbAddExercisePanel .chart-type-toggle { flex-wrap: wrap; }
 .csb-browse-item:first-child { border-top: 0; }
 
 .custom-session-label {
