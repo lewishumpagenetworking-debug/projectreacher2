@@ -8,6 +8,7 @@
 // history/progression/volume tracking (which is name-keyed, see calculations.js) picks
 // it up automatically once it's logged as a normal data.workouts entry.
 import { getData, saveData, uid } from "./data.js";
+import { parseLogDate } from "./dates.js";
 
 export const CUSTOM_DAY_PREFIX = "custom:";
 
@@ -140,4 +141,75 @@ export function createExternalConstraintLog(data, { date, reason }) {
 
 export function getExternalConstraintLog(data, id) {
   return (data.externalConstraintLogs || []).find(l => l.id === id) || null;
+}
+
+function hasLoggedSets(e) {
+  return Number(e.set1Reps) > 0 || Number(e.set2Reps) > 0;
+}
+
+/**
+ * Weekly review contingency narrative (spec: "the weekly review should understand the
+ * change was caused by an external scheduling constraint... the custom-session adjustment
+ * should appear in the weekly review as a successful contingency action"). Pure/read-only —
+ * scans data.workouts for isCustomSession entries within [weekStartISO, weekEndISO],
+ * groups them by which programmed session(s) they drew exercises from, and reports
+ * whether that programmed session's full exercise list still got completed somewhere
+ * this week (its own day, a custom session, or a mix). Never touches
+ * weekly-review-engine.js's diagnosis itself — this is a separate, additive, presentation
+ * -only read of the same data.workouts collection everything else already uses.
+ */
+export function contingencyActionsThisWeek(data, weekStartISO, weekEndISO) {
+  const weekStart = parseLogDate(weekStartISO);
+  const weekEnd = parseLogDate(weekEndISO);
+  if (!weekStart || !weekEnd) return [];
+
+  const inWeek = (dateStr) => {
+    const d = parseLogDate(dateStr);
+    return d && d >= weekStart && d <= weekEnd;
+  };
+
+  const workoutsThisWeek = (data.workouts || []).filter(w => inWeek(w.date));
+  const customWorkoutsThisWeek = workoutsThisWeek.filter(w => w.isCustomSession);
+  if (!customWorkoutsThisWeek.length) return [];
+
+  const bySource = new Map();
+  customWorkoutsThisWeek.forEach(w => {
+    (w.sourceSessions || []).forEach(src => {
+      if (!bySource.has(src)) bySource.set(src, []);
+      bySource.get(src).push(w);
+    });
+  });
+  if (!bySource.size) return [];
+
+  const completedNamesThisWeek = new Set();
+  workoutsThisWeek.forEach(w => (w.exercises || []).forEach(e => { if (hasLoggedSets(e)) completedNamesThisWeek.add(e.name); }));
+
+  const actions = [];
+  bySource.forEach((sourceWorkouts, sourceSession) => {
+    const originalExerciseNames = (data.trainingProgram[sourceSession] || []).map(x => x.name);
+    if (!originalExerciseNames.length) return; // programmed day since renamed/removed — nothing reliable to compare against
+
+    const preserved = originalExerciseNames.every(name => completedNamesThisWeek.has(name));
+    const dates = [...new Set(sourceWorkouts.map(w => w.date))].sort();
+    const dateLabels = dates.map(dateStr => {
+      const d = parseLogDate(dateStr);
+      return d ? d.toLocaleDateString("en-US", { weekday: "long" }) : dateStr;
+    });
+    const reason = sourceWorkouts.map(w => w.constraintReason).find(Boolean) || null;
+
+    const spanClause = dateLabels.length > 1
+      ? `divided across ${dateLabels.join(" and ")}`
+      : `moved to a custom session on ${dateLabels[0]}`;
+    const reasonClause = reason ? ` following an external scheduling constraint: "${reason}"` : "";
+    const outcomeClause = preserved
+      ? "Planned weekly volume for this session was preserved."
+      : "Some of this session's planned exercises were not completed anywhere this week — check Progress Lab's weekly volume for the exact picture.";
+
+    actions.push({
+      sourceSession, dates, preserved, reason,
+      sentence: `${sourceSession} was ${spanClause}${reasonClause}. ${outcomeClause}`
+    });
+  });
+
+  return actions;
 }

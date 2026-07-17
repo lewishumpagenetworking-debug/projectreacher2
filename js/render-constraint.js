@@ -7,6 +7,7 @@ import { getData, saveData } from "./data.js";
 import { startOfWeek } from "./dates.js";
 import { runWeeklyReview, applyWeeklyReviewResultToCases, WEEKLY_STATES } from "./weekly-review-engine.js";
 import { generateProgressTasks, TASK_SECTIONS } from "./task-engine.js";
+import { contingencyActionsThisWeek } from "./custom-sessions.js";
 
 const WEEKLY_STATE_LABELS = {
   [WEEKLY_STATES.NO_CONSTRAINT_DETECTED]: "No limiting constraint was identified this week. Maintain the current plan.",
@@ -87,6 +88,18 @@ export function renderConstraintPage(data) {
     ${analysis.caseReviews.length ? `
       <h3>Existing plan compliance this week</h3>
       ${analysis.caseReviews.map(cr => `<p class="small">${esc(cr.title)}: ${cr.improved ? "evidence no longer supports this constraint — improving" : "evidence still present — will escalate"}</p>`).join("")}` : ""}`;
+
+  const contingencyEl = $("constraintContingencyActions");
+  const contingencyCard = $("constraintContingencyCard");
+  if (contingencyEl && contingencyCard) {
+    const actions = contingencyActionsThisWeek(data, weekStart, weekEnd);
+    contingencyCard.hidden = !actions.length;
+    contingencyEl.innerHTML = actions.map(a => `
+      <div class="status-banner ${a.preserved ? "status-success" : "status-warning"}">
+        <span class="status-icon">${a.preserved ? "🟢" : "🟠"}</span>
+        <span>${esc(a.sentence)}</span>
+      </div>`).join("");
+  }
 
   const activeCases = (data.constraintCases || []).filter(c => ["observing", "active", "improving", "escalated"].includes(c.status));
   activeCasesEl.innerHTML = activeCases.length ? activeCases.map(caseCardHtml).join("") : "<p class='small'>No active constraint cases.</p>";

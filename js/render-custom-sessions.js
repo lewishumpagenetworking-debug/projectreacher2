@@ -292,15 +292,21 @@ function handleSave() {
   }
 
   let externalConstraintLogId = builderState.externalConstraintLogId;
-  if (!externalConstraintLogId && builderState.constraintReason.trim()) {
-    externalConstraintLogId = createExternalConstraintLog(data, { date: builderState.scheduledDate, reason: builderState.constraintReason });
+  let constraintReason = builderState.constraintReason.trim();
+  if (!externalConstraintLogId && constraintReason) {
+    externalConstraintLogId = createExternalConstraintLog(data, { date: builderState.scheduledDate, reason: constraintReason });
+  } else if (externalConstraintLogId && !constraintReason) {
+    // Reused an existing log without typing new free text — denormalize its reason onto
+    // this session too, so the weekly review narrative (which reads constraintReason
+    // directly, not the log) still has it regardless of which entry path was used.
+    constraintReason = getExternalConstraintLog(data, externalConstraintLogId)?.reason || "";
   }
 
   const payload = {
     name: builderState.name.trim() || "Custom Session",
     exercises: builderState.exercises,
     scheduledDate: builderState.scheduledDate,
-    constraintReason: builderState.constraintReason,
+    constraintReason,
     externalConstraintLogId
   };
 
