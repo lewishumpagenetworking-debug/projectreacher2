@@ -130,7 +130,8 @@ const COLLECTION_LABELS = {
   foodTemplates: "Food templates", preWorkoutLogs: "Pre-workout logs", postWorkoutLogs: "Post-workout logs",
   interventions: "Interventions", reviews: "Reviews", savedMeals: "Saved meals (My Meals)", tasks: "Tasks",
   reminders: "Reminders", images: "Vision images", imageCategories: "Custom image categories",
-  goals: "Goals", milestones: "Milestones"
+  goals: "Goals", milestones: "Milestones",
+  customSessions: "Custom sessions", externalConstraintLogs: "External constraint logs"
 };
 
 function formatImportSummary(summary) {
