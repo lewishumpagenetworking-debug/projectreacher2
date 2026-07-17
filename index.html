@@ -380,6 +380,13 @@
         </div>
       </section>
 
+      <section class="card" id="customSessionsCard">
+        <p class="eyebrow">CONTINGENCY</p>
+        <div class="section-title"><h2>Custom Sessions</h2><button type="button" class="secondary" id="csbNewBtn">+ New Custom Session</button></div>
+        <p class="small">Temporary scheduling adjustments for missed days, split sessions, or redistributed volume — the programmed routine above always stays the default.</p>
+        <div id="customSessionsList"></div>
+      </section>
+
       <section class="card">
         <h2>Recent Saved Workouts</h2>
         <div id="sessionHistory"></div>
@@ -1467,6 +1474,12 @@
     <div id="libraryDetailBackdrop" class="nav-backdrop library-detail-backdrop" hidden></div>
     <div id="libraryDetailModal" class="library-detail-modal" hidden role="dialog" aria-modal="true" aria-labelledby="libraryDetailTitle">
       <div class="library-detail-content" id="libraryDetailContent"></div>
+    </div>
+
+    <!-- ================= CUSTOM SESSION BUILDER (contingency training feature) ================= -->
+    <div id="csbBackdrop" class="nav-backdrop custom-session-backdrop" hidden></div>
+    <div id="csbModal" class="custom-session-modal" hidden role="dialog" aria-modal="true" aria-labelledby="csbTitle">
+      <div class="custom-session-modal-content" id="csbModalContent"></div>
     </div>
   </div>
 

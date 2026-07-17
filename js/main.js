@@ -46,6 +46,7 @@ import { renderConstraintPage, completeWeeklyReview } from "./render-constraint.
 import { renderProgressTaskList, renderPageTasks } from "./render-task-list.js";
 import { renderProgressLab, setupProgressLabEventDelegation } from "./render-progress-lab.js";
 import { renderSessionImages, setupSessionImagesEventDelegation } from "./render-session-images.js";
+import { renderCustomSessionsList, setupCustomSessionBuilderEventDelegation } from "./render-custom-sessions.js";
 
 export function refreshAll() {
   const data = getData();
@@ -100,6 +101,7 @@ export function refreshAll() {
   renderImageLibrary(data);
   renderVisionBoard(data);
   renderTargetPhysiqueBoard(data);
+  renderCustomSessionsList(data);
 }
 
 function setupNav() {
@@ -334,6 +336,7 @@ setupTasksEventDelegation();
 setupDashboardChartEventDelegation();
 setupProgressLabEventDelegation();
 setupSessionImagesEventDelegation();
+setupCustomSessionBuilderEventDelegation();
 setupRemindersEventDelegation();
 startReminderScheduler();
 setupVisionBoardEventDelegation();
