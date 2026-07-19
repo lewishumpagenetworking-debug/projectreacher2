@@ -492,6 +492,7 @@ body.drawer-open { overflow: hidden; }
   border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; font-size: 13px;
   border: 1px solid var(--line-hi);
 }
+.status-banner[hidden] { display: none; }
 .status-icon { flex: none; line-height: 1; }
 .status-banner.status-success { border-color: var(--good); background: var(--good-soft); color: var(--good); }
 .status-banner.status-warning { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }

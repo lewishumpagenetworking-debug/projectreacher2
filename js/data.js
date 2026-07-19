@@ -249,7 +249,16 @@ export function migrateData() {
 
   data.mealLogs = data.mealLogs.map(m => withDefaults(m, {
     recoveryTag: null, quantity: null, unit: null, isDraft: false, source: "manual", assumptions: [],
-    savedMealId: null, servingMultiplier: 1
+    savedMealId: null, servingMultiplier: 1,
+    // Mandatory Raw Entry Acceptance — the exact value the user typed for calories,
+    // kept separate from any macro-derived reference figure, and never overwritten by
+    // it. `calories` itself already IS the entered value in this app (nothing here
+    // ever substitutes a database/AI estimate after the user has typed their own), so
+    // `enteredCalories` is stored as an explicit, unambiguous alias for anything that
+    // specifically needs "what the user typed" rather than "the log's calorie field".
+    enteredCalories: m.calories ?? null, calculatedCaloriesFromMacros: null,
+    sourceType: "custom", isManuallyEdited: m.userCorrected ?? false,
+    originalNutrition: null, loggedNutrition: null, editHistory: []
   }));
 
   data.savedMeals = data.savedMeals.map(m => withDefaults(m, {
