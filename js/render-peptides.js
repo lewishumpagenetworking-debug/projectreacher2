@@ -17,6 +17,7 @@ import {
 } from "./peptides.js";
 import { getReportsForPeptide, reportsByCyclePhase, CYCLE_PHASES, CYCLE_PHASE_LABELS } from "./bloodwork.js";
 import { openBloodworkReport } from "./render-bloodwork.js";
+import { COMPARISON_WINDOWS, COMPARISON_WINDOW_LABELS, buildCorrelationReport } from "./peptide-correlation.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -82,10 +83,10 @@ export function renderPeptidesList(data) {
 
 // ==================== DEDICATED PAGE (modal) ====================
 
-let pageState = null; // { peptideId, section, editingScheduleId, editingLogId }
+let pageState = null; // { peptideId, section, editingScheduleId, editingLogId, correlationWindow }
 const SECTIONS = [
   ["overview", "Overview"], ["cycle", "Cycle"], ["schedule", "Administration Schedule"],
-  ["log", "Administration Log"], ["bloodwork", "Bloodwork"], ["notes", "Notes"]
+  ["log", "Administration Log"], ["bloodwork", "Bloodwork"], ["correlations", "Correlations"], ["notes", "Notes"]
 ];
 
 export function openPeptidePage(id) {
@@ -96,7 +97,7 @@ export function openPeptidePage(id) {
     saveData(data);
     peptideId = record.id;
   }
-  pageState = { peptideId, section: "overview", editingScheduleId: null, editingLogId: null };
+  pageState = { peptideId, section: "overview", editingScheduleId: null, editingLogId: null, correlationWindow: "active_cycle" };
   renderPeptidePage();
   $("peptideBackdrop").hidden = false;
   $("peptideModal").hidden = false;
@@ -287,6 +288,44 @@ function bloodworkSectionHtml(data, record) {
     <p class="small" style="opacity:.7">The app may describe values as increased, decreased, stable, or inside/outside the laboratory-supplied reference range — it never diagnoses a condition.</p>`;
 }
 
+function metricValueLabel(key, value) {
+  if (value == null) return "--";
+  if (key === "sessionCompletionPct") return `${value}%`;
+  if (key === "sleepDurationAvg") return `${value}h`;
+  if (key === "trainingVolumeAvgPerWeek") return `${value} sets/wk`;
+  if (key === "caloriesAvg") return `${value} kcal`;
+  if (key === "proteinAvg") return `${value}g`;
+  if (key === "bodyweightRateOfChange") return `${value >= 0 ? "+" : ""}${value}kg/wk`;
+  return String(value);
+}
+
+function correlationsSectionHtml(data, record, referenceDate) {
+  const windowType = pageState.correlationWindow || "active_cycle";
+  const report = buildCorrelationReport(data, record, windowType, referenceDate);
+  const picker = `
+    <label class="small">Compare Window <select id="pcWindowSelect">
+      ${COMPARISON_WINDOWS.map(w => `<option value="${esc(w)}" ${windowType === w ? "selected" : ""}>${esc(COMPARISON_WINDOW_LABELS[w])}</option>`).join("")}
+    </select></label>
+    <p class="small" style="opacity:.7">Compared against this peptide's own pre-cycle baseline (the period immediately before the cycle start date you entered).</p>`;
+
+  if (report.insufficientData) {
+    return `${picker}<p class="small">${esc(report.message)}</p>`;
+  }
+
+  const tableRows = report.comparison.map(c => `
+    <div class="checklist-row">
+      <span>${esc(c.label)}</span>
+      <span class="small">${esc(metricValueLabel(c.key, c.baselineValue))} → ${esc(metricValueLabel(c.key, c.currentValue))}</span>
+      <span class="badge">${esc(c.trend)}</span>
+    </div>`).join("");
+
+  return `
+    ${picker}
+    <p class="small">Baseline: ${esc(report.baseline.start)} – ${esc(report.baseline.end)} · Selected period: ${esc(report.current.start)} – ${esc(report.current.end)}</p>
+    ${tableRows}
+    <div class="status-banner status-info"><span class="status-icon">🔵</span><span>${report.narrative.map(esc).join(" ")}</span></div>`;
+}
+
 function notesSectionHtml(record) {
   return `
     <label class="small">General Notes <textarea id="pdNotes">${esc(record.notes || "")}</textarea></label>
@@ -306,6 +345,7 @@ function renderPeptidePage() {
     : pageState.section === "schedule" ? scheduleSectionHtml(data, record)
     : pageState.section === "log" ? logSectionHtml(data, record, referenceDate)
     : pageState.section === "bloodwork" ? bloodworkSectionHtml(data, record)
+    : pageState.section === "correlations" ? correlationsSectionHtml(data, record, referenceDate)
     : notesSectionHtml(record);
 
   content.innerHTML = `
@@ -503,5 +543,6 @@ export function setupPeptidesEventDelegation() {
   });
   document.addEventListener("change", (e) => {
     if (e.target.id === "peptideStatusFilter" || e.target.id === "peptideSortSelect") renderPeptidesList(getData());
+    if (e.target.id === "pcWindowSelect" && pageState) { pageState.correlationWindow = e.target.value; renderPeptidePage(); }
   });
 }

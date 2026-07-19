@@ -8,6 +8,13 @@ import { startOfWeek } from "./dates.js";
 import { runWeeklyReview, applyWeeklyReviewResultToCases, WEEKLY_STATES } from "./weekly-review-engine.js";
 import { generateProgressTasks, TASK_SECTIONS } from "./task-engine.js";
 import { contingencyActionsThisWeek } from "./custom-sessions.js";
+import { parseLogDate } from "./dates.js";
+import {
+  computeDisplayStatus, cycleProgress, formatDurationLabel,
+  adherencePct, totalsByUnit
+} from "./peptides.js";
+import { getReportsForPeptide } from "./bloodwork.js";
+import { buildCorrelationReport, COMPARISON_WINDOW_LABELS } from "./peptide-correlation.js";
 
 const WEEKLY_STATE_LABELS = {
   [WEEKLY_STATES.NO_CONSTRAINT_DETECTED]: "No limiting constraint was identified this week. Maintain the current plan.",
@@ -101,11 +108,82 @@ export function renderConstraintPage(data) {
       </div>`).join("");
   }
 
+  renderPeptideTrackingCard(data, weekStart, weekEnd);
+
   const activeCases = (data.constraintCases || []).filter(c => ["observing", "active", "improving", "escalated"].includes(c.status));
   activeCasesEl.innerHTML = activeCases.length ? activeCases.map(caseCardHtml).join("") : "<p class='small'>No active constraint cases.</p>";
 
   const closedCases = (data.constraintCases || []).filter(c => ["resolved", "dismissed"].includes(c.status));
   historyEl.innerHTML = closedCases.length ? closedCases.slice().reverse().map(caseCardHtml).join("") : "<p class='small'>No resolved or dismissed cases yet.</p>";
+}
+
+/**
+ * Weekly Review peptide integration (spec section 32) — read-only summary + correlation
+ * narrative, informational only, never feeds the constraint diagnosis above. Reuses
+ * js/peptides.js, js/bloodwork.js and js/peptide-correlation.js entirely; no calculation
+ * here is reimplemented.
+ */
+function renderPeptideTrackingCard(data, weekStart, weekEnd) {
+  const card = $("constraintPeptideCard");
+  const trackingEl = $("constraintPeptideTracking");
+  const correlationEl = $("constraintPeptideCorrelation");
+  if (!card || !trackingEl) return;
+
+  const referenceDate = new Date();
+  const activeRecords = (data.peptideRecords || []).filter(p => computeDisplayStatus(p, referenceDate) === "active" || computeDisplayStatus(p, referenceDate) === "recovery_period");
+  if (!activeRecords.length) { card.hidden = true; return; }
+  card.hidden = false;
+
+  const weekStartDate = parseLogDate(weekStart), weekEndDate = parseLogDate(weekEnd);
+  const schedules = data.administrationSchedules || [];
+  const logs = data.administrationLogs || [];
+  const weekLogs = logs.filter(l => l.date && l.date >= weekStart && l.date <= weekEnd);
+  const activeIds = new Set(activeRecords.map(p => p.id));
+  const activeWeekLogs = weekLogs.filter(l => activeIds.has(l.peptideId));
+
+  const completed = activeWeekLogs.filter(l => l.status === "taken" || l.status === "partial").length;
+  const missed = activeWeekLogs.filter(l => l.status === "missed").length;
+  const totals = totalsByUnit(activeWeekLogs);
+  const amountLine = Object.entries(totals.byUnit).map(([unit, amt]) => `${amt}${unit}`).join(", ") || "0";
+
+  const adherenceValues = activeRecords
+    .map(p => adherencePct(p.id, schedules, logs, weekStartDate, weekEndDate, referenceDate))
+    .filter(v => v != null);
+  const avgAdherence = adherenceValues.length ? Math.round(adherenceValues.reduce((a, b) => a + b, 0) / adherenceValues.length) : null;
+
+  const countdowns = activeRecords
+    .map(p => ({ name: p.name, daysRemaining: cycleProgress(p, referenceDate).daysRemaining }))
+    .filter(c => c.daysRemaining != null && c.daysRemaining >= 0);
+
+  const latestBloodwork = activeRecords
+    .flatMap(p => getReportsForPeptide(data, p.id))
+    .filter(r => r.testDate)
+    .sort((a, b) => (b.testDate || "").localeCompare(a.testDate || ""))[0];
+
+  trackingEl.innerHTML = `
+    <div class="badge-row">
+      <span class="badge">Active records: ${activeRecords.length}</span>
+      <span class="badge">Completed: ${completed}</span>
+      <span class="badge ${missed ? "status-under" : ""}">Missed: ${missed}</span>
+      <span class="badge">Logged amount: ${esc(amountLine)}</span>
+      ${avgAdherence != null ? `<span class="badge">Average timing adherence: ${avgAdherence}%</span>` : ""}
+      ${latestBloodwork ? `<span class="badge">Latest linked bloodwork: ${esc(latestBloodwork.testDate)}</span>` : ""}
+    </div>
+    ${countdowns.length ? countdowns.map(c => `<p class="small">Cycle countdown — ${esc(c.name)}: ${esc(formatDurationLabel(c.daysRemaining))} remaining.</p>`).join("") : ""}`;
+
+  if (correlationEl) {
+    const summaries = activeRecords.map(p => {
+      const report = buildCorrelationReport(data, p, "active_cycle", referenceDate);
+      return { name: p.name, report };
+    });
+    correlationEl.innerHTML = summaries.map(({ name, report }) => `
+      <div class="history-item">
+        <strong>${esc(name)}</strong> <span class="small">(${esc(COMPARISON_WINDOW_LABELS.active_cycle)})</span>
+        ${report.insufficientData
+          ? `<p class="small">${esc(report.message)}</p>`
+          : `<p class="small">${report.narrative.map(esc).join(" ")}</p>`}
+      </div>`).join("") || "<p class='small'>No active peptide records to correlate.</p>";
+  }
 }
 
 function caseCardHtml(c) {

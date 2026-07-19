@@ -153,9 +153,15 @@ export function deleteAdministrationLog(data, id) {
 
 // ==================== CYCLE / STATUS CALCULATIONS ====================
 
+// Always diffs calendar days, not exact 24h spans — a countdown/progress calculation must
+// give the same answer no matter what time of day it happens to run, since parseLogDate()
+// always returns local midnight for stored dates but `referenceDate` (usually `new Date()`)
+// carries the current time-of-day, which would otherwise skew rounding near day boundaries.
 function daysBetween(a, b) {
   if (!a || !b) return null;
-  return Math.round((b.getTime() - a.getTime()) / 86400000);
+  const am = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const bm = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((bm.getTime() - am.getTime()) / 86400000);
 }
 
 /** "5 weeks 4 days" style label matching the spec's own examples — never singular/plural mismatched. */
