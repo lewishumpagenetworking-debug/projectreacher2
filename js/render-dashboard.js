@@ -18,6 +18,10 @@ import { parseLogDate } from "./dates.js";
 import { resolveImageUrls, openLightbox } from "./image-gallery.js";
 import { getImagesFor } from "./vision-images.js";
 import { countUpText } from "./motion.js";
+import {
+  cycleProgress, formatDurationLabel, computeDisplayStatus, displayStatusLabel,
+  todaysAdministrationState, dueCountdownMilestones
+} from "./peptides.js";
 
 // Per-widget chart-type / time-range preferences. View-state only — deliberately kept out of
 // the main "projectReacher" data object (same isolated-storage pattern as claude-client.js's API key).
@@ -89,6 +93,53 @@ export function renderDashboard(data) {
   renderDraftBanner(data);
   renderRecoveryModeSection(data);
   renderClosedLoopIntelligence(data);
+  renderPeptideCyclesWidget(data);
+}
+
+/**
+ * Active Peptide Cycles dashboard widget (spec section 20) — every figure shown is either
+ * a user-entered date/dose or a plain calculation over it (days remaining, adherence %).
+ * No recommendation, no dosing guidance; alerts are neutral and date-based only (section 20).
+ * A record with dashboardHidden set is completely excluded (section 39: "Allow the user to
+ * hide peptide widgets from the main dashboard").
+ */
+function renderPeptideCyclesWidget(data) {
+  const card = $("peptideCyclesCard");
+  const el = $("peptideCyclesWidget");
+  const alertsEl = $("peptideCyclesAlerts");
+  if (!card || !el) return;
+  const referenceDate = new Date();
+  const visible = (data.peptideRecords || []).filter(p => !p.dashboardHidden);
+  const active = visible.filter(p => ["active", "recovery_period"].includes(computeDisplayStatus(p, referenceDate)));
+
+  if (!active.length) { card.hidden = true; return; }
+  card.hidden = false;
+
+  const schedules = data.administrationSchedules || [];
+  const logs = data.administrationLogs || [];
+
+  el.innerHTML = active.map(p => {
+    const progress = cycleProgress(p, referenceDate);
+    const today = todaysAdministrationState(p.id, schedules, logs, referenceDate);
+    return `
+      <div class="peptide-widget-row" data-goto-tab="recovery" data-goto-anchor="peptidesCard">
+        <div class="section-title"><strong>${esc(p.name || "Untitled")}</strong><span class="badge">${esc(displayStatusLabel(p, referenceDate))}</span></div>
+        <p class="small">${p.startDate ? esc(p.startDate) : "--"} – ${p.plannedEndDate ? esc(p.plannedEndDate) : "--"}${progress.daysRemaining != null ? ` · ${esc(formatDurationLabel(Math.max(0, progress.daysRemaining)))} remaining` : ""}</p>
+        <div class="badge-row">
+          ${today.scheduledToday ? `<span class="badge ${today.hasLoggedToday ? "status-on-target" : "status-under"}">${today.hasLoggedToday ? "Logged today" : "Due today, not yet logged"}</span>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+
+  if (alertsEl) {
+    const alerts = [];
+    active.forEach(p => {
+      dueCountdownMilestones(p, referenceDate).forEach(m => alerts.push(m.message));
+      const today = todaysAdministrationState(p.id, schedules, logs, referenceDate);
+      if (today.scheduledToday && !today.hasLoggedToday) alerts.push(`${p.name} administration is scheduled today and not yet logged.`);
+    });
+    alertsEl.innerHTML = alerts.length ? alerts.map(a => `<div class="warning-banner">${esc(a)}</div>`).join("") : "";
+  }
 }
 
 /** Additive Dashboard card — consolidates the closed-loop intelligence read into one place without touching any existing card. */

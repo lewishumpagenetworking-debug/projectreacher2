@@ -1,5 +1,6 @@
 import { $, esc } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
+import { computeDisplayStatus, TIME_CATEGORY_LABELS } from "./peptides.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -91,6 +92,24 @@ function computeSuggestedReminders(data) {
   if (!existingTitles.has("Weekly review")) {
     suggestions.push({ title: "Weekly review", description: "Generate or upload this week's review in the Review Centre.", scheduledTime: "18:00", repeatRule: "custom", daysOfWeek: [0] });
   }
+
+  // Peptide administration reminders (spec section 15's "Optional reminder" field) — only
+  // suggested when the user has already opted the schedule itself into reminders, and only
+  // for a record they've actually marked active. Never auto-enabled.
+  const referenceDate = new Date();
+  (data.peptideRecords || []).filter(p => computeDisplayStatus(p, referenceDate) === "active").forEach(p => {
+    (data.administrationSchedules || []).filter(s => s.peptideId === p.id && s.reminderEnabled).forEach(s => {
+      const title = `Log ${p.name || "peptide"} administration`;
+      if (existingTitles.has(title)) return;
+      const weekdays = s.weekdays && s.weekdays.length ? s.weekdays : [0, 1, 2, 3, 4, 5, 6];
+      suggestions.push({
+        title, description: `Planned: ${TIME_CATEGORY_LABELS[s.timeCategory] || s.timeCategory || "time not set"} administration for ${p.name}.`,
+        scheduledTime: s.plannedTime || "09:00",
+        repeatRule: weekdays.length === 7 ? "daily" : "custom", daysOfWeek: weekdays
+      });
+    });
+  });
+
   return suggestions;
 }
 

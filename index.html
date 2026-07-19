@@ -94,6 +94,12 @@
         <div id="attentionPanel" class="attention-panel"></div>
       </section>
 
+      <section class="card" id="peptideCyclesCard" hidden>
+        <div class="section-title"><h2>Active Peptide Cycles</h2><button type="button" class="card-link-hint link-button" data-goto-tab="recovery" data-goto-anchor="peptidesCard">Open Peptides →</button></div>
+        <div id="peptideCyclesAlerts"></div>
+        <div id="peptideCyclesWidget"></div>
+      </section>
+
       <section class="card" id="visionPreviewCard" hidden>
         <div class="section-title"><h2>Vision Preview</h2><button type="button" class="card-link-hint link-button" data-goto-tab="more" data-goto-anchor="visionBoardCard">Open Vision Board →</button></div>
         <div id="visionPreviewStrip" class="vision-preview-strip"></div>
@@ -992,6 +998,22 @@
         <div id="caffeineReductionPlan"></div>
       </section>
 
+      <section class="card" id="peptidesCard">
+        <p class="eyebrow">PEPTIDES</p>
+        <div class="section-title"><h2>Peptide Recovery Tracking</h2><button type="button" class="secondary" id="peptideNewBtn">+ Add Peptide</button></div>
+        <p class="small">A structured personal log, cycle calendar and adherence tracker for user-entered peptide cycles. Nothing here recommends a peptide, dose, or cycle length — every value is your own entry.</p>
+        <div class="form-grid">
+          <label>Search <input type="text" id="peptideSearchInput" placeholder="Search by name"></label>
+          <label>Status <select id="peptideStatusFilter"></select></label>
+          <label>Sort by <select id="peptideSortSelect">
+            <option value="recentlyUpdated">Recently updated</option>
+            <option value="startDate">Start date</option>
+            <option value="endDate">End date</option>
+          </select></label>
+        </div>
+        <div id="peptidesList"></div>
+      </section>
+
       <section class="card">
         <h2>Contingency Engine</h2>
         <p class="small">Explicit if/then rules run against your logged data — never a guess, only fires when the underlying pattern is actually there.</p>
@@ -1487,6 +1509,12 @@
     <div id="csbBackdrop" class="nav-backdrop custom-session-backdrop" hidden></div>
     <div id="csbModal" class="custom-session-modal" hidden role="dialog" aria-modal="true" aria-labelledby="csbTitle">
       <div class="custom-session-modal-content" id="csbModalContent"></div>
+    </div>
+
+    <!-- ================= PEPTIDE DEDICATED PAGE (Peptide Recovery Tracking) ================= -->
+    <div id="peptideBackdrop" class="nav-backdrop custom-session-backdrop" hidden></div>
+    <div id="peptideModal" class="custom-session-modal" hidden role="dialog" aria-modal="true" aria-labelledby="peptideTitle">
+      <div class="custom-session-modal-content" id="peptideModalContent"></div>
     </div>
   </div>
 

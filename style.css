@@ -1174,6 +1174,11 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 }
 .custom-session-card { border-top: 1px solid var(--line); }
 
+/* ---- Peptide Recovery Tracking (Phase 1) ---- */
+#peptideModalContent .chart-type-toggle { flex-wrap: wrap; }
+.peptide-widget-row { padding: 10px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.peptide-widget-row:first-child { border-top: 0; }
+
 /* ---- Progression Feed (spec 6.9) ---- */
 .progression-feed-item { padding: 8px 0; border-top: 1px solid var(--line); color: var(--text); }
 .progression-feed-item:first-child { border-top: 0; }

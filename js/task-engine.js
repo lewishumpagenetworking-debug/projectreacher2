@@ -11,6 +11,10 @@ import {
 import { computeAnalysisReadiness } from "./analysis-readiness.js";
 import { detectSafetyFlags, summarizeSafetyFlags } from "./safety-escalation.js";
 import { parseLogDate } from "./dates.js";
+import {
+  computeDisplayStatus, scheduledDatesInRange, dueCountdownMilestones,
+  TIME_CATEGORY_LABELS, MEAL_RELATIONSHIP_LABELS
+} from "./peptides.js";
 
 export const TASK_SECTIONS = {
   ACT_NOW: "act-now", COMPLETE_TODAY: "complete-today", PROTECT_WEEK: "protect-week",
@@ -155,6 +159,44 @@ export function generateProgressTasks(data, referenceDate = new Date()) {
       destination: { route: "more", anchor: "tasksCard" }, sourceEntityType: "task", sourceEntityId: t.id,
       section: overdue ? TASK_SECTIONS.ACT_NOW : (dueToday ? TASK_SECTIONS.COMPLETE_TODAY : TASK_SECTIONS.UPCOMING)
     }));
+  });
+
+  // 10. Peptide administration due today (spec section 19) — only for a peptide record
+  // the user has actually marked active, only on a day their own schedule calls for it,
+  // and only until they log SOME resolution (taken/missed/skipped/postponed/cancelled) —
+  // the task never auto-completes just because the planned time has passed.
+  (data.peptideRecords || []).filter(p => computeDisplayStatus(p, referenceDate) === "active").forEach(p => {
+    (data.administrationSchedules || []).filter(s => s.peptideId === p.id).forEach(s => {
+      if (!scheduledDatesInRange(s, referenceDate, referenceDate).length) return;
+      const alreadyResolved = (data.administrationLogs || []).some(l =>
+        l.peptideId === p.id && l.date === todayISO && (l.scheduleId === s.id || !l.scheduleId));
+      if (alreadyResolved) return;
+      const planBits = [TIME_CATEGORY_LABELS[s.timeCategory] || s.timeCategory, MEAL_RELATIONSHIP_LABELS[s.mealRelationship] || s.mealRelationship].filter(Boolean);
+      tasks.push(Task({
+        id: `peptide-dose-${s.id}-${todayISO}`, type: "peptide-dose",
+        title: `Log ${p.name || "peptide"} administration`,
+        instruction: planBits.length ? `Planned: ${planBits.join(" · ")}` : "Log today's administration.",
+        reason: "A user-defined administration schedule is due today for this peptide record.",
+        priority: "high", urgencyState: "due_today",
+        destination: { route: "recovery", anchor: "peptidesCard" },
+        sourceEntityType: "peptideRecord", sourceEntityId: p.id,
+        section: TASK_SECTIONS.COMPLETE_TODAY
+      }));
+    });
+  });
+
+  // 11. Cycle countdown review (spec section 10) — neutral, date-based only; never
+  // prescriptive about stopping/starting/restarting.
+  (data.peptideRecords || []).forEach(p => {
+    dueCountdownMilestones(p, referenceDate).forEach(m => tasks.push(Task({
+      id: `peptide-countdown-${p.id}-${m.id}-${todayISO}`, type: "peptide-countdown",
+      title: `Review cycle countdown: ${p.name || "peptide"}`,
+      instruction: m.message, reason: m.message,
+      priority: "normal", urgencyState: "due_today",
+      destination: { route: "recovery", anchor: "peptidesCard" },
+      sourceEntityType: "peptideRecord", sourceEntityId: p.id,
+      section: TASK_SECTIONS.UPCOMING
+    })));
   });
 
   return sortTasks(tasks);

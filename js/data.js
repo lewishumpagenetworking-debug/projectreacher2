@@ -127,7 +127,14 @@ function emptyData() {
     // to an externalConstraintLogs entry. Logging one produces a normal data.workouts
     // entry (see saveWorkout in render-train.js) — these records are just the plan.
     customSessions: [],
-    externalConstraintLogs: []
+    externalConstraintLogs: [],
+    // Peptide Recovery Tracking (Phase 1: cycle records + administration schedule/log —
+    // a purely user-entered documentation layer, never a dosing/protocol recommender).
+    // Product/vial/equipment detail, bloodwork, correlation engine, sources/references and
+    // change history are later phases layered onto these same three collections.
+    peptideRecords: [],
+    administrationSchedules: [],
+    administrationLogs: []
   };
 }
 
@@ -185,7 +192,8 @@ export function migrateData() {
    "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
    "reviews", "reminders", "savedMeals", "tasks",
    "images", "imageCategories", "goals", "milestones", "constraintCases",
-   "customSessions", "externalConstraintLogs"].forEach(key => {
+   "customSessions", "externalConstraintLogs",
+   "peptideRecords", "administrationSchedules", "administrationLogs"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -290,6 +298,35 @@ export function migrateData() {
   data.externalConstraintLogs = data.externalConstraintLogs.map(l => withDefaults(l, {
     date: l.createdAt ? l.createdAt.slice(0, 10) : new Date().toLocaleDateString("en-CA"),
     reason: "", createdAt: l.createdAt || new Date().toISOString()
+  }));
+
+  // Peptide Recovery Tracking — every field is user-entered; the app never infers, guesses,
+  // or defaults a dose/schedule/status from the peptide name. `status` is the user's last
+  // manual state change; display status is derived read-only from it plus the dates below
+  // (see js/peptides.js) and never written back here.
+  data.peptideRecords = data.peptideRecords.map(p => withDefaults(p, {
+    name: "", abbreviation: "", status: "draft", purposeNote: "",
+    startDate: null, plannedEndDate: null, actualEndDate: null,
+    recoveryStartDate: null, recoveryEndDate: null, recoveryNotes: "",
+    pauseDate: null, resumeDate: null, reasonForPause: "", reasonForEarlyCompletion: "",
+    cycleLabel: "", cycleNotes: "", notes: "", dashboardHidden: false,
+    createdAt: p.createdAt || new Date().toISOString(), updatedAt: p.createdAt || new Date().toISOString()
+  }));
+
+  data.administrationSchedules = data.administrationSchedules.map(s => withDefaults(s, {
+    peptideId: null, name: "", activeFrom: null, activeUntil: null, weekdays: [0, 1, 2, 3, 4, 5, 6],
+    plannedTime: null, timeCategory: null, mealRelationship: null, workoutRelationship: null,
+    plannedAmount: null, plannedAmountUnit: "mcg", reminderEnabled: false, notes: "",
+    createdAt: s.createdAt || new Date().toISOString(), updatedAt: s.createdAt || new Date().toISOString()
+  }));
+
+  data.administrationLogs = data.administrationLogs.map(l => withDefaults(l, {
+    peptideId: null, scheduleId: null, date: null, exactTime: null, status: "taken",
+    amount: null, amountUnit: "mcg", timeCategory: null,
+    mealRelationship: null, mealName: "", minutesFromMeal: null,
+    workoutRelationship: null, workoutId: null, minutesFromWorkout: null,
+    bodyweight: null, notes: "",
+    createdAt: l.createdAt || new Date().toISOString(), updatedAt: l.createdAt || new Date().toISOString()
   }));
 
   data.sleepLogs = data.sleepLogs.map(s => withDefaults(s, {
@@ -462,7 +499,8 @@ const COLLECTION_KEYS = [
   "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
   "reviews", "savedMeals", "tasks",
   "images", "imageCategories", "goals", "milestones", "constraintCases",
-  "customSessions", "externalConstraintLogs"
+  "customSessions", "externalConstraintLogs",
+  "peptideRecords", "administrationSchedules", "administrationLogs"
   // "reminders" is deliberately excluded — per-device notification scheduling state,
   // the same reasoning as aiProposedChanges/aiAuditLog below.
 ];
@@ -728,6 +766,9 @@ export function importAndMergeData(importedRaw, currentState) {
   record("constraintCases", mergeByIdGeneric(current.constraintCases, imported.constraintCases, detectDuplicateById));
   record("customSessions", mergeByIdGeneric(current.customSessions, imported.customSessions, detectDuplicateById));
   record("externalConstraintLogs", mergeByIdGeneric(current.externalConstraintLogs, imported.externalConstraintLogs, detectDuplicateById));
+  record("peptideRecords", mergeByIdGeneric(current.peptideRecords, imported.peptideRecords, detectDuplicateById));
+  record("administrationSchedules", mergeByIdGeneric(current.administrationSchedules, imported.administrationSchedules, detectDuplicateById));
+  record("administrationLogs", mergeByIdGeneric(current.administrationLogs, imported.administrationLogs, detectDuplicateById));
   // reminders deliberately not merged — never restore stale/old notification schedules from a backup.
 
   // aiSettings: current device's consent/permissions always win (consent must never be
