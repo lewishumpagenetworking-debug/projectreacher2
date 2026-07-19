@@ -1,6 +1,7 @@
 // Data layer: localStorage persistence, versioned schema, non-destructive migration.
 import { DEFAULT_TRAINING_PROGRAM, EXERCISE_DATABASE, DEFAULT_SUPPLEMENTS, DEFAULT_PRS } from "./program.js";
 import { exportAllImagesAsBase64, importImagesFromBase64Map } from "./image-store.js";
+import { exportAllBloodworkFilesAsBase64, importBloodworkFilesFromBase64Map } from "./bloodwork-files.js";
 import { DEFAULT_SESSION_NUTRITION } from "./session-nutrition.js";
 
 export const STORAGE_KEY = "projectReacher";
@@ -127,7 +128,29 @@ function emptyData() {
     // to an externalConstraintLogs entry. Logging one produces a normal data.workouts
     // entry (see saveWorkout in render-train.js) — these records are just the plan.
     customSessions: [],
-    externalConstraintLogs: []
+    externalConstraintLogs: [],
+    // Peptide Recovery Tracking (Phase 1: cycle records + administration schedule/log —
+    // a purely user-entered documentation layer, never a dosing/protocol recommender).
+    // Product/vial/equipment detail, bloodwork, correlation engine, sources/references and
+    // change history are later phases layered onto these same three collections.
+    peptideRecords: [],
+    administrationSchedules: [],
+    administrationLogs: [],
+    // Peptide Recovery Tracking (Phase 2: bloodwork). File bytes for a report live in
+    // IndexedDB (js/bloodwork-files.js); every marker value here is either typed by the
+    // user directly or manually transcribed from an uploaded file — this app never runs
+    // OCR/extraction on the file, so userConfirmed is always true by construction.
+    bloodworkReports: [],
+    bloodworkMarkers: [],
+    bloodworkReminders: [],
+    // Peptide Recovery Tracking (Phase 4: product/vial/equipment detail, sources &
+    // references, change history). All still purely user-entered — vialRecords/
+    // equipmentProfiles never calculate or suggest a dose/volume/syringe conversion.
+    peptideSources: [],
+    vialRecords: [],
+    equipmentProfiles: [],
+    referenceSources: [],
+    changeHistory: []
   };
 }
 
@@ -185,7 +208,10 @@ export function migrateData() {
    "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
    "reviews", "reminders", "savedMeals", "tasks",
    "images", "imageCategories", "goals", "milestones", "constraintCases",
-   "customSessions", "externalConstraintLogs"].forEach(key => {
+   "customSessions", "externalConstraintLogs",
+   "peptideRecords", "administrationSchedules", "administrationLogs",
+   "bloodworkReports", "bloodworkMarkers", "bloodworkReminders",
+   "peptideSources", "vialRecords", "equipmentProfiles", "referenceSources", "changeHistory"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -290,6 +316,107 @@ export function migrateData() {
   data.externalConstraintLogs = data.externalConstraintLogs.map(l => withDefaults(l, {
     date: l.createdAt ? l.createdAt.slice(0, 10) : new Date().toLocaleDateString("en-CA"),
     reason: "", createdAt: l.createdAt || new Date().toISOString()
+  }));
+
+  // Peptide Recovery Tracking — every field is user-entered; the app never infers, guesses,
+  // or defaults a dose/schedule/status from the peptide name. `status` is the user's last
+  // manual state change; display status is derived read-only from it plus the dates below
+  // (see js/peptides.js) and never written back here.
+  data.peptideRecords = data.peptideRecords.map(p => withDefaults(p, {
+    name: "", abbreviation: "", status: "draft", purposeNote: "",
+    startDate: null, plannedEndDate: null, actualEndDate: null,
+    recoveryStartDate: null, recoveryEndDate: null, recoveryNotes: "",
+    pauseDate: null, resumeDate: null, reasonForPause: "", reasonForEarlyCompletion: "",
+    cycleLabel: "", cycleNotes: "", notes: "", dashboardHidden: false,
+    createdAt: p.createdAt || new Date().toISOString(), updatedAt: p.createdAt || new Date().toISOString()
+  }));
+
+  data.administrationSchedules = data.administrationSchedules.map(s => withDefaults(s, {
+    peptideId: null, name: "", activeFrom: null, activeUntil: null, weekdays: [0, 1, 2, 3, 4, 5, 6],
+    plannedTime: null, timeCategory: null, mealRelationship: null, workoutRelationship: null,
+    plannedAmount: null, plannedAmountUnit: "mcg", reminderEnabled: false, notes: "",
+    createdAt: s.createdAt || new Date().toISOString(), updatedAt: s.createdAt || new Date().toISOString()
+  }));
+
+  data.administrationLogs = data.administrationLogs.map(l => withDefaults(l, {
+    peptideId: null, scheduleId: null, date: null, exactTime: null, status: "taken",
+    amount: null, amountUnit: "mcg", timeCategory: null,
+    mealRelationship: null, mealName: "", minutesFromMeal: null,
+    workoutRelationship: null, workoutId: null, minutesFromWorkout: null,
+    bodyweight: null, notes: "",
+    // Phase 4: equipment/vial detail — every field optional, user-entered only.
+    vialId: null, equipmentProfileId: null, needleLength: "", needleGauge: "", administrationSite: "",
+    createdAt: l.createdAt || new Date().toISOString(), updatedAt: l.createdAt || new Date().toISOString()
+  }));
+
+  // Product & Source Tracking (Phase 4, spec section 11) — the app never validates or
+  // endorses a source, purely a traceability record.
+  data.peptideSources = data.peptideSources.map(s => withDefaults(s, {
+    peptideId: null, supplierName: "", manufacturer: "", productUrl: "", purchaseDate: null,
+    orderReference: "", batchNumber: "", lotNumber: "", expiryDate: null, countryOfOrigin: "",
+    storageLocation: "", storageTemperatureText: "", openedDate: null, discardedDate: null, notes: "",
+    createdAt: s.createdAt || new Date().toISOString(), updatedAt: s.createdAt || new Date().toISOString()
+  }));
+
+  // Vial & Solution Record + User-Entered Concentration Record (Phase 4, spec sections
+  // 12-13) — the app never recommends a solution/volume/dose or converts a target dose
+  // into syringe units; every concentration value is a neutral record of what the user
+  // has already determined themselves.
+  data.vialRecords = data.vialRecords.map(v => withDefaults(v, {
+    peptideId: null, label: "", sequenceNumber: null, statedAmount: null, statedAmountUnit: "mcg",
+    numberOfVials: null, status: "unopened", openedDate: null, discardedDate: null,
+    solutionType: "", solutionBrand: "", solutionVolume: null, solutionVolumeUnit: "mL",
+    preparationDate: null, preparedBy: "", preparationNotes: "", storageNotes: "",
+    solutionExpiryOrDiscardDate: null,
+    userEnteredConcentration: null, concentrationUnit: "", userEnteredAmountPerSyringeUnit: null,
+    concentrationNotes: "", concentrationDateEntered: null, notes: "",
+    createdAt: v.createdAt || new Date().toISOString(), updatedAt: v.createdAt || new Date().toISOString()
+  }));
+
+  // Reusable Equipment Profiles (Phase 4, spec section 14) — the app never recommends
+  // needle length/gauge/site/technique, purely a record of what the user already uses.
+  data.equipmentProfiles = data.equipmentProfiles.map(e => withDefaults(e, {
+    name: "", syringeType: "", syringeCapacity: "", syringeUnitScale: "",
+    needleLength: "", needleGauge: "", needleType: "", brand: "", source: "", notes: "",
+    createdAt: e.createdAt || new Date().toISOString()
+  }));
+
+  // Sources & Reference Library (Phase 4, spec sections 33-34) — external reference
+  // material only; never automatically populates a peptide's own protocol fields.
+  data.referenceSources = data.referenceSources.map(r => withDefaults(r, {
+    peptideId: null, sourceType: "other", creator: "", title: "", publicationDate: null,
+    url: "", timestamp: "", dateAccessed: null, quotation: "", summary: "", notes: "",
+    createdAt: r.createdAt || new Date().toISOString()
+  }));
+
+  // Change History (Phase 4, spec section 36) — append-only audit trail. Entries are
+  // never edited or deleted by the app itself once written.
+  data.changeHistory = data.changeHistory.map(h => withDefaults(h, {
+    entityType: "", entityId: "", field: "", previousValue: null, newValue: null,
+    reason: "", changedAt: h.changedAt || new Date().toISOString()
+  }));
+
+  // Bloodwork (Phase 2) — the user decides when/whether to test; the app never imposes
+  // a testing interval (spec section 21).
+  data.bloodworkReports = data.bloodworkReports.map(r => withDefaults(r, {
+    testDate: null, title: "", laboratoryName: "", orderingClinician: "",
+    fastingStatus: null, collectionTime: null, notes: "",
+    linkedPeptideIds: [], linkedCyclePhase: null,
+    fileAttachmentId: null, fileName: "", fileType: "", fileSize: null,
+    createdAt: r.createdAt || new Date().toISOString(), updatedAt: r.createdAt || new Date().toISOString()
+  }));
+
+  data.bloodworkMarkers = data.bloodworkMarkers.map(m => withDefaults(m, {
+    reportId: null, category: "", markerName: "", result: null, unit: "",
+    referenceLow: null, referenceHigh: null, laboratoryFlag: "",
+    userConfirmed: true, notes: "",
+    createdAt: m.createdAt || new Date().toISOString()
+  }));
+
+  data.bloodworkReminders = data.bloodworkReminders.map(r => withDefaults(r, {
+    reminderDate: null, recurrence: "none", recurrenceN: null, notes: "",
+    peptideId: null, linkedCyclePhase: null,
+    createdAt: r.createdAt || new Date().toISOString(), updatedAt: r.createdAt || new Date().toISOString()
   }));
 
   data.sleepLogs = data.sleepLogs.map(s => withDefaults(s, {
@@ -436,7 +563,13 @@ export async function exportData() {
   } catch (err) {
     console.warn("[Project Reacher] Could not bundle images into this export.", err);
   }
-  const payload = { ...data, __images: images };
+  let bloodworkFiles = {};
+  try {
+    bloodworkFiles = await exportAllBloodworkFilesAsBase64();
+  } catch (err) {
+    console.warn("[Project Reacher] Could not bundle bloodwork files into this export.", err);
+  }
+  const payload = { ...data, __images: images, __bloodworkFiles: bloodworkFiles };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -462,7 +595,10 @@ const COLLECTION_KEYS = [
   "foodTemplates", "preWorkoutLogs", "postWorkoutLogs", "interventions",
   "reviews", "savedMeals", "tasks",
   "images", "imageCategories", "goals", "milestones", "constraintCases",
-  "customSessions", "externalConstraintLogs"
+  "customSessions", "externalConstraintLogs",
+  "peptideRecords", "administrationSchedules", "administrationLogs",
+  "bloodworkReports", "bloodworkMarkers", "bloodworkReminders",
+  "peptideSources", "vialRecords", "equipmentProfiles", "referenceSources", "changeHistory"
   // "reminders" is deliberately excluded — per-device notification scheduling state,
   // the same reasoning as aiProposedChanges/aiAuditLog below.
 ];
@@ -728,6 +864,17 @@ export function importAndMergeData(importedRaw, currentState) {
   record("constraintCases", mergeByIdGeneric(current.constraintCases, imported.constraintCases, detectDuplicateById));
   record("customSessions", mergeByIdGeneric(current.customSessions, imported.customSessions, detectDuplicateById));
   record("externalConstraintLogs", mergeByIdGeneric(current.externalConstraintLogs, imported.externalConstraintLogs, detectDuplicateById));
+  record("peptideRecords", mergeByIdGeneric(current.peptideRecords, imported.peptideRecords, detectDuplicateById));
+  record("administrationSchedules", mergeByIdGeneric(current.administrationSchedules, imported.administrationSchedules, detectDuplicateById));
+  record("administrationLogs", mergeByIdGeneric(current.administrationLogs, imported.administrationLogs, detectDuplicateById));
+  record("bloodworkReports", mergeByIdGeneric(current.bloodworkReports, imported.bloodworkReports, detectDuplicateById));
+  record("bloodworkMarkers", mergeByIdGeneric(current.bloodworkMarkers, imported.bloodworkMarkers, detectDuplicateById));
+  record("bloodworkReminders", mergeByIdGeneric(current.bloodworkReminders, imported.bloodworkReminders, detectDuplicateById));
+  record("peptideSources", mergeByIdGeneric(current.peptideSources, imported.peptideSources, detectDuplicateById));
+  record("vialRecords", mergeByIdGeneric(current.vialRecords, imported.vialRecords, detectDuplicateById));
+  record("equipmentProfiles", mergeByIdGeneric(current.equipmentProfiles, imported.equipmentProfiles, detectDuplicateById));
+  record("referenceSources", mergeByIdGeneric(current.referenceSources, imported.referenceSources, detectDuplicateById));
+  record("changeHistory", mergeByIdGeneric(current.changeHistory, imported.changeHistory, detectDuplicateById));
   // reminders deliberately not merged — never restore stale/old notification schedules from a backup.
 
   // aiSettings: current device's consent/permissions always win (consent must never be
@@ -803,6 +950,10 @@ export async function importData(jsonText) {
       try { await importImagesFromBase64Map(imported.__images); }
       catch (err) { console.warn("[Project Reacher] Some images from this backup could not be restored.", err); }
     }
+    if (imported.__bloodworkFiles) {
+      try { await importBloodworkFilesFromBase64Map(imported.__bloodworkFiles); }
+      catch (err) { console.warn("[Project Reacher] Some bloodwork files from this backup could not be restored.", err); }
+    }
     return { data, summary };
   } catch (err) {
     rollbackImport(current);
@@ -822,13 +973,17 @@ export async function fullRestoreFromBackup(jsonText) {
   if (typeof imported !== "object" || imported === null) throw new Error("Invalid backup file.");
   const current = getData();
   createPreImportBackup(current);
-  const { __images: importedImages, ...importedWithoutImages } = imported;
+  const { __images: importedImages, __bloodworkFiles: importedBloodworkFiles, ...importedWithoutImages } = imported;
   try {
     saveData(importedWithoutImages);
     const data = migrateData();
     if (importedImages) {
       try { await importImagesFromBase64Map(importedImages); }
       catch (err) { console.warn("[Project Reacher] Some images from this backup could not be restored.", err); }
+    }
+    if (importedBloodworkFiles) {
+      try { await importBloodworkFilesFromBase64Map(importedBloodworkFiles); }
+      catch (err) { console.warn("[Project Reacher] Some bloodwork files from this backup could not be restored.", err); }
     }
     return data;
   } catch (err) {

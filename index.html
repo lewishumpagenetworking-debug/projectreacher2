@@ -94,6 +94,12 @@
         <div id="attentionPanel" class="attention-panel"></div>
       </section>
 
+      <section class="card" id="peptideCyclesCard" hidden>
+        <div class="section-title"><h2>Active Peptide Cycles</h2><button type="button" class="card-link-hint link-button" data-goto-tab="recovery" data-goto-anchor="peptidesCard">Open Peptides →</button></div>
+        <div id="peptideCyclesAlerts"></div>
+        <div id="peptideCyclesWidget"></div>
+      </section>
+
       <section class="card" id="visionPreviewCard" hidden>
         <div class="section-title"><h2>Vision Preview</h2><button type="button" class="card-link-hint link-button" data-goto-tab="more" data-goto-anchor="visionBoardCard">Open Vision Board →</button></div>
         <div id="visionPreviewStrip" class="vision-preview-strip"></div>
@@ -992,6 +998,78 @@
         <div id="caffeineReductionPlan"></div>
       </section>
 
+      <section class="card" id="bloodworkCard">
+        <p class="eyebrow">BLOODWORK</p>
+        <div class="section-title"><h2>Bloodwork</h2><button type="button" class="secondary" id="bloodworkNewBtn">+ Add Bloodwork</button></div>
+        <p class="small">A bloodwork archive linked to your peptide cycles. You decide when bloodwork is recorded — the app never prescribes a testing interval.</p>
+        <div id="bloodworkReminderAlerts"></div>
+        <div id="bloodworkStats"></div>
+
+        <details class="category-section">
+          <summary><strong>Marker Trend</strong></summary>
+          <label class="small">Marker <select id="bloodworkMarkerSelect"></select></label>
+          <div id="bloodworkTrendChart" class="chart-box"></div>
+        </details>
+
+        <details class="category-section">
+          <summary><strong>Bloodwork Reminders</strong></summary>
+          <div class="form-grid">
+            <label>Reminder Date <input type="date" id="bwReminderDate"></label>
+            <label>Recurrence <select id="bwReminderRecurrence">
+              <option value="none">One-off (no recurrence)</option>
+              <option value="monthly">Monthly</option>
+              <option value="every_n_weeks">Every N weeks</option>
+              <option value="every_n_months">Every N months</option>
+              <option value="custom">Custom (I'll manage the date myself)</option>
+            </select></label>
+            <label>N (for every-N schedules) <input type="number" min="1" id="bwReminderN"></label>
+          </div>
+          <label class="small">Notes <input type="text" id="bwReminderNotes"></label>
+          <div class="actions"><button type="button" id="bwAddReminderBtn">Add Reminder</button></div>
+          <div id="bloodworkReminderList"></div>
+        </details>
+
+        <div id="bloodworkList"></div>
+      </section>
+
+      <section class="card" id="peptidesCard">
+        <p class="eyebrow">PEPTIDES</p>
+        <div class="section-title"><h2>Peptide Recovery Tracking</h2><button type="button" class="secondary" id="peptideNewBtn">+ Add Peptide</button></div>
+        <p class="small">A structured personal log, cycle calendar and adherence tracker for user-entered peptide cycles. Nothing here recommends a peptide, dose, or cycle length — every value is your own entry.</p>
+        <div class="form-grid">
+          <label>Search <input type="text" id="peptideSearchInput" placeholder="Search by name"></label>
+          <label>Status <select id="peptideStatusFilter"></select></label>
+          <label>Sort by <select id="peptideSortSelect">
+            <option value="recentlyUpdated">Recently updated</option>
+            <option value="startDate">Start date</option>
+            <option value="endDate">End date</option>
+          </select></label>
+        </div>
+        <details class="category-section">
+          <summary><strong>Equipment Profiles</strong></summary>
+          <p class="small">Reusable equipment records you can select when logging an administration — the app never recommends a needle length, gauge, or injection site.</p>
+          <div id="equipmentProfilesList"></div>
+          <div class="history-item">
+            <h4>Add Equipment Profile</h4>
+            <div class="form-grid">
+              <label>Profile Name <input type="text" id="epName"></label>
+              <label>Syringe Type <input type="text" id="epSyringeType"></label>
+              <label>Syringe Capacity <input type="text" id="epSyringeCapacity"></label>
+              <label>Syringe Unit Scale <input type="text" id="epSyringeUnitScale"></label>
+              <label>Needle Length <input type="text" id="epNeedleLength"></label>
+              <label>Needle Gauge <input type="text" id="epNeedleGauge"></label>
+              <label>Needle Type <input type="text" id="epNeedleType"></label>
+              <label>Brand <input type="text" id="epBrand"></label>
+              <label>Source <input type="text" id="epSource"></label>
+            </div>
+            <label class="small">Notes <textarea id="epNotes"></textarea></label>
+            <div class="actions"><button type="button" id="epAddBtn">Add Equipment Profile</button></div>
+          </div>
+        </details>
+
+        <div id="peptidesList"></div>
+      </section>
+
       <section class="card">
         <h2>Contingency Engine</h2>
         <p class="small">Explicit if/then rules run against your logged data — never a guess, only fires when the underlying pattern is actually there.</p>
@@ -1390,6 +1468,16 @@
         <div id="constraintContingencyActions"></div>
       </section>
 
+      <section class="card" id="constraintPeptideCard" hidden>
+        <p class="eyebrow">PEPTIDES</p>
+        <h2>Peptide Tracking</h2>
+        <p class="small">A read-only summary of this week's peptide administration and cycle status — informational only, does not affect the diagnosis above.</p>
+        <div id="constraintPeptideTracking"></div>
+        <h3>Correlation Summary</h3>
+        <p class="small">Time-based associations between this week's tracked training/nutrition/recovery data and each active cycle's pre-cycle baseline. Never presented as proof of cause.</p>
+        <div id="constraintPeptideCorrelation"></div>
+      </section>
+
       <section class="card">
         <h2>Active Constraint Cases</h2>
         <div id="constraintActiveCases"></div>
@@ -1487,6 +1575,18 @@
     <div id="csbBackdrop" class="nav-backdrop custom-session-backdrop" hidden></div>
     <div id="csbModal" class="custom-session-modal" hidden role="dialog" aria-modal="true" aria-labelledby="csbTitle">
       <div class="custom-session-modal-content" id="csbModalContent"></div>
+    </div>
+
+    <!-- ================= PEPTIDE DEDICATED PAGE (Peptide Recovery Tracking) ================= -->
+    <div id="peptideBackdrop" class="nav-backdrop custom-session-backdrop" hidden></div>
+    <div id="peptideModal" class="custom-session-modal" hidden role="dialog" aria-modal="true" aria-labelledby="peptideTitle">
+      <div class="custom-session-modal-content" id="peptideModalContent"></div>
+    </div>
+
+    <!-- ================= BLOODWORK REPORT (Peptide Recovery Tracking, Phase 2) ================= -->
+    <div id="bwBackdrop" class="nav-backdrop custom-session-backdrop" hidden></div>
+    <div id="bwModal" class="custom-session-modal" hidden role="dialog" aria-modal="true" aria-labelledby="bwTitle">
+      <div class="custom-session-modal-content" id="bwModalContent"></div>
     </div>
   </div>
 
