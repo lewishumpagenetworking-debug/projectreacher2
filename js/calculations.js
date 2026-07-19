@@ -709,9 +709,13 @@ export function macroAdherence(totals, targets) {
 }
 
 /**
- * Reconciles entered calories against protein/carbs/fat math (calories = protein*4 +
- * carbs*4 + fat*9). Tolerance is the larger of 50 kcal or 10% of the expected total,
- * to allow for rounding without letting genuinely inconsistent entries through.
+ * Purely diagnostic — never blocks a save (spec: "Log first. Validate second. Never
+ * reject user nutrition data."). Reconciles entered calories against protein/carbs/fat
+ * math (calories = protein*4 + carbs*4 + fat*9) and flags missing fields, but the
+ * caller must treat every result here as an optional warning to display, never as a
+ * reason to refuse `data.mealLogs.push(...)`. Tolerance is the larger of 50 kcal or
+ * 10% of the calculated total, to allow for rounding without silently hiding
+ * genuinely inconsistent entries from the warning.
  */
 export function validateMealEntry({ mealName, quantity, unit, calories, protein, carbs, fat }) {
   const missingFields = [];
@@ -723,23 +727,28 @@ export function validateMealEntry({ mealName, quantity, unit, calories, protein,
   if (carbs === "" || carbs == null) missingFields.push("carbohydrates");
   if (fat === "" || fat == null) missingFields.push("fat");
 
+  const haveAllMacros = protein != null && protein !== "" && carbs != null && carbs !== "" && fat != null && fat !== "";
+  const calculatedCaloriesFromMacros = haveAllMacros
+    ? round1((Number(protein) || 0) * 4 + (Number(carbs) || 0) * 4 + (Number(fat) || 0) * 9)
+    : null;
+
   if (missingFields.length) {
     return {
-      reconciled: false, missingFields,
-      message: `Missing required field(s): ${missingFields.join(", ")}. Complete every field, or save as an incomplete draft.`
+      reconciled: false, missingFields, calculatedCaloriesFromMacros,
+      message: `Some fields were left blank (${missingFields.join(", ")}). The entry has still been logged using exactly what you entered.`
     };
   }
 
-  const expectedCalories = round1((Number(protein) || 0) * 4 + (Number(carbs) || 0) * 4 + (Number(fat) || 0) * 9);
   const enteredCalories = Number(calories) || 0;
-  const difference = round1(Math.abs(enteredCalories - expectedCalories));
-  const tolerance = Math.round(Math.max(50, expectedCalories * 0.1));
+  const difference = round1(Math.abs(enteredCalories - calculatedCaloriesFromMacros));
+  const tolerance = Math.round(Math.max(50, calculatedCaloriesFromMacros * 0.1));
   const reconciled = difference <= tolerance;
   return {
-    reconciled, missingFields: [], expectedCalories, enteredCalories, difference, tolerance,
+    reconciled, missingFields: [], expectedCalories: calculatedCaloriesFromMacros, calculatedCaloriesFromMacros,
+    enteredCalories, difference, tolerance,
     message: reconciled
       ? "Calories and macros reconcile."
-      : "Calories and macronutrients do not reconcile. Review the entry."
+      : "The entered calories and macros may not fully align. The entry has still been logged using your exact values."
   };
 }
 

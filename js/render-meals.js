@@ -13,6 +13,7 @@ const todayISO = () => new Date().toLocaleDateString("en-CA");
 let selectedMonth = todayISO().slice(0, 7);
 let activeFilter = "all";
 let lastEstimate = null;
+let editingMealId = null;
 
 export async function estimateMeal() {
   const description = $("mealDescription").value;
@@ -136,6 +137,56 @@ export function renderFoodTemplates(data) {
   if (templates.some(t => t.id === current)) select.value = current;
 }
 
+function clearMealForm() {
+  ["mealDescription", "mealName", "mealTime", "mealQuantity", "mealCalories", "mealProtein", "mealCarbs", "mealFat", "mealFibre"].forEach(id => { if ($(id)) $(id).value = ""; });
+  if ($("mealRecoveryTag")) $("mealRecoveryTag").value = "";
+  if ($("mealUnit")) $("mealUnit").value = "";
+  $("mealEstimateResult").hidden = true;
+  lastEstimate = null;
+  editingMealId = null;
+  const banner = $("mealEditingBanner");
+  if (banner) banner.hidden = true;
+  if ($("saveMealBtn")) $("saveMealBtn").textContent = "Save Meal";
+}
+
+function startEditMeal(id) {
+  const data = getData();
+  const m = data.mealLogs.find(x => x.id === id);
+  if (!m) return;
+  editingMealId = id;
+  lastEstimate = null;
+  $("mealDescription").value = m.rawDescription || "";
+  $("mealName").value = m.mealName || "";
+  if ($("mealQuantity")) $("mealQuantity").value = m.quantity ?? "";
+  if ($("mealUnit")) $("mealUnit").value = m.unit || "";
+  if ($("mealTime")) $("mealTime").value = m.time || "";
+  if ($("mealRecoveryTag")) $("mealRecoveryTag").value = m.recoveryTag || "";
+  $("mealCalories").value = m.calories ?? "";
+  $("mealProtein").value = m.protein ?? "";
+  $("mealCarbs").value = m.carbs ?? "";
+  $("mealFat").value = m.fat ?? "";
+  $("mealFibre").value = m.fibre ?? "";
+  $("mealEstimateResult").hidden = true;
+  const banner = $("mealEditingBanner");
+  if (banner) {
+    banner.hidden = false;
+    const nameEl = banner.querySelector("[data-editing-meal-name]");
+    if (nameEl) nameEl.textContent = m.mealName || "this entry";
+  }
+  if ($("saveMealBtn")) $("saveMealBtn").textContent = "Update Meal";
+  $("mealName")?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function cancelMealEdit() {
+  clearMealForm();
+}
+
+/**
+ * Mandatory Raw Entry Acceptance: this is a save-first, validate-second flow. Every
+ * value the user typed is written to `data.mealLogs` exactly as entered — validation
+ * below is purely diagnostic (an optional on-screen note) and can never stop the push.
+ * Missing fields are stored as `null`, never silently coerced to 0.
+ */
 export function saveMeal(asDraft = false) {
   const data = getData();
   const now = new Date();
@@ -146,29 +197,55 @@ export function saveMeal(asDraft = false) {
   const protein = $("mealProtein").value === "" ? null : Number($("mealProtein").value);
   const carbs = $("mealCarbs").value === "" ? null : Number($("mealCarbs").value);
   const fat = $("mealFat").value === "" ? null : Number($("mealFat").value);
-  const fibre = Number($("mealFibre").value || 0);
+  const fibre = $("mealFibre").value === "" ? null : Number($("mealFibre").value);
 
+  const validation = validateMealEntry({ mealName, quantity, unit, calories, protein, carbs, fat });
   const validationEl = $("mealValidationMessage");
-  if (!asDraft) {
-    const validation = validateMealEntry({ mealName, quantity, unit, calories, protein, carbs, fat });
+  if (validationEl) {
     if (!validation.reconciled) {
-      if (validationEl) {
-        validationEl.hidden = false;
-        validationEl.className = "small status-under";
-        validationEl.textContent = `${validation.message} Fix the entry, or choose "Save as Incomplete Draft" to log it now — drafts don't count toward today's totals until completed.`;
-      } else {
-        alert(validation.message);
-      }
-      return;
+      validationEl.hidden = false;
+      validationEl.className = "small status-under";
+      validationEl.textContent = validation.message;
+    } else {
+      validationEl.hidden = true;
     }
   }
-  if (validationEl) validationEl.hidden = true;
 
   const userCorrected = lastEstimate
     ? (calories !== lastEstimate.calories || protein !== lastEstimate.protein || carbs !== lastEstimate.carbs || fat !== lastEstimate.fat || fibre !== lastEstimate.fibre)
     : true; // no estimate was run at all -> fully manual entry
+  const loggedNutrition = { calories, protein, carbs, fat, fibre };
+
+  if (editingMealId) {
+    const existing = data.mealLogs.find(m => m.id === editingMealId);
+    if (existing) {
+      const previousValues = {
+        mealName: existing.mealName, rawDescription: existing.rawDescription,
+        calories: existing.calories, protein: existing.protein, carbs: existing.carbs, fat: existing.fat, fibre: existing.fibre,
+        quantity: existing.quantity, unit: existing.unit, time: existing.time, recoveryTag: existing.recoveryTag
+      };
+      Object.assign(existing, {
+        time: $("mealTime").value || existing.time,
+        mealName: mealName || existing.mealName,
+        rawDescription: $("mealDescription").value,
+        calories, protein, carbs, fat, fibre,
+        enteredCalories: calories, calculatedCaloriesFromMacros: validation.calculatedCaloriesFromMacros,
+        isManuallyEdited: true, loggedNutrition,
+        recoveryTag: $("mealRecoveryTag")?.value || null,
+        quantity, unit, isDraft: asDraft,
+        updatedAt: now.toISOString()
+      });
+      existing.editHistory = [...(existing.editHistory || []), { previousValues, editedAt: now.toISOString() }];
+      saveData(data);
+    }
+    clearMealForm();
+    refreshAll();
+    alert("Meal updated.");
+    return;
+  }
 
   const foodsDetected = lastEstimate?.foodsDetected || [];
+  const sourceType = lastEstimate ? (lastEstimate.source === "template" ? "database" : "ai") : "custom";
   let savedMealId = null;
   // Every genuinely-saved (non-draft) meal auto-joins the Meal History cookbook —
   // an exact repeat (same name/ingredients/macros) reuses the existing catalog entry
@@ -176,7 +253,7 @@ export function saveMeal(asDraft = false) {
   if (!asDraft) {
     const { savedMeal } = findOrCreateSavedMeal(data, {
       name: mealName || "Meal", ingredients: foodsDetected,
-      calories: calories ?? 0, protein: protein ?? 0, carbs: carbs ?? 0, fat: fat ?? 0, fibre
+      calories: calories ?? 0, protein: protein ?? 0, carbs: carbs ?? 0, fat: fat ?? 0, fibre: fibre ?? 0
     }, now.toISOString());
     savedMealId = savedMeal.id;
   }
@@ -188,7 +265,8 @@ export function saveMeal(asDraft = false) {
     mealName: mealName || "Meal",
     rawDescription: $("mealDescription").value,
     foodsDetected,
-    calories: calories ?? 0, protein: protein ?? 0, carbs: carbs ?? 0, fat: fat ?? 0, fibre,
+    calories, protein, carbs, fat, fibre,
+    enteredCalories: calories, calculatedCaloriesFromMacros: validation.calculatedCaloriesFromMacros,
     confidenceScore: lastEstimate?.confidenceScore || "Manual",
     assumptions: lastEstimate?.assumptions || [],
     userCorrected,
@@ -197,17 +275,18 @@ export function saveMeal(asDraft = false) {
     quantity, unit,
     isDraft: asDraft,
     source: lastEstimate ? (lastEstimate.source || "estimator") : "manual",
+    sourceType, isManuallyEdited: userCorrected,
+    originalNutrition: lastEstimate
+      ? { calories: lastEstimate.calories, protein: lastEstimate.protein, carbs: lastEstimate.carbs, fat: lastEstimate.fat, fibre: lastEstimate.fibre }
+      : null,
+    loggedNutrition, editHistory: [],
     savedMealId, servingMultiplier: 1,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
   });
   saveData(data);
 
-  ["mealDescription", "mealName", "mealTime", "mealQuantity", "mealCalories", "mealProtein", "mealCarbs", "mealFat", "mealFibre"].forEach(id => { if ($(id)) $(id).value = ""; });
-  if ($("mealRecoveryTag")) $("mealRecoveryTag").value = "";
-  if ($("mealUnit")) $("mealUnit").value = "";
-  $("mealEstimateResult").hidden = true;
-  lastEstimate = null;
+  clearMealForm();
   refreshAll();
   alert(asDraft ? "Meal saved as an incomplete draft — it won't count toward today's totals until completed and re-saved." : "Meal saved.");
 }
@@ -315,6 +394,7 @@ function mealHistoryItem(m) {
       ${m.isDraft ? `<span class="badge status-under">Draft — not counted in totals</span>` : ""}
     </div>
     <div class="actions">
+      <button class="secondary" data-edit-meal="${m.id}">Edit</button>
       <button class="secondary" data-duplicate-meal="${m.id}">Add Again Today</button>
       <button class="danger" data-delete="mealLogs" data-id="${m.id}">Delete</button>
     </div>
@@ -644,13 +724,17 @@ export function renderTrainingNutritionCorrelation(data) {
 
 export function setupMealEventDelegation() {
   document.addEventListener("click", (e) => {
+    const editBtn = e.target.closest("[data-edit-meal]");
+    if (editBtn) { startEditMeal(editBtn.dataset.editMeal); return; }
+    if (e.target.closest("#cancelMealEditBtn")) { cancelMealEdit(); return; }
+
     const dup = e.target.closest("[data-duplicate-meal]");
     if (dup) {
       const data = getData();
       const source = data.mealLogs.find(m => m.id === dup.dataset.duplicateMeal);
       if (!source) return;
       const now = new Date();
-      data.mealLogs.push({ ...source, id: uid(), date: todayISO(), time: now.toTimeString().slice(0, 5), createdAt: now.toISOString(), updatedAt: now.toISOString() });
+      data.mealLogs.push({ ...source, id: uid(), date: todayISO(), time: now.toTimeString().slice(0, 5), editHistory: [], createdAt: now.toISOString(), updatedAt: now.toISOString() });
       saveData(data);
       refreshAll();
       return;

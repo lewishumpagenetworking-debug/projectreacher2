@@ -667,6 +667,11 @@
       <section class="card">
         <h2>Log a Meal</h2>
         <button type="button" class="secondary" data-goto-tab="more" data-goto-anchor="performanceCoachChatInput">Ask Performance Coach</button>
+        <div id="mealEditingBanner" class="status-banner status-info" hidden>
+          <span class="status-icon">🔵</span>
+          <span>Editing <strong data-editing-meal-name></strong> — Save Meal will update this entry.</span>
+          <button type="button" class="secondary" id="cancelMealEditBtn">Cancel Edit</button>
+        </div>
         <label>Use a saved food template <select id="foodTemplateSelect"></select></label>
         <label>What did you eat? <textarea id="mealDescription" placeholder="e.g. 2 chicken breasts, rice, olive oil and Greek yogurt"></textarea></label>
         <div class="form-grid">
