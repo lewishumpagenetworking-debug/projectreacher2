@@ -48,6 +48,7 @@ import { renderProgressLab, setupProgressLabEventDelegation } from "./render-pro
 import { renderSessionImages, setupSessionImagesEventDelegation } from "./render-session-images.js";
 import { renderCustomSessionsList, setupCustomSessionBuilderEventDelegation, openCustomSessionBuilder } from "./render-custom-sessions.js";
 import { renderPeptidesList, setupPeptidesEventDelegation } from "./render-peptides.js";
+import { renderBloodworkCard, setupBloodworkEventDelegation } from "./render-bloodwork.js";
 
 export function refreshAll() {
   const data = getData();
@@ -103,6 +104,7 @@ export function refreshAll() {
   renderVisionBoard(data);
   renderTargetPhysiqueBoard(data);
   renderCustomSessionsList(data);
+  renderBloodworkCard(data);
   renderPeptidesList(data);
 }
 
@@ -137,7 +139,8 @@ const COLLECTION_LABELS = {
   goals: "Goals", milestones: "Milestones",
   customSessions: "Custom sessions", externalConstraintLogs: "External constraint logs",
   peptideRecords: "Peptide records", administrationSchedules: "Peptide administration schedules",
-  administrationLogs: "Peptide administration logs"
+  administrationLogs: "Peptide administration logs",
+  bloodworkReports: "Bloodwork reports", bloodworkMarkers: "Bloodwork markers", bloodworkReminders: "Bloodwork reminders"
 };
 
 function formatImportSummary(summary) {
@@ -351,6 +354,7 @@ setupProgressLabEventDelegation();
 setupSessionImagesEventDelegation();
 setupCustomSessionBuilderEventDelegation();
 setupPeptidesEventDelegation();
+setupBloodworkEventDelegation();
 setupRemindersEventDelegation();
 startReminderScheduler();
 setupVisionBoardEventDelegation();

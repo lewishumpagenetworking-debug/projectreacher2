@@ -1,6 +1,7 @@
 // Data layer: localStorage persistence, versioned schema, non-destructive migration.
 import { DEFAULT_TRAINING_PROGRAM, EXERCISE_DATABASE, DEFAULT_SUPPLEMENTS, DEFAULT_PRS } from "./program.js";
 import { exportAllImagesAsBase64, importImagesFromBase64Map } from "./image-store.js";
+import { exportAllBloodworkFilesAsBase64, importBloodworkFilesFromBase64Map } from "./bloodwork-files.js";
 import { DEFAULT_SESSION_NUTRITION } from "./session-nutrition.js";
 
 export const STORAGE_KEY = "projectReacher";
@@ -134,7 +135,14 @@ function emptyData() {
     // change history are later phases layered onto these same three collections.
     peptideRecords: [],
     administrationSchedules: [],
-    administrationLogs: []
+    administrationLogs: [],
+    // Peptide Recovery Tracking (Phase 2: bloodwork). File bytes for a report live in
+    // IndexedDB (js/bloodwork-files.js); every marker value here is either typed by the
+    // user directly or manually transcribed from an uploaded file — this app never runs
+    // OCR/extraction on the file, so userConfirmed is always true by construction.
+    bloodworkReports: [],
+    bloodworkMarkers: [],
+    bloodworkReminders: []
   };
 }
 
@@ -193,7 +201,8 @@ export function migrateData() {
    "reviews", "reminders", "savedMeals", "tasks",
    "images", "imageCategories", "goals", "milestones", "constraintCases",
    "customSessions", "externalConstraintLogs",
-   "peptideRecords", "administrationSchedules", "administrationLogs"].forEach(key => {
+   "peptideRecords", "administrationSchedules", "administrationLogs",
+   "bloodworkReports", "bloodworkMarkers", "bloodworkReminders"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -327,6 +336,29 @@ export function migrateData() {
     workoutRelationship: null, workoutId: null, minutesFromWorkout: null,
     bodyweight: null, notes: "",
     createdAt: l.createdAt || new Date().toISOString(), updatedAt: l.createdAt || new Date().toISOString()
+  }));
+
+  // Bloodwork (Phase 2) — the user decides when/whether to test; the app never imposes
+  // a testing interval (spec section 21).
+  data.bloodworkReports = data.bloodworkReports.map(r => withDefaults(r, {
+    testDate: null, title: "", laboratoryName: "", orderingClinician: "",
+    fastingStatus: null, collectionTime: null, notes: "",
+    linkedPeptideIds: [], linkedCyclePhase: null,
+    fileAttachmentId: null, fileName: "", fileType: "", fileSize: null,
+    createdAt: r.createdAt || new Date().toISOString(), updatedAt: r.createdAt || new Date().toISOString()
+  }));
+
+  data.bloodworkMarkers = data.bloodworkMarkers.map(m => withDefaults(m, {
+    reportId: null, category: "", markerName: "", result: null, unit: "",
+    referenceLow: null, referenceHigh: null, laboratoryFlag: "",
+    userConfirmed: true, notes: "",
+    createdAt: m.createdAt || new Date().toISOString()
+  }));
+
+  data.bloodworkReminders = data.bloodworkReminders.map(r => withDefaults(r, {
+    reminderDate: null, recurrence: "none", recurrenceN: null, notes: "",
+    peptideId: null, linkedCyclePhase: null,
+    createdAt: r.createdAt || new Date().toISOString(), updatedAt: r.createdAt || new Date().toISOString()
   }));
 
   data.sleepLogs = data.sleepLogs.map(s => withDefaults(s, {
@@ -473,7 +505,13 @@ export async function exportData() {
   } catch (err) {
     console.warn("[Project Reacher] Could not bundle images into this export.", err);
   }
-  const payload = { ...data, __images: images };
+  let bloodworkFiles = {};
+  try {
+    bloodworkFiles = await exportAllBloodworkFilesAsBase64();
+  } catch (err) {
+    console.warn("[Project Reacher] Could not bundle bloodwork files into this export.", err);
+  }
+  const payload = { ...data, __images: images, __bloodworkFiles: bloodworkFiles };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -500,7 +538,8 @@ const COLLECTION_KEYS = [
   "reviews", "savedMeals", "tasks",
   "images", "imageCategories", "goals", "milestones", "constraintCases",
   "customSessions", "externalConstraintLogs",
-  "peptideRecords", "administrationSchedules", "administrationLogs"
+  "peptideRecords", "administrationSchedules", "administrationLogs",
+  "bloodworkReports", "bloodworkMarkers", "bloodworkReminders"
   // "reminders" is deliberately excluded — per-device notification scheduling state,
   // the same reasoning as aiProposedChanges/aiAuditLog below.
 ];
@@ -769,6 +808,9 @@ export function importAndMergeData(importedRaw, currentState) {
   record("peptideRecords", mergeByIdGeneric(current.peptideRecords, imported.peptideRecords, detectDuplicateById));
   record("administrationSchedules", mergeByIdGeneric(current.administrationSchedules, imported.administrationSchedules, detectDuplicateById));
   record("administrationLogs", mergeByIdGeneric(current.administrationLogs, imported.administrationLogs, detectDuplicateById));
+  record("bloodworkReports", mergeByIdGeneric(current.bloodworkReports, imported.bloodworkReports, detectDuplicateById));
+  record("bloodworkMarkers", mergeByIdGeneric(current.bloodworkMarkers, imported.bloodworkMarkers, detectDuplicateById));
+  record("bloodworkReminders", mergeByIdGeneric(current.bloodworkReminders, imported.bloodworkReminders, detectDuplicateById));
   // reminders deliberately not merged — never restore stale/old notification schedules from a backup.
 
   // aiSettings: current device's consent/permissions always win (consent must never be
@@ -844,6 +886,10 @@ export async function importData(jsonText) {
       try { await importImagesFromBase64Map(imported.__images); }
       catch (err) { console.warn("[Project Reacher] Some images from this backup could not be restored.", err); }
     }
+    if (imported.__bloodworkFiles) {
+      try { await importBloodworkFilesFromBase64Map(imported.__bloodworkFiles); }
+      catch (err) { console.warn("[Project Reacher] Some bloodwork files from this backup could not be restored.", err); }
+    }
     return { data, summary };
   } catch (err) {
     rollbackImport(current);
@@ -863,13 +909,17 @@ export async function fullRestoreFromBackup(jsonText) {
   if (typeof imported !== "object" || imported === null) throw new Error("Invalid backup file.");
   const current = getData();
   createPreImportBackup(current);
-  const { __images: importedImages, ...importedWithoutImages } = imported;
+  const { __images: importedImages, __bloodworkFiles: importedBloodworkFiles, ...importedWithoutImages } = imported;
   try {
     saveData(importedWithoutImages);
     const data = migrateData();
     if (importedImages) {
       try { await importImagesFromBase64Map(importedImages); }
       catch (err) { console.warn("[Project Reacher] Some images from this backup could not be restored.", err); }
+    }
+    if (importedBloodworkFiles) {
+      try { await importBloodworkFilesFromBase64Map(importedBloodworkFiles); }
+      catch (err) { console.warn("[Project Reacher] Some bloodwork files from this backup could not be restored.", err); }
     }
     return data;
   } catch (err) {

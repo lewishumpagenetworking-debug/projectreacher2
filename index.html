@@ -998,6 +998,40 @@
         <div id="caffeineReductionPlan"></div>
       </section>
 
+      <section class="card" id="bloodworkCard">
+        <p class="eyebrow">BLOODWORK</p>
+        <div class="section-title"><h2>Bloodwork</h2><button type="button" class="secondary" id="bloodworkNewBtn">+ Add Bloodwork</button></div>
+        <p class="small">A bloodwork archive linked to your peptide cycles. You decide when bloodwork is recorded — the app never prescribes a testing interval.</p>
+        <div id="bloodworkReminderAlerts"></div>
+        <div id="bloodworkStats"></div>
+
+        <details class="category-section">
+          <summary><strong>Marker Trend</strong></summary>
+          <label class="small">Marker <select id="bloodworkMarkerSelect"></select></label>
+          <div id="bloodworkTrendChart" class="chart-box"></div>
+        </details>
+
+        <details class="category-section">
+          <summary><strong>Bloodwork Reminders</strong></summary>
+          <div class="form-grid">
+            <label>Reminder Date <input type="date" id="bwReminderDate"></label>
+            <label>Recurrence <select id="bwReminderRecurrence">
+              <option value="none">One-off (no recurrence)</option>
+              <option value="monthly">Monthly</option>
+              <option value="every_n_weeks">Every N weeks</option>
+              <option value="every_n_months">Every N months</option>
+              <option value="custom">Custom (I'll manage the date myself)</option>
+            </select></label>
+            <label>N (for every-N schedules) <input type="number" min="1" id="bwReminderN"></label>
+          </div>
+          <label class="small">Notes <input type="text" id="bwReminderNotes"></label>
+          <div class="actions"><button type="button" id="bwAddReminderBtn">Add Reminder</button></div>
+          <div id="bloodworkReminderList"></div>
+        </details>
+
+        <div id="bloodworkList"></div>
+      </section>
+
       <section class="card" id="peptidesCard">
         <p class="eyebrow">PEPTIDES</p>
         <div class="section-title"><h2>Peptide Recovery Tracking</h2><button type="button" class="secondary" id="peptideNewBtn">+ Add Peptide</button></div>
@@ -1515,6 +1549,12 @@
     <div id="peptideBackdrop" class="nav-backdrop custom-session-backdrop" hidden></div>
     <div id="peptideModal" class="custom-session-modal" hidden role="dialog" aria-modal="true" aria-labelledby="peptideTitle">
       <div class="custom-session-modal-content" id="peptideModalContent"></div>
+    </div>
+
+    <!-- ================= BLOODWORK REPORT (Peptide Recovery Tracking, Phase 2) ================= -->
+    <div id="bwBackdrop" class="nav-backdrop custom-session-backdrop" hidden></div>
+    <div id="bwModal" class="custom-session-modal" hidden role="dialog" aria-modal="true" aria-labelledby="bwTitle">
+      <div class="custom-session-modal-content" id="bwModalContent"></div>
     </div>
   </div>
 

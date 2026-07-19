@@ -15,6 +15,8 @@ import {
   cycleProgress, formatDurationLabel, computeDisplayStatus, displayStatusLabel,
   adherencePct, nextScheduledAdministration, todaysAdministrationState, cycleTotals
 } from "./peptides.js";
+import { getReportsForPeptide, reportsByCyclePhase, CYCLE_PHASES, CYCLE_PHASE_LABELS } from "./bloodwork.js";
+import { openBloodworkReport } from "./render-bloodwork.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -83,7 +85,7 @@ export function renderPeptidesList(data) {
 let pageState = null; // { peptideId, section, editingScheduleId, editingLogId }
 const SECTIONS = [
   ["overview", "Overview"], ["cycle", "Cycle"], ["schedule", "Administration Schedule"],
-  ["log", "Administration Log"], ["notes", "Notes"]
+  ["log", "Administration Log"], ["bloodwork", "Bloodwork"], ["notes", "Notes"]
 ];
 
 export function openPeptidePage(id) {
@@ -115,7 +117,8 @@ function overviewSectionHtml(data, record, referenceDate) {
   const totals = cycleTotals(record, data.administrationSchedules || [], data.administrationLogs || [], referenceDate);
   const progress = cycleProgress(record, referenceDate);
   const amountLine = Object.entries(totals.byUnit).map(([unit, amt]) => `${amt}${unit}`).join(", ") || "0";
-  const latestBloodwork = "No bloodwork linked yet"; // Bloodwork module lands in Phase 2
+  const latestReport = getReportsForPeptide(data, record.id)[0];
+  const latestBloodwork = latestReport ? (latestReport.testDate || "Date not set") : "No bloodwork linked yet";
   return `
     <div class="history-item">
       <p>Peptide: <strong>${esc(record.name || "Untitled")}</strong></p>
@@ -265,6 +268,25 @@ function logSectionHtml(data, record, referenceDate) {
     ${logs.length ? logs.map(logRowHtml).join("") : "<p class='small'>No administrations logged yet.</p>"}`;
 }
 
+function bloodworkSectionHtml(data, record) {
+  const reports = getReportsForPeptide(data, record.id);
+  const groups = reportsByCyclePhase(reports);
+  const body = reports.length
+    ? CYCLE_PHASES.map(phase => groups[phase].length ? `
+        <p class="small"><strong>${esc(CYCLE_PHASE_LABELS[phase])}</strong></p>
+        ${groups[phase].map(r => `
+          <div class="history-item">
+            <strong>${esc(r.title || r.testDate || "Untitled report")}</strong>
+            <p class="small">${r.testDate ? esc(r.testDate) : "No date set"}${r.laboratoryName ? ` · ${esc(r.laboratoryName)}` : ""}</p>
+            <div class="actions"><button type="button" data-peptide-open-bloodwork="${esc(r.id)}">Open</button></div>
+          </div>`).join("")}` : "").join("")
+    : "<p class='small'>No bloodwork has been linked to this peptide.</p>";
+  return `
+    ${body}
+    <div class="actions"><button type="button" data-peptide-add-bloodwork="${esc(record.id)}">+ Add Bloodwork for This Peptide</button></div>
+    <p class="small" style="opacity:.7">The app may describe values as increased, decreased, stable, or inside/outside the laboratory-supplied reference range — it never diagnoses a condition.</p>`;
+}
+
 function notesSectionHtml(record) {
   return `
     <label class="small">General Notes <textarea id="pdNotes">${esc(record.notes || "")}</textarea></label>
@@ -283,6 +305,7 @@ function renderPeptidePage() {
     : pageState.section === "cycle" ? cycleSectionHtml(record)
     : pageState.section === "schedule" ? scheduleSectionHtml(data, record)
     : pageState.section === "log" ? logSectionHtml(data, record, referenceDate)
+    : pageState.section === "bloodwork" ? bloodworkSectionHtml(data, record)
     : notesSectionHtml(record);
 
   content.innerHTML = `
@@ -431,6 +454,11 @@ export function setupPeptidesEventDelegation() {
 
     const sectionBtn = e.target.closest("[data-peptide-section]");
     if (sectionBtn) { pageState.section = sectionBtn.dataset.peptideSection; pageState.editingScheduleId = null; pageState.editingLogId = null; renderPeptidePage(); return; }
+
+    const openBloodworkBtn = e.target.closest("[data-peptide-open-bloodwork]");
+    if (openBloodworkBtn) { const reportId = openBloodworkBtn.dataset.peptideOpenBloodwork; closePeptidePage(); openBloodworkReport(reportId); return; }
+    const addBloodworkBtn = e.target.closest("[data-peptide-add-bloodwork]");
+    if (addBloodworkBtn) { const peptideId = addBloodworkBtn.dataset.peptideAddBloodwork; closePeptidePage(); openBloodworkReport(null, peptideId); return; }
 
     const statusBtn = e.target.closest("[data-peptide-set-status]");
     if (statusBtn) { handleSetStatus(statusBtn.dataset.peptideSetStatus); return; }

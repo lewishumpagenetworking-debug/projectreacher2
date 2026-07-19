@@ -15,6 +15,7 @@ import {
   computeDisplayStatus, scheduledDatesInRange, dueCountdownMilestones,
   TIME_CATEGORY_LABELS, MEAL_RELATIONSHIP_LABELS
 } from "./peptides.js";
+import { dueBloodworkReminders } from "./bloodwork.js";
 
 export const TASK_SECTIONS = {
   ACT_NOW: "act-now", COMPLETE_TODAY: "complete-today", PROTECT_WEEK: "protect-week",
@@ -198,6 +199,19 @@ export function generateProgressTasks(data, referenceDate = new Date()) {
       section: TASK_SECTIONS.UPCOMING
     })));
   });
+
+  // 12. Bloodwork upload due (spec section 21) — from a user-defined reminder date only;
+  // resolves automatically the moment a report with a matching test date is added.
+  dueBloodworkReminders(data, referenceDate).forEach(r => tasks.push(Task({
+    id: `bloodwork-reminder-${r.id}-${todayISO}`, type: "bloodwork-reminder",
+    title: "Upload scheduled bloodwork",
+    instruction: r.notes || `A bloodwork upload was scheduled for ${r.occurrenceDate}.`,
+    reason: "A user-defined bloodwork reminder date has arrived.",
+    priority: "normal", urgencyState: "due_today",
+    destination: { route: "recovery", anchor: "bloodworkCard" },
+    sourceEntityType: "bloodworkReminder", sourceEntityId: r.id,
+    section: TASK_SECTIONS.UPCOMING
+  })));
 
   return sortTasks(tasks);
 }
