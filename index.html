@@ -1045,6 +1045,28 @@
             <option value="endDate">End date</option>
           </select></label>
         </div>
+        <details class="category-section">
+          <summary><strong>Equipment Profiles</strong></summary>
+          <p class="small">Reusable equipment records you can select when logging an administration — the app never recommends a needle length, gauge, or injection site.</p>
+          <div id="equipmentProfilesList"></div>
+          <div class="history-item">
+            <h4>Add Equipment Profile</h4>
+            <div class="form-grid">
+              <label>Profile Name <input type="text" id="epName"></label>
+              <label>Syringe Type <input type="text" id="epSyringeType"></label>
+              <label>Syringe Capacity <input type="text" id="epSyringeCapacity"></label>
+              <label>Syringe Unit Scale <input type="text" id="epSyringeUnitScale"></label>
+              <label>Needle Length <input type="text" id="epNeedleLength"></label>
+              <label>Needle Gauge <input type="text" id="epNeedleGauge"></label>
+              <label>Needle Type <input type="text" id="epNeedleType"></label>
+              <label>Brand <input type="text" id="epBrand"></label>
+              <label>Source <input type="text" id="epSource"></label>
+            </div>
+            <label class="small">Notes <textarea id="epNotes"></textarea></label>
+            <div class="actions"><button type="button" id="epAddBtn">Add Equipment Profile</button></div>
+          </div>
+        </details>
+
         <div id="peptidesList"></div>
       </section>
 

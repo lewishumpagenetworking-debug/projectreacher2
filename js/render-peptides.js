@@ -18,6 +18,18 @@ import {
 import { getReportsForPeptide, reportsByCyclePhase, CYCLE_PHASES, CYCLE_PHASE_LABELS } from "./bloodwork.js";
 import { openBloodworkReport } from "./render-bloodwork.js";
 import { COMPARISON_WINDOWS, COMPARISON_WINDOW_LABELS, buildCorrelationReport } from "./peptide-correlation.js";
+import {
+  VIAL_STATUSES, VIAL_STATUS_LABELS,
+  getSourcesForPeptide, createPeptideSource, updatePeptideSource, deletePeptideSource,
+  getVialsForPeptide, createVialRecord, updateVialRecord, deleteVialRecord,
+  getEquipmentProfiles, createEquipmentProfile, deleteEquipmentProfile
+} from "./peptide-product.js";
+import {
+  REFERENCE_SOURCE_TYPES, REFERENCE_SOURCE_TYPE_LABELS, EXTERNAL_REFERENCE_LABEL,
+  getReferencesForPeptide, createReferenceSource, updateReferenceSource, deleteReferenceSource
+} from "./peptide-references.js";
+import { recordFieldChanges, getHistoryFor } from "./change-history.js";
+import { exportPeptideAsJson, exportPeptideAsMarkdown } from "./peptide-export.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -81,12 +93,25 @@ export function renderPeptidesList(data) {
   }).join("");
 }
 
+export function renderEquipmentProfiles(data) {
+  const el = $("equipmentProfilesList");
+  if (!el) return;
+  const profiles = getEquipmentProfiles(data);
+  el.innerHTML = profiles.length ? profiles.map(p => `
+    <div class="history-item">
+      <strong>${esc(p.name || "Profile")}</strong>
+      <p class="small">${[p.syringeType, p.needleLength, p.needleGauge, p.brand].filter(Boolean).map(esc).join(" · ")}</p>
+      <div class="actions"><button type="button" class="danger" data-equipment-delete="${esc(p.id)}">Delete</button></div>
+    </div>`).join("") : "<p class='small'>No equipment profiles yet.</p>";
+}
+
 // ==================== DEDICATED PAGE (modal) ====================
 
-let pageState = null; // { peptideId, section, editingScheduleId, editingLogId, correlationWindow }
+let pageState = null; // { peptideId, section, editingScheduleId, editingLogId, correlationWindow, editingSourceId, editingVialId, editingReferenceId }
 const SECTIONS = [
   ["overview", "Overview"], ["cycle", "Cycle"], ["schedule", "Administration Schedule"],
-  ["log", "Administration Log"], ["bloodwork", "Bloodwork"], ["correlations", "Correlations"], ["notes", "Notes"]
+  ["log", "Administration Log"], ["bloodwork", "Bloodwork"], ["correlations", "Correlations"],
+  ["product", "Product & Vials"], ["references", "Sources & References"], ["history", "Change History"], ["notes", "Notes"]
 ];
 
 export function openPeptidePage(id) {
@@ -97,7 +122,10 @@ export function openPeptidePage(id) {
     saveData(data);
     peptideId = record.id;
   }
-  pageState = { peptideId, section: "overview", editingScheduleId: null, editingLogId: null, correlationWindow: "active_cycle" };
+  pageState = {
+    peptideId, section: "overview", editingScheduleId: null, editingLogId: null, correlationWindow: "active_cycle",
+    editingSourceId: null, editingVialId: null, editingReferenceId: null
+  };
   renderPeptidePage();
   $("peptideBackdrop").hidden = false;
   $("peptideModal").hidden = false;
@@ -140,6 +168,10 @@ function overviewSectionHtml(data, record, referenceDate) {
       <button type="button" class="secondary" data-peptide-complete>Complete Cycle</button>
       <button type="button" class="secondary" data-peptide-set-status="archived">Archive</button>
       <button type="button" class="danger" data-peptide-set-status="cancelled">Cancel</button>
+    </div>
+    <div class="actions">
+      <button type="button" class="secondary" data-peptide-export-json>Export as JSON</button>
+      <button type="button" class="secondary" data-peptide-export-markdown>Export as Markdown</button>
     </div>`;
 }
 
@@ -233,8 +265,8 @@ function logRowHtml(l) {
     </div>`;
 }
 
-function logFormHtml(editing, referenceDate) {
-  const l = editing || { date: referenceDate.toLocaleDateString("en-CA"), exactTime: null, status: "taken", amount: null, amountUnit: "mcg", timeCategory: null, mealRelationship: null, workoutRelationship: null, bodyweight: null, notes: "" };
+function logFormHtml(editing, referenceDate, vials, equipmentProfiles) {
+  const l = editing || { date: referenceDate.toLocaleDateString("en-CA"), exactTime: null, status: "taken", amount: null, amountUnit: "mcg", timeCategory: null, mealRelationship: null, workoutRelationship: null, bodyweight: null, notes: "", vialId: null, equipmentProfileId: null, needleLength: "", needleGauge: "", administrationSite: "" };
   return `
     <div class="history-item">
       <h4>${editing ? "Edit Administration" : "Log Administration"}</h4>
@@ -248,13 +280,18 @@ function logFormHtml(editing, referenceDate) {
         <label>Meal Relationship <select id="plMealRelationship">${optionsHtml(MEAL_RELATIONSHIPS, MEAL_RELATIONSHIP_LABELS, l.mealRelationship)}</select></label>
         <label>Workout Relationship <select id="plWorkoutRelationship">${optionsHtml(WORKOUT_RELATIONSHIPS, WORKOUT_RELATIONSHIP_LABELS, l.workoutRelationship)}</select></label>
         <label>Bodyweight at Log (optional) <input type="number" step="any" id="plBodyweight" value="${l.bodyweight ?? ""}"></label>
+        <label>Vial Used <select id="plVialId"><option value="">--</option>${vials.map(v => `<option value="${esc(v.id)}" ${l.vialId === v.id ? "selected" : ""}>${esc(v.label || "Vial")}</option>`).join("")}</select></label>
+        <label>Equipment Profile <select id="plEquipmentProfileId"><option value="">--</option>${equipmentProfiles.map(e => `<option value="${esc(e.id)}" ${l.equipmentProfileId === e.id ? "selected" : ""}>${esc(e.name || "Profile")}</option>`).join("")}</select></label>
+        <label>Needle Length <input type="text" id="plNeedleLength" value="${esc(l.needleLength || "")}"></label>
+        <label>Needle Gauge <input type="text" id="plNeedleGauge" value="${esc(l.needleGauge || "")}"></label>
+        <label>Administration Site <input type="text" id="plAdministrationSite" value="${esc(l.administrationSite || "")}"></label>
       </div>
       <label class="small">Notes <textarea id="plNotes">${esc(l.notes || "")}</textarea></label>
       <div class="actions">
         <button type="button" id="plSaveBtn">${editing ? "Save Administration" : "Log Administration"}</button>
         ${editing ? `<button type="button" class="secondary" id="plCancelEditBtn">Cancel</button>` : ""}
       </div>
-      <p class="small" style="opacity:.7">Missed and skipped entries are never counted in totals or adherence.</p>
+      <p class="small" style="opacity:.7">Missed and skipped entries are never counted in totals or adherence. The app does not recommend needle length/gauge, injection site, or syringe units — every field above is your own entry.</p>
     </div>`;
 }
 
@@ -264,7 +301,7 @@ function logSectionHtml(data, record, referenceDate) {
   const next = nextScheduledAdministration(record.id, data.administrationSchedules || [], data.administrationLogs || [], referenceDate);
   return `
     ${next ? `<div class="status-banner status-info"><span class="status-icon">🔵</span><span>Next user-scheduled administration: ${esc(next.date)}${next.plannedTime ? ` at ${esc(next.plannedTime)}` : ""}.</span></div>` : ""}
-    ${logFormHtml(editing, referenceDate)}
+    ${logFormHtml(editing, referenceDate, getVialsForPeptide(data, record.id), getEquipmentProfiles(data))}
     <h4>History</h4>
     ${logs.length ? logs.map(logRowHtml).join("") : "<p class='small'>No administrations logged yet.</p>"}`;
 }
@@ -326,6 +363,179 @@ function correlationsSectionHtml(data, record, referenceDate) {
     <div class="status-banner status-info"><span class="status-icon">🔵</span><span>${report.narrative.map(esc).join(" ")}</span></div>`;
 }
 
+function sourceRowHtml(s) {
+  return `
+    <div class="history-item">
+      <strong>${esc(s.supplierName || "Unnamed source")}</strong>${s.manufacturer ? ` · ${esc(s.manufacturer)}` : ""}
+      <p class="small">${s.batchNumber ? `Batch ${esc(s.batchNumber)} · ` : ""}${s.lotNumber ? `Lot ${esc(s.lotNumber)} · ` : ""}${s.expiryDate ? `Expires ${esc(s.expiryDate)}` : ""}</p>
+      ${s.notes ? `<p class="small">${esc(s.notes)}</p>` : ""}
+      <div class="actions">
+        <button type="button" class="secondary" data-peptide-edit-source="${esc(s.id)}">Edit</button>
+        <button type="button" class="danger" data-peptide-delete-source="${esc(s.id)}">Delete</button>
+      </div>
+    </div>`;
+}
+
+function sourceFormHtml(editing) {
+  const s = editing || { supplierName: "", manufacturer: "", productUrl: "", purchaseDate: "", orderReference: "", batchNumber: "", lotNumber: "", expiryDate: "", countryOfOrigin: "", storageLocation: "", storageTemperatureText: "", openedDate: "", discardedDate: "", notes: "" };
+  return `
+    <div class="history-item">
+      <h4>${editing ? "Edit Source" : "Add Product / Source"}</h4>
+      <div class="form-grid">
+        <label>Supplier / Source Name <input type="text" id="psrSupplierName" value="${esc(s.supplierName || "")}"></label>
+        <label>Manufacturer <input type="text" id="psrManufacturer" value="${esc(s.manufacturer || "")}"></label>
+        <label>Product URL <input type="text" id="psrProductUrl" value="${esc(s.productUrl || "")}"></label>
+        <label>Purchase Date <input type="date" id="psrPurchaseDate" value="${esc(s.purchaseDate || "")}"></label>
+        <label>Order Reference <input type="text" id="psrOrderReference" value="${esc(s.orderReference || "")}"></label>
+        <label>Batch Number <input type="text" id="psrBatchNumber" value="${esc(s.batchNumber || "")}"></label>
+        <label>Lot Number <input type="text" id="psrLotNumber" value="${esc(s.lotNumber || "")}"></label>
+        <label>Expiry Date <input type="date" id="psrExpiryDate" value="${esc(s.expiryDate || "")}"></label>
+        <label>Country of Origin <input type="text" id="psrCountryOfOrigin" value="${esc(s.countryOfOrigin || "")}"></label>
+        <label>Storage Location <input type="text" id="psrStorageLocation" value="${esc(s.storageLocation || "")}"></label>
+        <label>Storage Temperature <input type="text" id="psrStorageTemperatureText" value="${esc(s.storageTemperatureText || "")}"></label>
+        <label>Date Opened <input type="date" id="psrOpenedDate" value="${esc(s.openedDate || "")}"></label>
+        <label>Date Discarded <input type="date" id="psrDiscardedDate" value="${esc(s.discardedDate || "")}"></label>
+      </div>
+      <label class="small">Quality Notes <textarea id="psrNotes">${esc(s.notes || "")}</textarea></label>
+      <div class="actions">
+        <button type="button" id="psrSaveBtn">${editing ? "Save Source" : "Add Source"}</button>
+        ${editing ? `<button type="button" class="secondary" id="psrCancelEditBtn">Cancel</button>` : ""}
+      </div>
+      <p class="small" style="opacity:.7">The app does not validate or endorse this source.</p>
+    </div>`;
+}
+
+function vialRowHtml(v) {
+  return `
+    <div class="history-item">
+      <div class="section-title"><strong>${esc(v.label || "Vial")}</strong><span class="badge">${esc(VIAL_STATUS_LABELS[v.status] || v.status)}</span></div>
+      <p class="small">${v.statedAmount != null ? `${esc(String(v.statedAmount))}${esc(v.statedAmountUnit || "")}` : "Amount not set"}${v.solutionVolume != null ? ` in ${esc(String(v.solutionVolume))}${esc(v.solutionVolumeUnit || "")}` : ""}</p>
+      ${v.userEnteredConcentration != null ? `<p class="small"><span class="badge">User-entered record</span> ${esc(String(v.userEnteredConcentration))}${esc(v.concentrationUnit || "")}${v.userEnteredAmountPerSyringeUnit != null ? ` · ${esc(String(v.userEnteredAmountPerSyringeUnit))} per syringe unit` : ""}</p>` : ""}
+      ${v.notes ? `<p class="small">${esc(v.notes)}</p>` : ""}
+      <div class="actions">
+        <button type="button" class="secondary" data-peptide-edit-vial="${esc(v.id)}">Edit</button>
+        <button type="button" class="danger" data-peptide-delete-vial="${esc(v.id)}">Delete</button>
+      </div>
+    </div>`;
+}
+
+function vialFormHtml(editing) {
+  const v = editing || { label: "", sequenceNumber: "", statedAmount: "", statedAmountUnit: "mcg", numberOfVials: "", status: "unopened", openedDate: "", discardedDate: "", solutionType: "", solutionBrand: "", solutionVolume: "", solutionVolumeUnit: "mL", preparationDate: "", preparedBy: "", preparationNotes: "", storageNotes: "", solutionExpiryOrDiscardDate: "", userEnteredConcentration: "", concentrationUnit: "", userEnteredAmountPerSyringeUnit: "", concentrationNotes: "", notes: "" };
+  return `
+    <div class="history-item">
+      <h4>${editing ? "Edit Vial" : "Add Vial"}</h4>
+      <div class="form-grid">
+        <label>Vial Label <input type="text" id="pvLabel" value="${esc(v.label || "")}"></label>
+        <label>Sequence Number <input type="number" id="pvSequenceNumber" value="${v.sequenceNumber ?? ""}"></label>
+        <label>Stated Amount <input type="number" step="any" id="pvStatedAmount" value="${v.statedAmount ?? ""}"></label>
+        <label>Amount Unit <select id="pvStatedAmountUnit"><option value="mcg" ${v.statedAmountUnit === "mcg" ? "selected" : ""}>mcg</option><option value="mg" ${v.statedAmountUnit === "mg" ? "selected" : ""}>mg</option><option value="g" ${v.statedAmountUnit === "g" ? "selected" : ""}>g</option><option value="IU" ${v.statedAmountUnit === "IU" ? "selected" : ""}>IU</option><option value="custom" ${v.statedAmountUnit === "custom" ? "selected" : ""}>custom</option></select></label>
+        <label>Number of Vials <input type="number" id="pvNumberOfVials" value="${v.numberOfVials ?? ""}"></label>
+        <label>Vial Status <select id="pvStatus">${VIAL_STATUSES.map(s => `<option value="${esc(s)}" ${v.status === s ? "selected" : ""}>${esc(VIAL_STATUS_LABELS[s])}</option>`).join("")}</select></label>
+        <label>Vial Opened Date <input type="date" id="pvOpenedDate" value="${esc(v.openedDate || "")}"></label>
+        <label>Vial Discarded Date <input type="date" id="pvDiscardedDate" value="${esc(v.discardedDate || "")}"></label>
+        <label>Solution Type <input type="text" id="pvSolutionType" value="${esc(v.solutionType || "")}"></label>
+        <label>Solution Brand <input type="text" id="pvSolutionBrand" value="${esc(v.solutionBrand || "")}"></label>
+        <label>Volume Added <input type="number" step="any" id="pvSolutionVolume" value="${v.solutionVolume ?? ""}"></label>
+        <label>Volume Unit <input type="text" id="pvSolutionVolumeUnit" value="${esc(v.solutionVolumeUnit || "mL")}"></label>
+        <label>Preparation Date <input type="date" id="pvPreparationDate" value="${esc(v.preparationDate || "")}"></label>
+        <label>Prepared By <input type="text" id="pvPreparedBy" value="${esc(v.preparedBy || "")}"></label>
+        <label>Solution Expiry / Discard Date <input type="date" id="pvSolutionExpiryOrDiscardDate" value="${esc(v.solutionExpiryOrDiscardDate || "")}"></label>
+      </div>
+      <label class="small">Preparation Notes <textarea id="pvPreparationNotes">${esc(v.preparationNotes || "")}</textarea></label>
+      <label class="small">Storage Notes <textarea id="pvStorageNotes">${esc(v.storageNotes || "")}</textarea></label>
+      <p class="small"><span class="badge">User-entered record</span> The values below are a neutral record of numbers you have already determined — the app does not calculate or verify a concentration for you.</p>
+      <div class="form-grid">
+        <label>User-Entered Concentration <input type="number" step="any" id="pvUserEnteredConcentration" value="${v.userEnteredConcentration ?? ""}"></label>
+        <label>Concentration Unit <input type="text" id="pvConcentrationUnit" value="${esc(v.concentrationUnit || "")}"></label>
+        <label>Amount per Syringe Unit <input type="number" step="any" id="pvUserEnteredAmountPerSyringeUnit" value="${v.userEnteredAmountPerSyringeUnit ?? ""}"></label>
+      </div>
+      <label class="small">Notes on How This Value Was Obtained <textarea id="pvConcentrationNotes">${esc(v.concentrationNotes || "")}</textarea></label>
+      <label class="small">General Notes <textarea id="pvNotes">${esc(v.notes || "")}</textarea></label>
+      <div class="actions">
+        <button type="button" id="pvSaveBtn">${editing ? "Save Vial" : "Add Vial"}</button>
+        ${editing ? `<button type="button" class="secondary" id="pvCancelEditBtn">Cancel</button>` : ""}
+      </div>
+    </div>`;
+}
+
+function productSectionHtml(data, record) {
+  const sources = getSourcesForPeptide(data, record.id);
+  const editingSource = pageState.editingSourceId ? sources.find(s => s.id === pageState.editingSourceId) : null;
+  const vials = getVialsForPeptide(data, record.id);
+  const editingVial = pageState.editingVialId ? vials.find(v => v.id === pageState.editingVialId) : null;
+  return `
+    <h3>Product & Source</h3>
+    ${sources.length ? sources.map(sourceRowHtml).join("") : "<p class='small'>No source recorded yet.</p>"}
+    ${sourceFormHtml(editingSource)}
+    <h3>Vial & Solution Record (${vials.length})</h3>
+    ${vials.length ? vials.map(vialRowHtml).join("") : "<p class='small'>No vials recorded yet.</p>"}
+    ${vialFormHtml(editingVial)}
+    <p class="small" style="opacity:.7">Equipment profiles are managed on the main Peptides card and can be reused across records — select one when logging an administration.</p>`;
+}
+
+function referenceRowHtml(r) {
+  return `
+    <div class="history-item">
+      <div class="section-title"><strong>${esc(r.title || "Untitled reference")}</strong><span class="badge">${esc(REFERENCE_SOURCE_TYPE_LABELS[r.sourceType] || r.sourceType)}</span></div>
+      <p class="small">${r.creator ? `${esc(r.creator)} · ` : ""}${r.publicationDate ? esc(r.publicationDate) : ""}${r.url ? ` · ${esc(r.url)}` : ""}</p>
+      ${r.quotation ? `<p class="small">"${esc(r.quotation)}"</p>` : ""}
+      ${r.summary ? `<p class="small">${esc(r.summary)}</p>` : ""}
+      <p class="small" style="opacity:.7">${esc(EXTERNAL_REFERENCE_LABEL)}</p>
+      <div class="actions">
+        <button type="button" class="secondary" data-peptide-edit-reference="${esc(r.id)}">Edit</button>
+        <button type="button" class="danger" data-peptide-delete-reference="${esc(r.id)}">Delete</button>
+      </div>
+    </div>`;
+}
+
+function referenceFormHtml(editing) {
+  const r = editing || { sourceType: "other", creator: "", title: "", publicationDate: "", url: "", timestamp: "", dateAccessed: "", quotation: "", summary: "", notes: "" };
+  return `
+    <div class="history-item">
+      <h4>${editing ? "Edit Reference" : "Add Reference"}</h4>
+      <div class="form-grid">
+        <label>Source Type <select id="prSourceType">${REFERENCE_SOURCE_TYPES.map(t => `<option value="${esc(t)}" ${r.sourceType === t ? "selected" : ""}>${esc(REFERENCE_SOURCE_TYPE_LABELS[t])}</option>`).join("")}</select></label>
+        <label>Title <input type="text" id="prTitle" value="${esc(r.title || "")}"></label>
+        <label>Author / Creator <input type="text" id="prCreator" value="${esc(r.creator || "")}"></label>
+        <label>Publication Date <input type="date" id="prPublicationDate" value="${esc(r.publicationDate || "")}"></label>
+        <label>URL <input type="text" id="prUrl" value="${esc(r.url || "")}"></label>
+        <label>Timestamp <input type="text" id="prTimestamp" value="${esc(r.timestamp || "")}" placeholder="e.g. 12:34"></label>
+        <label>Date Accessed <input type="date" id="prDateAccessed" value="${esc(r.dateAccessed || "")}"></label>
+      </div>
+      <label class="small">Direct Quotation <textarea id="prQuotation">${esc(r.quotation || "")}</textarea></label>
+      <label class="small">Summary <textarea id="prSummary">${esc(r.summary || "")}</textarea></label>
+      <label class="small">Notes <textarea id="prNotes">${esc(r.notes || "")}</textarea></label>
+      <div class="actions">
+        <button type="button" id="prSaveBtn">${editing ? "Save Reference" : "Add Reference"}</button>
+        ${editing ? `<button type="button" class="secondary" id="prCancelEditBtn">Cancel</button>` : ""}
+      </div>
+      <p class="small" style="opacity:.7">${esc(EXTERNAL_REFERENCE_LABEL)}. This is stored as reference material only and never automatically populates your protocol above.</p>
+    </div>`;
+}
+
+function referencesSectionHtml(data, record) {
+  const references = getReferencesForPeptide(data, record.id);
+  const editing = pageState.editingReferenceId ? references.find(r => r.id === pageState.editingReferenceId) : null;
+  return `
+    ${references.length ? references.map(referenceRowHtml).join("") : "<p class='small'>No references linked yet.</p>"}
+    ${referenceFormHtml(editing)}`;
+}
+
+function historySectionHtml(data, record) {
+  const recordHistory = getHistoryFor(data, "peptideRecord", record.id);
+  const logHistory = (data.administrationLogs || [])
+    .filter(l => l.peptideId === record.id)
+    .flatMap(l => getHistoryFor(data, "administrationLog", l.id));
+  const entries = [...recordHistory, ...logHistory].sort((a, b) => (b.changedAt || "").localeCompare(a.changedAt || ""));
+  if (!entries.length) return "<p class='small'>No edits recorded yet — a history entry is created whenever a saved value is changed.</p>";
+  return entries.map(h => `
+    <div class="history-item">
+      <p class="small"><strong>${esc(h.field)}</strong> changed ${esc((h.changedAt || "").slice(0, 10))}</p>
+      <p class="small">${esc(h.previousValue == null ? "(empty)" : String(h.previousValue))} → ${esc(h.newValue == null ? "(empty)" : String(h.newValue))}</p>
+      ${h.reason ? `<p class="small">Reason: ${esc(h.reason)}</p>` : ""}
+    </div>`).join("");
+}
+
 function notesSectionHtml(record) {
   return `
     <label class="small">General Notes <textarea id="pdNotes">${esc(record.notes || "")}</textarea></label>
@@ -346,6 +556,9 @@ function renderPeptidePage() {
     : pageState.section === "log" ? logSectionHtml(data, record, referenceDate)
     : pageState.section === "bloodwork" ? bloodworkSectionHtml(data, record)
     : pageState.section === "correlations" ? correlationsSectionHtml(data, record, referenceDate)
+    : pageState.section === "product" ? productSectionHtml(data, record)
+    : pageState.section === "references" ? referencesSectionHtml(data, record)
+    : pageState.section === "history" ? historySectionHtml(data, record)
     : notesSectionHtml(record);
 
   content.innerHTML = `
@@ -379,8 +592,10 @@ function handleSaveCycle() {
   if (patch.plannedEndDate && patch.startDate && patch.plannedEndDate < patch.startDate) { alert("Planned end date cannot be before the start date."); return; }
   if (patch.actualEndDate && patch.startDate && patch.actualEndDate < patch.startDate) { alert("Actual end date cannot be before the start date."); return; }
   const record = getPeptideRecord(data, pageState.peptideId);
+  const before = { ...record };
   if (record.status === "draft") patch.status = "active"; // first real save promotes the record out of draft
   updatePeptideRecord(data, pageState.peptideId, patch);
+  recordFieldChanges(data, "peptideRecord", pageState.peptideId, before, patch);
   saveData(data);
   renderPeptidePage();
   refreshAll();
@@ -443,6 +658,9 @@ function readLogForm() {
     timeCategory: $("plTimeCategory")?.value || null, mealRelationship: $("plMealRelationship")?.value || null,
     workoutRelationship: $("plWorkoutRelationship")?.value || null,
     bodyweight: $("plBodyweight")?.value === "" ? null : Number($("plBodyweight").value),
+    vialId: $("plVialId")?.value || null, equipmentProfileId: $("plEquipmentProfileId")?.value || null,
+    needleLength: $("plNeedleLength")?.value || "", needleGauge: $("plNeedleGauge")?.value || "",
+    administrationSite: $("plAdministrationSite")?.value || "",
     notes: $("plNotes")?.value || ""
   };
 }
@@ -452,12 +670,96 @@ function handleSaveLog() {
   const fields = readLogForm();
   if (!fields.date) { alert("Set a date for this administration entry."); return; }
   if (fields.amount != null && fields.amount < 0) { alert("Amount cannot be negative."); return; }
-  if (pageState.editingLogId) updateAdministrationLog(data, pageState.editingLogId, fields);
-  else createAdministrationLog(data, fields);
+  if (pageState.editingLogId) {
+    const before = { ...data.administrationLogs.find(l => l.id === pageState.editingLogId) };
+    updateAdministrationLog(data, pageState.editingLogId, fields);
+    recordFieldChanges(data, "administrationLog", pageState.editingLogId, before, fields);
+  } else {
+    createAdministrationLog(data, fields);
+  }
   saveData(data);
   pageState.editingLogId = null;
   renderPeptidePage();
   refreshAll();
+}
+
+function readSourceForm() {
+  return {
+    peptideId: pageState.peptideId,
+    supplierName: $("psrSupplierName")?.value || "", manufacturer: $("psrManufacturer")?.value || "",
+    productUrl: $("psrProductUrl")?.value || "", purchaseDate: $("psrPurchaseDate")?.value || null,
+    orderReference: $("psrOrderReference")?.value || "", batchNumber: $("psrBatchNumber")?.value || "",
+    lotNumber: $("psrLotNumber")?.value || "", expiryDate: $("psrExpiryDate")?.value || null,
+    countryOfOrigin: $("psrCountryOfOrigin")?.value || "", storageLocation: $("psrStorageLocation")?.value || "",
+    storageTemperatureText: $("psrStorageTemperatureText")?.value || "",
+    openedDate: $("psrOpenedDate")?.value || null, discardedDate: $("psrDiscardedDate")?.value || null,
+    notes: $("psrNotes")?.value || ""
+  };
+}
+
+function handleSaveSource() {
+  const data = getData();
+  const fields = readSourceForm();
+  if (pageState.editingSourceId) updatePeptideSource(data, pageState.editingSourceId, fields);
+  else createPeptideSource(data, fields);
+  saveData(data);
+  pageState.editingSourceId = null;
+  renderPeptidePage();
+}
+
+function readVialForm() {
+  return {
+    peptideId: pageState.peptideId,
+    label: $("pvLabel")?.value || "", sequenceNumber: $("pvSequenceNumber")?.value === "" ? null : Number($("pvSequenceNumber").value),
+    statedAmount: $("pvStatedAmount")?.value === "" ? null : Number($("pvStatedAmount").value),
+    statedAmountUnit: $("pvStatedAmountUnit")?.value || "mcg",
+    numberOfVials: $("pvNumberOfVials")?.value === "" ? null : Number($("pvNumberOfVials").value),
+    status: $("pvStatus")?.value || "unopened",
+    openedDate: $("pvOpenedDate")?.value || null, discardedDate: $("pvDiscardedDate")?.value || null,
+    solutionType: $("pvSolutionType")?.value || "", solutionBrand: $("pvSolutionBrand")?.value || "",
+    solutionVolume: $("pvSolutionVolume")?.value === "" ? null : Number($("pvSolutionVolume").value),
+    solutionVolumeUnit: $("pvSolutionVolumeUnit")?.value || "mL",
+    preparationDate: $("pvPreparationDate")?.value || null, preparedBy: $("pvPreparedBy")?.value || "",
+    preparationNotes: $("pvPreparationNotes")?.value || "", storageNotes: $("pvStorageNotes")?.value || "",
+    solutionExpiryOrDiscardDate: $("pvSolutionExpiryOrDiscardDate")?.value || null,
+    userEnteredConcentration: $("pvUserEnteredConcentration")?.value === "" ? null : Number($("pvUserEnteredConcentration").value),
+    concentrationUnit: $("pvConcentrationUnit")?.value || "",
+    userEnteredAmountPerSyringeUnit: $("pvUserEnteredAmountPerSyringeUnit")?.value === "" ? null : Number($("pvUserEnteredAmountPerSyringeUnit").value),
+    concentrationNotes: $("pvConcentrationNotes")?.value || "",
+    concentrationDateEntered: new Date().toLocaleDateString("en-CA"),
+    notes: $("pvNotes")?.value || ""
+  };
+}
+
+function handleSaveVial() {
+  const data = getData();
+  const fields = readVialForm();
+  if (pageState.editingVialId) updateVialRecord(data, pageState.editingVialId, fields);
+  else createVialRecord(data, fields);
+  saveData(data);
+  pageState.editingVialId = null;
+  renderPeptidePage();
+}
+
+function readReferenceForm() {
+  return {
+    peptideId: pageState.peptideId,
+    sourceType: $("prSourceType")?.value || "other", title: $("prTitle")?.value || "",
+    creator: $("prCreator")?.value || "", publicationDate: $("prPublicationDate")?.value || null,
+    url: $("prUrl")?.value || "", timestamp: $("prTimestamp")?.value || "",
+    dateAccessed: $("prDateAccessed")?.value || null,
+    quotation: $("prQuotation")?.value || "", summary: $("prSummary")?.value || "", notes: $("prNotes")?.value || ""
+  };
+}
+
+function handleSaveReference() {
+  const data = getData();
+  const fields = readReferenceForm();
+  if (pageState.editingReferenceId) updateReferenceSource(data, pageState.editingReferenceId, fields);
+  else createReferenceSource(data, fields);
+  saveData(data);
+  pageState.editingReferenceId = null;
+  renderPeptidePage();
 }
 
 function handleDeletePeptide(id) {
@@ -488,12 +790,43 @@ export function setupPeptidesEventDelegation() {
     const deleteBtn = e.target.closest("[data-peptide-delete]");
     if (deleteBtn) { handleDeletePeptide(deleteBtn.dataset.peptideDelete); return; }
 
+    if (e.target.closest("#epAddBtn")) {
+      const data = getData();
+      createEquipmentProfile(data, {
+        name: $("epName")?.value || "", syringeType: $("epSyringeType")?.value || "",
+        syringeCapacity: $("epSyringeCapacity")?.value || "", syringeUnitScale: $("epSyringeUnitScale")?.value || "",
+        needleLength: $("epNeedleLength")?.value || "", needleGauge: $("epNeedleGauge")?.value || "",
+        needleType: $("epNeedleType")?.value || "", brand: $("epBrand")?.value || "", source: $("epSource")?.value || "",
+        notes: $("epNotes")?.value || ""
+      });
+      saveData(data);
+      ["epName", "epSyringeType", "epSyringeCapacity", "epSyringeUnitScale", "epNeedleLength", "epNeedleGauge", "epNeedleType", "epBrand", "epSource", "epNotes"]
+        .forEach(id => { if ($(id)) $(id).value = ""; });
+      refreshAll();
+      return;
+    }
+    const deleteEquipmentBtn = e.target.closest("[data-equipment-delete]");
+    if (deleteEquipmentBtn) {
+      if (!confirm("Delete this equipment profile?")) return;
+      const data = getData();
+      deleteEquipmentProfile(data, deleteEquipmentBtn.dataset.equipmentDelete);
+      saveData(data);
+      refreshAll();
+      return;
+    }
+
     if (!pageState) return; // everything below only matters while the dedicated-page modal is open
 
     if (e.target.closest("#peptideCloseBtn") || e.target.closest("#peptideBackdrop")) { closePeptidePage(); return; }
 
     const sectionBtn = e.target.closest("[data-peptide-section]");
-    if (sectionBtn) { pageState.section = sectionBtn.dataset.peptideSection; pageState.editingScheduleId = null; pageState.editingLogId = null; renderPeptidePage(); return; }
+    if (sectionBtn) {
+      pageState.section = sectionBtn.dataset.peptideSection;
+      pageState.editingScheduleId = null; pageState.editingLogId = null;
+      pageState.editingSourceId = null; pageState.editingVialId = null; pageState.editingReferenceId = null;
+      renderPeptidePage();
+      return;
+    }
 
     const openBloodworkBtn = e.target.closest("[data-peptide-open-bloodwork]");
     if (openBloodworkBtn) { const reportId = openBloodworkBtn.dataset.peptideOpenBloodwork; closePeptidePage(); openBloodworkReport(reportId); return; }
@@ -536,6 +869,55 @@ export function setupPeptidesEventDelegation() {
       refreshAll();
       return;
     }
+
+    // Product / Source
+    const editSourceBtn = e.target.closest("[data-peptide-edit-source]");
+    if (editSourceBtn) { pageState.editingSourceId = editSourceBtn.dataset.peptideEditSource; renderPeptidePage(); return; }
+    if (e.target.closest("#psrCancelEditBtn")) { pageState.editingSourceId = null; renderPeptidePage(); return; }
+    if (e.target.closest("#psrSaveBtn")) { handleSaveSource(); return; }
+    const deleteSourceBtn = e.target.closest("[data-peptide-delete-source]");
+    if (deleteSourceBtn) {
+      if (!confirm("Delete this source record?")) return;
+      const data = getData();
+      deletePeptideSource(data, deleteSourceBtn.dataset.peptideDeleteSource);
+      saveData(data);
+      renderPeptidePage();
+      return;
+    }
+
+    // Vial & Solution
+    const editVialBtn = e.target.closest("[data-peptide-edit-vial]");
+    if (editVialBtn) { pageState.editingVialId = editVialBtn.dataset.peptideEditVial; renderPeptidePage(); return; }
+    if (e.target.closest("#pvCancelEditBtn")) { pageState.editingVialId = null; renderPeptidePage(); return; }
+    if (e.target.closest("#pvSaveBtn")) { handleSaveVial(); return; }
+    const deleteVialBtn = e.target.closest("[data-peptide-delete-vial]");
+    if (deleteVialBtn) {
+      if (!confirm("Delete this vial record?")) return;
+      const data = getData();
+      deleteVialRecord(data, deleteVialBtn.dataset.peptideDeleteVial);
+      saveData(data);
+      renderPeptidePage();
+      return;
+    }
+
+    // Sources & References
+    const editReferenceBtn = e.target.closest("[data-peptide-edit-reference]");
+    if (editReferenceBtn) { pageState.editingReferenceId = editReferenceBtn.dataset.peptideEditReference; renderPeptidePage(); return; }
+    if (e.target.closest("#prCancelEditBtn")) { pageState.editingReferenceId = null; renderPeptidePage(); return; }
+    if (e.target.closest("#prSaveBtn")) { handleSaveReference(); return; }
+    const deleteReferenceBtn = e.target.closest("[data-peptide-delete-reference]");
+    if (deleteReferenceBtn) {
+      if (!confirm("Delete this reference?")) return;
+      const data = getData();
+      deleteReferenceSource(data, deleteReferenceBtn.dataset.peptideDeleteReference);
+      saveData(data);
+      renderPeptidePage();
+      return;
+    }
+
+    // Export
+    if (e.target.closest("[data-peptide-export-json]")) { exportPeptideAsJson(getData(), pageState.peptideId); return; }
+    if (e.target.closest("[data-peptide-export-markdown]")) { exportPeptideAsMarkdown(getData(), pageState.peptideId); return; }
   });
 
   document.addEventListener("input", (e) => {

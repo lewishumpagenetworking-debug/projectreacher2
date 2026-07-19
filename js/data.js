@@ -142,7 +142,15 @@ function emptyData() {
     // OCR/extraction on the file, so userConfirmed is always true by construction.
     bloodworkReports: [],
     bloodworkMarkers: [],
-    bloodworkReminders: []
+    bloodworkReminders: [],
+    // Peptide Recovery Tracking (Phase 4: product/vial/equipment detail, sources &
+    // references, change history). All still purely user-entered — vialRecords/
+    // equipmentProfiles never calculate or suggest a dose/volume/syringe conversion.
+    peptideSources: [],
+    vialRecords: [],
+    equipmentProfiles: [],
+    referenceSources: [],
+    changeHistory: []
   };
 }
 
@@ -202,7 +210,8 @@ export function migrateData() {
    "images", "imageCategories", "goals", "milestones", "constraintCases",
    "customSessions", "externalConstraintLogs",
    "peptideRecords", "administrationSchedules", "administrationLogs",
-   "bloodworkReports", "bloodworkMarkers", "bloodworkReminders"].forEach(key => {
+   "bloodworkReports", "bloodworkMarkers", "bloodworkReminders",
+   "peptideSources", "vialRecords", "equipmentProfiles", "referenceSources", "changeHistory"].forEach(key => {
     if (raw && !(key in raw)) changed = true; // persist newly-introduced collections immediately, not lazily
     data[key] = (data[key] || []).map(item => {
       if (!item.id) {
@@ -335,7 +344,56 @@ export function migrateData() {
     mealRelationship: null, mealName: "", minutesFromMeal: null,
     workoutRelationship: null, workoutId: null, minutesFromWorkout: null,
     bodyweight: null, notes: "",
+    // Phase 4: equipment/vial detail — every field optional, user-entered only.
+    vialId: null, equipmentProfileId: null, needleLength: "", needleGauge: "", administrationSite: "",
     createdAt: l.createdAt || new Date().toISOString(), updatedAt: l.createdAt || new Date().toISOString()
+  }));
+
+  // Product & Source Tracking (Phase 4, spec section 11) — the app never validates or
+  // endorses a source, purely a traceability record.
+  data.peptideSources = data.peptideSources.map(s => withDefaults(s, {
+    peptideId: null, supplierName: "", manufacturer: "", productUrl: "", purchaseDate: null,
+    orderReference: "", batchNumber: "", lotNumber: "", expiryDate: null, countryOfOrigin: "",
+    storageLocation: "", storageTemperatureText: "", openedDate: null, discardedDate: null, notes: "",
+    createdAt: s.createdAt || new Date().toISOString(), updatedAt: s.createdAt || new Date().toISOString()
+  }));
+
+  // Vial & Solution Record + User-Entered Concentration Record (Phase 4, spec sections
+  // 12-13) — the app never recommends a solution/volume/dose or converts a target dose
+  // into syringe units; every concentration value is a neutral record of what the user
+  // has already determined themselves.
+  data.vialRecords = data.vialRecords.map(v => withDefaults(v, {
+    peptideId: null, label: "", sequenceNumber: null, statedAmount: null, statedAmountUnit: "mcg",
+    numberOfVials: null, status: "unopened", openedDate: null, discardedDate: null,
+    solutionType: "", solutionBrand: "", solutionVolume: null, solutionVolumeUnit: "mL",
+    preparationDate: null, preparedBy: "", preparationNotes: "", storageNotes: "",
+    solutionExpiryOrDiscardDate: null,
+    userEnteredConcentration: null, concentrationUnit: "", userEnteredAmountPerSyringeUnit: null,
+    concentrationNotes: "", concentrationDateEntered: null, notes: "",
+    createdAt: v.createdAt || new Date().toISOString(), updatedAt: v.createdAt || new Date().toISOString()
+  }));
+
+  // Reusable Equipment Profiles (Phase 4, spec section 14) — the app never recommends
+  // needle length/gauge/site/technique, purely a record of what the user already uses.
+  data.equipmentProfiles = data.equipmentProfiles.map(e => withDefaults(e, {
+    name: "", syringeType: "", syringeCapacity: "", syringeUnitScale: "",
+    needleLength: "", needleGauge: "", needleType: "", brand: "", source: "", notes: "",
+    createdAt: e.createdAt || new Date().toISOString()
+  }));
+
+  // Sources & Reference Library (Phase 4, spec sections 33-34) — external reference
+  // material only; never automatically populates a peptide's own protocol fields.
+  data.referenceSources = data.referenceSources.map(r => withDefaults(r, {
+    peptideId: null, sourceType: "other", creator: "", title: "", publicationDate: null,
+    url: "", timestamp: "", dateAccessed: null, quotation: "", summary: "", notes: "",
+    createdAt: r.createdAt || new Date().toISOString()
+  }));
+
+  // Change History (Phase 4, spec section 36) — append-only audit trail. Entries are
+  // never edited or deleted by the app itself once written.
+  data.changeHistory = data.changeHistory.map(h => withDefaults(h, {
+    entityType: "", entityId: "", field: "", previousValue: null, newValue: null,
+    reason: "", changedAt: h.changedAt || new Date().toISOString()
   }));
 
   // Bloodwork (Phase 2) — the user decides when/whether to test; the app never imposes
@@ -539,7 +597,8 @@ const COLLECTION_KEYS = [
   "images", "imageCategories", "goals", "milestones", "constraintCases",
   "customSessions", "externalConstraintLogs",
   "peptideRecords", "administrationSchedules", "administrationLogs",
-  "bloodworkReports", "bloodworkMarkers", "bloodworkReminders"
+  "bloodworkReports", "bloodworkMarkers", "bloodworkReminders",
+  "peptideSources", "vialRecords", "equipmentProfiles", "referenceSources", "changeHistory"
   // "reminders" is deliberately excluded — per-device notification scheduling state,
   // the same reasoning as aiProposedChanges/aiAuditLog below.
 ];
@@ -811,6 +870,11 @@ export function importAndMergeData(importedRaw, currentState) {
   record("bloodworkReports", mergeByIdGeneric(current.bloodworkReports, imported.bloodworkReports, detectDuplicateById));
   record("bloodworkMarkers", mergeByIdGeneric(current.bloodworkMarkers, imported.bloodworkMarkers, detectDuplicateById));
   record("bloodworkReminders", mergeByIdGeneric(current.bloodworkReminders, imported.bloodworkReminders, detectDuplicateById));
+  record("peptideSources", mergeByIdGeneric(current.peptideSources, imported.peptideSources, detectDuplicateById));
+  record("vialRecords", mergeByIdGeneric(current.vialRecords, imported.vialRecords, detectDuplicateById));
+  record("equipmentProfiles", mergeByIdGeneric(current.equipmentProfiles, imported.equipmentProfiles, detectDuplicateById));
+  record("referenceSources", mergeByIdGeneric(current.referenceSources, imported.referenceSources, detectDuplicateById));
+  record("changeHistory", mergeByIdGeneric(current.changeHistory, imported.changeHistory, detectDuplicateById));
   // reminders deliberately not merged — never restore stale/old notification schedules from a backup.
 
   // aiSettings: current device's consent/permissions always win (consent must never be

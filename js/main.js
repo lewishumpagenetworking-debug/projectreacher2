@@ -47,7 +47,7 @@ import { renderProgressTaskList, renderPageTasks } from "./render-task-list.js";
 import { renderProgressLab, setupProgressLabEventDelegation } from "./render-progress-lab.js";
 import { renderSessionImages, setupSessionImagesEventDelegation } from "./render-session-images.js";
 import { renderCustomSessionsList, setupCustomSessionBuilderEventDelegation, openCustomSessionBuilder } from "./render-custom-sessions.js";
-import { renderPeptidesList, setupPeptidesEventDelegation } from "./render-peptides.js";
+import { renderPeptidesList, renderEquipmentProfiles, setupPeptidesEventDelegation } from "./render-peptides.js";
 import { renderBloodworkCard, setupBloodworkEventDelegation } from "./render-bloodwork.js";
 
 export function refreshAll() {
@@ -106,6 +106,7 @@ export function refreshAll() {
   renderCustomSessionsList(data);
   renderBloodworkCard(data);
   renderPeptidesList(data);
+  renderEquipmentProfiles(data);
 }
 
 function setupNav() {
@@ -140,7 +141,9 @@ const COLLECTION_LABELS = {
   customSessions: "Custom sessions", externalConstraintLogs: "External constraint logs",
   peptideRecords: "Peptide records", administrationSchedules: "Peptide administration schedules",
   administrationLogs: "Peptide administration logs",
-  bloodworkReports: "Bloodwork reports", bloodworkMarkers: "Bloodwork markers", bloodworkReminders: "Bloodwork reminders"
+  bloodworkReports: "Bloodwork reports", bloodworkMarkers: "Bloodwork markers", bloodworkReminders: "Bloodwork reminders",
+  peptideSources: "Peptide sources", vialRecords: "Vial records", equipmentProfiles: "Equipment profiles",
+  referenceSources: "Reference sources", changeHistory: "Change history entries"
 };
 
 function formatImportSummary(summary) {
