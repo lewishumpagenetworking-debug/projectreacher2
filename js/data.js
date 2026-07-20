@@ -368,9 +368,11 @@ export function migrateData() {
   }));
 
   // Vial & Solution Record + User-Entered Concentration Record (Phase 4, spec sections
-  // 12-13) — the app never recommends a solution/volume/dose or converts a target dose
-  // into syringe units; every concentration value is a neutral record of what the user
-  // has already determined themselves.
+  // 12-13). The app never recommends a solution, volume, dose, or diluent — every value
+  // above is a neutral record of what the user entered themselves. `reconstitutionVersions`
+  // (Peptides Node master spec section 6) is the append-only audit trail for the app's own
+  // arithmetic (concentration/volume/syringe-marking) run over those user-entered values —
+  // see js/peptide-reconstitution.js. Never overwritten, only ever appended to.
   data.vialRecords = data.vialRecords.map(v => withDefaults(v, {
     peptideId: null, label: "", sequenceNumber: null, statedAmount: null, statedAmountUnit: "mcg",
     numberOfVials: null, status: "unopened", openedDate: null, discardedDate: null,
@@ -379,6 +381,7 @@ export function migrateData() {
     solutionExpiryOrDiscardDate: null,
     userEnteredConcentration: null, concentrationUnit: "", userEnteredAmountPerSyringeUnit: null,
     concentrationNotes: "", concentrationDateEntered: null, notes: "",
+    reconstitutionVersions: [],
     createdAt: v.createdAt || new Date().toISOString(), updatedAt: v.createdAt || new Date().toISOString()
   }));
 
