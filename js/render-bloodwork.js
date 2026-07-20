@@ -18,7 +18,7 @@ const FASTING_OPTIONS = ["fasted", "non_fasted", "unknown"];
 const FASTING_LABELS = { fasted: "Fasted", non_fasted: "Non-fasted", unknown: "Unknown" };
 const FILE_ACCEPT = "application/pdf,.pdf,.csv,text/csv,image/jpeg,image/png,image/webp";
 
-// ==================== MAIN CARD (Recovery tab #bloodworkCard) ====================
+// ==================== MAIN CARD (Peptides tab #bloodworkCard) ====================
 
 function optionsHtml(values, labels, current) {
   return `<option value="">--</option>` + values.map(v => `<option value="${esc(v)}" ${current === v ? "selected" : ""}>${esc(labels[v] || v)}</option>`).join("");
