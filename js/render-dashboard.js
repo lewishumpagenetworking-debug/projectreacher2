@@ -122,7 +122,7 @@ function renderPeptideCyclesWidget(data) {
     const progress = cycleProgress(p, referenceDate);
     const today = todaysAdministrationState(p.id, schedules, logs, referenceDate);
     return `
-      <div class="peptide-widget-row" data-goto-tab="recovery" data-goto-anchor="peptidesCard">
+      <div class="peptide-widget-row" data-goto-tab="peptides" data-goto-anchor="peptidesCard">
         <div class="section-title"><strong>${esc(p.name || "Untitled")}</strong><span class="badge">${esc(displayStatusLabel(p, referenceDate))}</span></div>
         <p class="small">${p.startDate ? esc(p.startDate) : "--"} – ${p.plannedEndDate ? esc(p.plannedEndDate) : "--"}${progress.daysRemaining != null ? ` · ${esc(formatDurationLabel(Math.max(0, progress.daysRemaining)))} remaining` : ""}</p>
         <div class="badge-row">

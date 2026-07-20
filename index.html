@@ -38,6 +38,7 @@
         <button class="nav-btn" data-tab="appearance"><span class="drawer-icon">✨</span> Appearance</button>
         <button class="nav-btn" data-tab="nutrition"><span class="drawer-icon">🍽️</span> Nutrition</button>
         <button class="nav-btn" data-tab="recovery"><span class="drawer-icon">😴</span> Recovery</button>
+        <button class="nav-btn" data-tab="peptides"><span class="drawer-icon">💉</span> Peptides</button>
         <button class="nav-btn" data-tab="constraint"><span class="drawer-icon">🧭</span> Constraint</button>
         <button class="nav-btn" data-tab="progress-lab"><span class="drawer-icon">📈</span> Progress Lab</button>
         <button class="nav-btn" data-tab="library"><span class="drawer-icon">📚</span> Library</button>
@@ -56,6 +57,7 @@
       <button class="nav-btn" data-tab="appearance">Appearance</button>
       <button class="nav-btn" data-tab="nutrition">Nutrition</button>
       <button class="nav-btn" data-tab="recovery">Recovery</button>
+      <button class="nav-btn" data-tab="peptides">Peptides</button>
       <button class="nav-btn" data-tab="constraint">Constraint</button>
       <button class="nav-btn" data-tab="progress-lab">Progress Lab</button>
       <button class="nav-btn" data-tab="library">Library</button>
@@ -95,7 +97,7 @@
       </section>
 
       <section class="card" id="peptideCyclesCard" hidden>
-        <div class="section-title"><h2>Active Peptide Cycles</h2><button type="button" class="card-link-hint link-button" data-goto-tab="recovery" data-goto-anchor="peptidesCard">Open Peptides →</button></div>
+        <div class="section-title"><h2>Active Peptide Cycles</h2><button type="button" class="card-link-hint link-button" data-goto-tab="peptides" data-goto-anchor="peptidesCard">Open Peptides →</button></div>
         <div id="peptideCyclesAlerts"></div>
         <div id="peptideCyclesWidget"></div>
       </section>
@@ -1003,6 +1005,70 @@
         <div id="caffeineReductionPlan"></div>
       </section>
 
+      <section class="card">
+        <h2>Contingency Engine</h2>
+        <p class="small">Explicit if/then rules run against your logged data — never a guess, only fires when the underlying pattern is actually there.</p>
+        <div id="contingencyEngineOutput"></div>
+      </section>
+
+      <section class="card">
+        <h2>Log an Intervention</h2>
+        <div class="form-grid">
+          <label>Issue <input id="interventionIssue" placeholder="What's the problem?"></label>
+          <label>Target Metric <input id="interventionTargetMetric" placeholder="e.g. bodyweight, Hammer Curl load"></label>
+          <label>Start Date <input id="interventionStartDate" type="date"></label>
+          <label>Reassess Date <input id="interventionReassessDate" type="date"></label>
+        </div>
+        <textarea id="interventionHypothesis" placeholder="Hypothesis — why might this be happening?"></textarea>
+        <textarea id="interventionAction" placeholder="Intervention — what are you going to change?"></textarea>
+        <button id="saveInterventionBtn" type="button">Log Intervention</button>
+      </section>
+
+      <section class="card">
+        <h2>Intervention History</h2>
+        <div id="interventionHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Stimulant History</h2>
+        <div id="stimulantHistory"></div>
+      </section>
+
+      <section class="card">
+        <h2>Recovery Protocol Builder</h2>
+        <div id="recoveryProtocols"></div>
+      </section>
+
+      <section class="card">
+        <h2>AI Recovery Coach</h2>
+        <div id="aiRecoveryCoach"></div>
+      </section>
+
+      <section class="card">
+        <h2>Supplement Evidence Database</h2>
+        <p class="small">Sequenced behind sleep, calories, protein, carbs, hydration and training load — supplements never replace those fundamentals.</p>
+        <div id="supplementDatabaseList"></div>
+      </section>
+
+      <section class="card">
+        <h2>Medical / Peptide Education</h2>
+        <div class="warning-banner">Educational only. Discuss with a qualified healthcare professional. This app does not recommend self-prescribing, dosing, sourcing, or cycle protocols, and does not recommend illegal or unregulated performance-enhancing drugs.</div>
+        <div id="medicalEducationList"></div>
+      </section>
+    </section>
+
+    <!-- ================= PEPTIDES ================= -->
+    <section class="tab-panel" data-tab="peptides" hidden>
+      <div id="peptidesPageTasks" hidden></div>
+
+      <section class="card" id="peptideLibraryCard">
+        <p class="eyebrow">EVIDENCE LIBRARY</p>
+        <h2>Peptide Evidence Library</h2>
+        <p class="small">Reference information only. Selecting or reading about a compound here is not a recommendation to start, continue, dose, or source it — every evidence claim carries a badge you can open for its explanation.</p>
+        <label class="small">Search <input type="text" id="peptideLibrarySearch" placeholder="Search by name or synonym"></label>
+        <div id="peptideLibraryGrid" class="library-card-grid"></div>
+      </section>
+
       <section class="card" id="bloodworkCard">
         <p class="eyebrow">BLOODWORK</p>
         <div class="section-title"><h2>Bloodwork</h2><button type="button" class="secondary" id="bloodworkNewBtn">+ Add Bloodwork</button></div>
@@ -1073,57 +1139,6 @@
         </details>
 
         <div id="peptidesList"></div>
-      </section>
-
-      <section class="card">
-        <h2>Contingency Engine</h2>
-        <p class="small">Explicit if/then rules run against your logged data — never a guess, only fires when the underlying pattern is actually there.</p>
-        <div id="contingencyEngineOutput"></div>
-      </section>
-
-      <section class="card">
-        <h2>Log an Intervention</h2>
-        <div class="form-grid">
-          <label>Issue <input id="interventionIssue" placeholder="What's the problem?"></label>
-          <label>Target Metric <input id="interventionTargetMetric" placeholder="e.g. bodyweight, Hammer Curl load"></label>
-          <label>Start Date <input id="interventionStartDate" type="date"></label>
-          <label>Reassess Date <input id="interventionReassessDate" type="date"></label>
-        </div>
-        <textarea id="interventionHypothesis" placeholder="Hypothesis — why might this be happening?"></textarea>
-        <textarea id="interventionAction" placeholder="Intervention — what are you going to change?"></textarea>
-        <button id="saveInterventionBtn" type="button">Log Intervention</button>
-      </section>
-
-      <section class="card">
-        <h2>Intervention History</h2>
-        <div id="interventionHistory"></div>
-      </section>
-
-      <section class="card">
-        <h2>Stimulant History</h2>
-        <div id="stimulantHistory"></div>
-      </section>
-
-      <section class="card">
-        <h2>Recovery Protocol Builder</h2>
-        <div id="recoveryProtocols"></div>
-      </section>
-
-      <section class="card">
-        <h2>AI Recovery Coach</h2>
-        <div id="aiRecoveryCoach"></div>
-      </section>
-
-      <section class="card">
-        <h2>Supplement Evidence Database</h2>
-        <p class="small">Sequenced behind sleep, calories, protein, carbs, hydration and training load — supplements never replace those fundamentals.</p>
-        <div id="supplementDatabaseList"></div>
-      </section>
-
-      <section class="card">
-        <h2>Medical / Peptide Education</h2>
-        <div class="warning-banner">Educational only. Discuss with a qualified healthcare professional. This app does not recommend self-prescribing, dosing, sourcing, or cycle protocols, and does not recommend illegal or unregulated performance-enhancing drugs.</div>
-        <div id="medicalEducationList"></div>
       </section>
     </section>
 
@@ -1574,6 +1589,11 @@
     <div id="libraryDetailBackdrop" class="nav-backdrop library-detail-backdrop" hidden></div>
     <div id="libraryDetailModal" class="library-detail-modal" hidden role="dialog" aria-modal="true" aria-labelledby="libraryDetailTitle">
       <div class="library-detail-content" id="libraryDetailContent"></div>
+    </div>
+
+    <div id="peptideLibraryDetailBackdrop" class="nav-backdrop library-detail-backdrop" hidden></div>
+    <div id="peptideLibraryDetailModal" class="library-detail-modal" hidden role="dialog" aria-modal="true" aria-labelledby="peptideLibraryDetailTitle">
+      <div class="library-detail-content" id="peptideLibraryDetailContent"></div>
     </div>
 
     <!-- ================= CUSTOM SESSION BUILDER (contingency training feature) ================= -->

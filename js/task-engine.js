@@ -179,7 +179,7 @@ export function generateProgressTasks(data, referenceDate = new Date()) {
         instruction: planBits.length ? `Planned: ${planBits.join(" · ")}` : "Log today's administration.",
         reason: "A user-defined administration schedule is due today for this peptide record.",
         priority: "high", urgencyState: "due_today",
-        destination: { route: "recovery", anchor: "peptidesCard" },
+        destination: { route: "peptides", anchor: "peptidesCard" },
         sourceEntityType: "peptideRecord", sourceEntityId: p.id,
         section: TASK_SECTIONS.COMPLETE_TODAY
       }));
@@ -194,7 +194,7 @@ export function generateProgressTasks(data, referenceDate = new Date()) {
       title: `Review cycle countdown: ${p.name || "peptide"}`,
       instruction: m.message, reason: m.message,
       priority: "normal", urgencyState: "due_today",
-      destination: { route: "recovery", anchor: "peptidesCard" },
+      destination: { route: "peptides", anchor: "peptidesCard" },
       sourceEntityType: "peptideRecord", sourceEntityId: p.id,
       section: TASK_SECTIONS.UPCOMING
     })));
@@ -208,7 +208,7 @@ export function generateProgressTasks(data, referenceDate = new Date()) {
     instruction: r.notes || `A bloodwork upload was scheduled for ${r.occurrenceDate}.`,
     reason: "A user-defined bloodwork reminder date has arrived.",
     priority: "normal", urgencyState: "due_today",
-    destination: { route: "recovery", anchor: "bloodworkCard" },
+    destination: { route: "peptides", anchor: "bloodworkCard" },
     sourceEntityType: "bloodworkReminder", sourceEntityId: r.id,
     section: TASK_SECTIONS.UPCOMING
   })));

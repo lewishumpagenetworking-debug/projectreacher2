@@ -49,6 +49,7 @@ import { renderSessionImages, setupSessionImagesEventDelegation } from "./render
 import { renderCustomSessionsList, setupCustomSessionBuilderEventDelegation, openCustomSessionBuilder } from "./render-custom-sessions.js";
 import { renderPeptidesList, renderEquipmentProfiles, setupPeptidesEventDelegation } from "./render-peptides.js";
 import { renderBloodworkCard, setupBloodworkEventDelegation } from "./render-bloodwork.js";
+import { renderPeptideLibraryGrid, setupPeptideLibraryEventDelegation } from "./render-peptide-library.js";
 
 export function refreshAll() {
   const data = getData();
@@ -96,6 +97,7 @@ export function refreshAll() {
   renderPageTasks(data, "body", "bodyPageTasks");
   renderPageTasks(data, "nutrition", "nutritionPageTasks");
   renderPageTasks(data, "recovery", "recoveryPageTasks");
+  renderPageTasks(data, "peptides", "peptidesPageTasks");
   renderTasks(data);
   renderReminders(data);
   renderGoals(data);
@@ -107,6 +109,7 @@ export function refreshAll() {
   renderBloodworkCard(data);
   renderPeptidesList(data);
   renderEquipmentProfiles(data);
+  renderPeptideLibraryGrid();
 }
 
 function setupNav() {
@@ -358,6 +361,7 @@ setupSessionImagesEventDelegation();
 setupCustomSessionBuilderEventDelegation();
 setupPeptidesEventDelegation();
 setupBloodworkEventDelegation();
+setupPeptideLibraryEventDelegation();
 setupRemindersEventDelegation();
 startReminderScheduler();
 setupVisionBoardEventDelegation();
