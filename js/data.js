@@ -99,6 +99,11 @@ function emptyData() {
     libraryFavorites: [],
     libraryRecentlyViewed: [],
     activeWorkoutDraft: null,
+    // Gym App spec Part 2 — which equipment variant is chosen for today's session, per
+    // exercise slot. Deliberately kept separate from activeWorkoutDraft (the numeric
+    // set/rep draft) so it can never interact with that draft's conflict/discard logic —
+    // selecting a variant should never risk losing in-progress logged numbers or vice versa.
+    todaysVariantSelections: { day: null, selections: {} },
     skinLogs: [],
     hairLogs: [],
     productExperiments: [],
@@ -510,6 +515,10 @@ export function migrateData() {
   if (!Array.isArray(data.libraryFavorites)) { data.libraryFavorites = []; changed = true; }
   if (!Array.isArray(data.libraryRecentlyViewed)) { data.libraryRecentlyViewed = []; changed = true; }
   if (data.activeWorkoutDraft === undefined) { data.activeWorkoutDraft = null; changed = true; }
+  if (!data.todaysVariantSelections || typeof data.todaysVariantSelections !== "object") {
+    data.todaysVariantSelections = { day: null, selections: {} };
+    changed = true;
+  }
 
   // Restore any training day the currently-running app knows about (program.js) but
   // that this stored/imported data is entirely missing — e.g. data saved before Day 6
@@ -927,6 +936,12 @@ export function importAndMergeData(importedRaw, currentState) {
   } else {
     merged.activeWorkoutDraft = null;
   }
+
+  // Same rule as activeWorkoutDraft above — this is today's in-progress variant choice,
+  // not historical data, so the current device's selection always wins over an import.
+  merged.todaysVariantSelections = (current.todaysVariantSelections && current.todaysVariantSelections.day)
+    ? current.todaysVariantSelections
+    : (imported.todaysVariantSelections || { day: null, selections: {} });
 
   merged.schemaVersion = SCHEMA_VERSION;
 

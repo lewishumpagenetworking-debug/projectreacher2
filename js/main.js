@@ -6,6 +6,7 @@ import {
   renderMiniVolumeChart, renderHistoricalSummary, renderPrTracker, setupTrainEventDelegation,
   startMission, renderFarmersCarryAnalytics, CREATE_CUSTOM_SESSION_VALUE
 } from "./render-train.js";
+import { setupVariantSelectorEventDelegation } from "./render-exercise-variants.js";
 import {
   saveBodyweight, renderBodyweight, saveCheckin, renderCheckinHistory,
   saveMeasurements, renderMeasurementsHistory, savePhotoCheckin, renderPhotos, renderBodyMilestoneVision,
@@ -349,6 +350,7 @@ setupDeleteDelegation();
 setupReadinessGateDelegation();
 setupMealEventDelegation();
 setupTrainEventDelegation();
+setupVariantSelectorEventDelegation();
 setupVisualsEventDelegation();
 setupMetricInfoDelegation();
 hydrateStaticMetricLabels();
