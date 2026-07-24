@@ -153,6 +153,11 @@ export function renderWorkoutForm(data) {
       ? `<span class="badge ${nextSession.status === "Increase Load" ? "status-on-target" : ["Pain Review", "Reduce Load"].includes(nextSession.status) ? "status-under" : ""}">NEXT SESSION: ${esc(nextSession.status)}</span>`
       : "";
     const reasonLine = nextSession ? `<p class="small">Reason: ${esc(nextSession.reason)}</p>` : "";
+    // Non-blocking context only (Gym App spec Part 1) — readiness/nutrition never change
+    // nextSession.status or .reason above; this is shown separately, purely informational.
+    const contextNotesLines = nextSession?.contextNotes?.length
+      ? nextSession.contextNotes.map(n => `<p class="small" style="opacity:.75">${esc(n.message)}</p>`).join("")
+      : "";
     const lastDisplay = isDistanceBased ? formatDistanceSet(history.lastSession, trackLength) : formatSet(history.lastSession);
     const bestDisplay = isDistanceBased ? formatDistanceSet(history.previousBest, trackLength) : formatSet(history.previousBest);
     // Custom Session Builder (contingency training feature): the app tracks exercises
@@ -177,6 +182,7 @@ export function renderWorkoutForm(data) {
           <div class="small">Target: ${esc(x.repRange)} · Last: ${lastDisplay} · Best: ${bestDisplay}</div>
           ${recBadge ? `<div class="badge-row">${recBadge}</div>` : ""}
           ${reasonLine}
+          ${contextNotesLines}
         </div>
         <button type="button" class="technique-btn" data-toggle-guide="${esc(x.name)}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? "Hide" : "See"} technique guide for ${esc(x.name)}">
           <span class="technique-btn-icon">${isExpanded ? "▴" : "🎯"}</span>

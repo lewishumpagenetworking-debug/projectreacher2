@@ -237,12 +237,44 @@ export function recommendProgression(entry, exerciseDef, previousEntry = null) {
  * surfaced on the exercise card, workout preview and Dashboard. Blank/unlogged quality
  * fields (form/ROM/tempo) are always treated as UNKNOWN, never as a silent pass: they
  * can never produce "Increase Load" on their own, only "Hold Load" pending confirmation.
- * `context.readiness` / `context.mealCompliance` are optional — when omitted, the
- * Recovery-Limited / Nutrition-Limited branches are simply skipped (used for isolated
- * per-entry evaluation, e.g. in the Train tab preview, before those are known).
+ * `context.readiness` / `context.mealCompliance` are optional and never affect `.status`
+ * or `.reason` (Gym App spec, Part 1) — when provided, they only populate the separate
+ * `.contextNotes` array for non-blocking, informational display alongside the result.
  */
+/**
+ * Builds non-blocking, informational-only notes from readiness/nutrition context. These are
+ * never allowed to change a progression status or reason — they exist purely so the UI can
+ * show "here's some other context" alongside a result that was already fully determined from
+ * performance data alone (Gym App spec: "Nutrition and recovery data may influence contextual
+ * commentary, but they must never disable, suppress, delay, weaken or invalidate progression.")
+ */
+function buildProgressionContextNotes({ readiness = null, mealCompliance = null } = {}) {
+  const notes = [];
+  if (readiness && ["red-amber", "red"].includes(readiness.status)) {
+    notes.push({ type: "recovery", message: `Readiness is currently ${readiness.status} (${readiness.mainBottleneck}). Shown as context only — it does not change the progression result above.` });
+  }
+  if (mealCompliance && mealCompliance.preWorkoutComplete === false) {
+    notes.push({ type: "nutrition", message: "Pre-workout fuel wasn't logged for this session. Shown as context only — it does not change the progression result above." });
+  }
+  return notes;
+}
+
 export function exerciseProgressionStatus(entry, exerciseDef, context = {}) {
   const { previousEntry = null, readiness = null, mealCompliance = null } = context;
+  const contextNotes = buildProgressionContextNotes({ readiness, mealCompliance });
+  const core = computeCoreProgressionStatus(entry, exerciseDef, { previousEntry });
+  return { ...core, contextNotes };
+}
+
+/**
+ * Exercise Progression Engine (Gym App spec, Part 1): performance-derived signals only —
+ * reps, sets, load, RIR/RPE, technique, ROM, tempo, pain, and prior performance. Deliberately
+ * takes no nutrition or recovery/readiness input, so it can never be gated, weakened, or
+ * relabelled by unrelated data. See exerciseProgressionStatus() above for the non-blocking
+ * context notes shown alongside this result.
+ */
+function computeCoreProgressionStatus(entry, exerciseDef, context = {}) {
+  const { previousEntry = null } = context;
 
   if (!exerciseDef || exerciseDef.repRangeMax == null) {
     return { status: "Insufficient Data", reason: "No target rep/lengths range set for this exercise.", limitingFactor: null };
@@ -282,9 +314,11 @@ export function exerciseProgressionStatus(entry, exerciseDef, context = {}) {
   const unitLabel = distanceBased ? "lengths" : "reps";
 
   // Quality-gated progression is unconditional on the set's OWN data (addendum section
-  // 7) — an earned Increase Load is never overridden by today's readiness or nutrition
-  // context. Recovery-Limited / Nutrition-Limited only apply below as an explanation
-  // for why progression is being HELD, never to veto an already-earned increase.
+  // 7; reaffirmed by the Gym App spec's progression-independence rule) — an earned
+  // Increase Load is never overridden by today's readiness or nutrition context, and
+  // (unlike the removed Recovery-Limited/Nutrition-Limited statuses) unrelated data can
+  // no longer relabel a Hold/Reduce/Increase-Reps result either. See contextNotes on the
+  // wrapping exerciseProgressionStatus() for how that context is still surfaced.
   if (s1 >= repRangeMax && s2 >= repRangeMax && formConfirmedGood) {
     return {
       status: "Increase Load",
@@ -304,22 +338,6 @@ export function exerciseProgressionStatus(entry, exerciseDef, context = {}) {
     if (repsImproved && formDropped) {
       return { status: "Hold Load", reason: "Reps improved but form quality dropped vs. last session — repeat the same load.", limitingFactor: "form" };
     }
-  }
-
-  if (readiness && ["red-amber", "red"].includes(readiness.status)) {
-    return {
-      status: "Recovery-Limited",
-      reason: `Readiness is currently ${readiness.status} (${readiness.mainBottleneck}) — hold progression on this exercise until recovery improves.`,
-      limitingFactor: "recovery"
-    };
-  }
-
-  if (mealCompliance && mealCompliance.preWorkoutComplete === false) {
-    return {
-      status: "Nutrition-Limited",
-      reason: "Pre-workout fuel wasn't logged for this session — under-fuelled sessions make progression calls unreliable.",
-      limitingFactor: "nutrition"
-    };
   }
 
   if (s1 >= repRangeMax && s2 >= repRangeMax) {
