@@ -11,11 +11,15 @@ function setVolume(e) {
  * Which variant a logged entry belongs to (Gym App spec Part 2). An entry logged before
  * variants existed — or logged without ever touching the variant selector — has no
  * `selectedVariantId`, and always resolves to its exercise slot's own canonical/default
- * variant (id === exerciseId). This is the one fallback rule that keeps every pre-existing
- * workout's history resolving exactly as it always has.
+ * variant. `fallbackId` should be that exercise's own id — the caller's job, since this
+ * function only sees one entry at a time. Without a fallbackId, entries whose `exerciseId`
+ * is itself null or missing (e.g. logged before that field existed at all) resolve to null
+ * rather than silently guessing an exercise — pass one whenever you know which exercise
+ * you're asking about, which is every real caller. This is the one fallback rule that keeps
+ * every pre-existing workout's history resolving exactly as it always has.
  */
-export function resolveVariantId(entry) {
-  return entry.selectedVariantId || entry.exerciseId || null;
+export function resolveVariantId(entry, fallbackId = null) {
+  return entry.selectedVariantId || entry.exerciseId || fallbackId;
 }
 
 /**
@@ -23,14 +27,17 @@ export function resolveVariantId(entry) {
  * exercise across all past workouts. Pass `variantId` to scope history to one specific
  * equipment variant only (Gym App spec Part 2: "performance from one variant must not
  * overwrite another") — omitted (the default), this returns history across ALL variants of
- * the exercise combined, i.e. today's existing name-only behaviour, unchanged.
+ * the exercise combined, i.e. today's existing name-only behaviour, unchanged. When scoping
+ * by variantId, also pass `canonicalVariantId` (the exercise's own id) so that legacy entries
+ * with no selectedVariantId/exerciseId of their own still correctly resolve to the canonical
+ * variant instead of matching nothing.
  */
-export function getExerciseHistory(workouts, exerciseName, { variantId = null, referenceDate = new Date() } = {}) {
+export function getExerciseHistory(workouts, exerciseName, { variantId = null, canonicalVariantId = null, referenceDate = new Date() } = {}) {
   const entries = [];
   workouts.forEach(w => {
     (w.exercises || []).forEach(e => {
       if (e.name !== exerciseName) return;
-      if (variantId != null && resolveVariantId(e) !== variantId) return;
+      if (variantId != null && resolveVariantId(e, canonicalVariantId) !== variantId) return;
       entries.push({ ...e, date: w.date });
     });
   });

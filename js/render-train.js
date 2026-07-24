@@ -9,6 +9,7 @@ import { CONSTRAINT_ENGINE_VERSION } from "./constraint-engine.js";
 import { CONSTRAINT_LIBRARY_VERSION } from "./constraint-library.js";
 import { generateProgressTasks, TASK_SECTIONS } from "./task-engine.js";
 import { isCustomSessionDay, customSessionIdFromDay, getCustomSession } from "./custom-sessions.js";
+import { selectedVariantIdFor, variantDisplayName } from "./render-exercise-variants.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -70,6 +71,7 @@ function calcDistance(entry, trackLength) {
 
 export function renderDaySelect(data) {
   const select = $("daySelect");
+  const previousValue = select.value;
   const days = Object.keys(data.trainingProgram);
   const customOptions = (data.customSessions || []).map(cs =>
     `<option value="custom:${esc(cs.id)}">⚡ ${esc(cs.name)} (Custom)</option>`
@@ -78,6 +80,14 @@ export function renderDaySelect(data) {
     days.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join("") +
     customOptions +
     `<option value="${CREATE_CUSTOM_SESSION_VALUE}">Create Custom Session</option>`;
+  // Rebuilding innerHTML always resets a <select> to its first option unless the previous
+  // selection is restored explicitly — every refreshAll() call (e.g. after saving a workout,
+  // or after this phase's variant selector closes) was silently kicking the visible day back
+  // to Day 1 regardless of what the user actually had open. Pre-existing bug, unrelated to
+  // this phase's work but directly exposed by it — restore it here if it still exists.
+  if (previousValue && [...select.options].some(o => o.value === previousValue)) {
+    select.value = previousValue;
+  }
 }
 
 const VALID_REP_ITEMS = [
@@ -140,7 +150,13 @@ export function renderWorkoutForm(data) {
   $("workoutList").innerHTML = exercises.map((x, i) => {
     const exerciseDef = data.exercises.find(e => e.name === x.name);
     const isDistanceBased = !!exerciseDef?.distanceBased;
-    const history = getExerciseHistory(data.workouts, x.name);
+    // Gym App spec Part 2: history/progression are scoped to whichever equipment variant is
+    // selected for today (defaulting to the exercise's own canonical form) — never blended
+    // across variants, so switching equipment never inherits another variant's numbers.
+    const selectedVariantId = selectedVariantIdFor(data, exerciseDef, day);
+    const selectedVariant = exerciseDef ? { id: selectedVariantId, name: variantDisplayName({ selectedVariantId }, exerciseDef) } : null;
+    const hasVariants = !!(exerciseDef?.variants && exerciseDef.variants.length);
+    const history = getExerciseHistory(data.workouts, x.name, { variantId: selectedVariantId, canonicalVariantId: exerciseDef?.id });
     const isExpanded = expandedExercises.has(x.name);
     // Always live-computed from the last logged entry's raw fields (never trusts a
     // possibly-null stored snapshot) — this is what makes a fully-qualifying session
@@ -180,6 +196,7 @@ export function renderWorkoutForm(data) {
             ${completedElsewhereBadge}
           </div>
           <div class="small">Target: ${esc(x.repRange)} · Last: ${lastDisplay} · Best: ${bestDisplay}</div>
+          ${hasVariants ? `<div class="small">Equipment: <strong>${esc(selectedVariant?.name || exerciseDef.name)}</strong> <button type="button" class="link-button" data-open-variants="${esc(x.name)}">Change / View History</button></div>` : ""}
           ${recBadge ? `<div class="badge-row">${recBadge}</div>` : ""}
           ${reasonLine}
           ${contextNotesLines}
@@ -679,8 +696,12 @@ export function saveWorkout() {
     const exercises = [...document.querySelectorAll("#workoutList .exercise")].map(el => {
       const name = el.dataset.exercise;
       const exerciseDef = data.exercises.find(e => e.name === name);
-      const history = getExerciseHistory(data.workouts, name);
-      const entry = { exerciseId: exerciseDef?.id || null, name, ...readEntryFromCard(el), createdAt: now, updatedAt: now };
+      // Gym App spec Part 2: today's selected equipment variant is attached to the saved
+      // entry, and history/PR comparison is scoped to that exact variant only — a heavier
+      // number logged on a different piece of equipment can never count as this variant's PR.
+      const selectedVariantId = exerciseDef ? selectedVariantIdFor(data, exerciseDef, day) : null;
+      const history = getExerciseHistory(data.workouts, name, { variantId: selectedVariantId, canonicalVariantId: exerciseDef?.id });
+      const entry = { exerciseId: exerciseDef?.id || null, selectedVariantId, name, ...readEntryFromCard(el), createdAt: now, updatedAt: now };
       if (exerciseDef?.distanceBased) {
         const trackLength = data.profile?.functionalTrackLengthMetres || 15;
         entry.trackLengthMetres = trackLength;
