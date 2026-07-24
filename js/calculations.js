@@ -7,12 +7,31 @@ function setVolume(e) {
   return (Number(e.set1Weight) || 0) * (Number(e.set1Reps) || 0) + (Number(e.set2Weight) || 0) * (Number(e.set2Reps) || 0);
 }
 
-/** Last logged entry, most recent entry from a different week, and best-volume entry for one exercise across all past workouts. */
-export function getExerciseHistory(workouts, exerciseName, referenceDate = new Date()) {
+/**
+ * Which variant a logged entry belongs to (Gym App spec Part 2). An entry logged before
+ * variants existed — or logged without ever touching the variant selector — has no
+ * `selectedVariantId`, and always resolves to its exercise slot's own canonical/default
+ * variant (id === exerciseId). This is the one fallback rule that keeps every pre-existing
+ * workout's history resolving exactly as it always has.
+ */
+export function resolveVariantId(entry) {
+  return entry.selectedVariantId || entry.exerciseId || null;
+}
+
+/**
+ * Last logged entry, most recent entry from a different week, and best-volume entry for one
+ * exercise across all past workouts. Pass `variantId` to scope history to one specific
+ * equipment variant only (Gym App spec Part 2: "performance from one variant must not
+ * overwrite another") — omitted (the default), this returns history across ALL variants of
+ * the exercise combined, i.e. today's existing name-only behaviour, unchanged.
+ */
+export function getExerciseHistory(workouts, exerciseName, { variantId = null, referenceDate = new Date() } = {}) {
   const entries = [];
   workouts.forEach(w => {
     (w.exercises || []).forEach(e => {
-      if (e.name === exerciseName) entries.push({ ...e, date: w.date });
+      if (e.name !== exerciseName) return;
+      if (variantId != null && resolveVariantId(e) !== variantId) return;
+      entries.push({ ...e, date: w.date });
     });
   });
   entries.sort((a, b) => (parseLogDate(a.date) || 0) - (parseLogDate(b.date) || 0));
