@@ -6,7 +6,7 @@
 import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
 import { allVariantsForExercise, findVariant } from "./program.js";
-import { getExerciseHistory, exerciseProgressionStatus, resolveVariantId } from "./calculations.js";
+import { getExerciseHistory, exerciseProgressionStatus, resolveVariantId, variantUsageContext, exerciseSlotAnalytics } from "./calculations.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -39,6 +39,7 @@ function variantCardHtml(data, exerciseDef, variant, currentVariantId) {
   const history = getExerciseHistory(data.workouts, exerciseDef.name, { variantId: variant.id, canonicalVariantId: exerciseDef.id });
   const isCurrent = variant.id === currentVariantId;
   const target = history.lastSession ? exerciseProgressionStatus(history.lastSession, exerciseDef, { previousEntry: history.previousWeek }) : null;
+  const usage = variantUsageContext(history);
 
   const badges = [
     isCurrent ? `<span class="badge status-on-target">Current</span>` : "",
@@ -51,8 +52,9 @@ function variantCardHtml(data, exerciseDef, variant, currentVariantId) {
       <p class="small">Previous: ${esc(formatSetLine(history.lastSession))}${history.lastSession.date ? ` · ${esc(history.lastSession.date)}` : ""}${history.lastSession.set1RIR != null ? ` · RIR ${esc(String(history.lastSession.set1RIR))}` : ""}</p>
       <p class="small">Best: ${esc(formatSetLine(history.previousBest))}</p>
       ${target ? `<p class="small">Next target guidance: ${esc(target.status)} — ${esc(target.reason)}</p>` : ""}
+      ${usage.status === "returning" ? `<p class="small">${esc(usage.message)}</p>` : ""}
     `
-    : `<p class="small">No performance history yet on this variant. Start with a conservative setup and record today's result.</p>`;
+    : `<p class="small">No performance history yet on this variant. Start with a conservative setup and record today's result — this session will establish the baseline for this variant.</p>`;
 
   return `
     <div class="history-item variant-card" data-variant-id="${esc(variant.id)}">
@@ -95,6 +97,7 @@ function renderContent() {
   const day = currentDay();
   const currentVariantId = selectedVariantIdFor(data, exerciseDef, day);
   const variants = allVariantsForExercise(exerciseDef);
+  const slotAnalytics = exerciseSlotAnalytics(data.workouts, exerciseDef);
 
   el.innerHTML = `
     <div class="library-detail-header">
@@ -105,6 +108,12 @@ function renderContent() {
       <button type="button" class="close-btn" id="variantSelectorClose" aria-label="Close">✕</button>
     </div>
     <p class="small">Selecting a variant only changes today's equipment for this exercise. The routine, day, exercise order, target muscles, prescribed sets and rep range stay exactly as programmed.</p>
+    ${variants.length > 1 && slotAnalytics?.totalSessions ? `
+    <div class="badge-row">
+      <span class="badge">${slotAnalytics.totalSessions} session${slotAnalytics.totalSessions === 1 ? "" : "s"} across all equipment</span>
+      <span class="badge">${slotAnalytics.distinctVariantsUsed} variant${slotAnalytics.distinctVariantsUsed === 1 ? "" : "s"} tried</span>
+      ${slotAnalytics.mostUsedVariantId ? `<span class="badge">Most used: ${esc(findVariant(exerciseDef, slotAnalytics.mostUsedVariantId)?.name || "—")}</span>` : ""}
+    </div>` : ""}
     ${variants.map(v => variantCardHtml(data, exerciseDef, v, currentVariantId)).join("")}
     <button type="button" class="secondary" id="variantSelectorToggleCustom" aria-expanded="${showCustomForm}">${showCustomForm ? "Hide" : "+ Add Custom Variant"}</button>
     ${showCustomForm ? customVariantFormHtml(exerciseDef) : ""}

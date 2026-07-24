@@ -53,6 +53,53 @@ export function getExerciseHistory(workouts, exerciseName, { variantId = null, c
   return { lastSession, previousWeek, previousBest };
 }
 
+/**
+ * Gym App spec Part 2 ("Returning to a Previous Variant" / "Progression Notes After Variant
+ * Changes"): distinguishes first-time use from an ongoing continuation from a return after a
+ * gap, using the same variant-scoped history getExerciseHistory() already returns — never
+ * assumes strength has transferred, never resets the dataset, just describes the gap.
+ */
+export function variantUsageContext(history, referenceDate = new Date()) {
+  if (!history?.lastSession) return { status: "first_time", daysSinceLastUse: null, message: null };
+  const lastDate = parseLogDate(history.lastSession.date);
+  if (!lastDate) return { status: "continuing", daysSinceLastUse: null, message: null };
+  const daysSinceLastUse = Math.max(0, Math.round((referenceDate - lastDate) / 86400000));
+  const RETURN_THRESHOLD_DAYS = 14;
+  if (daysSinceLastUse < RETURN_THRESHOLD_DAYS) return { status: "continuing", daysSinceLastUse, message: null };
+  const set1 = history.lastSession.set1Reps != null ? `${history.lastSession.set1Weight ?? "-"}kg for ${history.lastSession.set1Reps}` : null;
+  const set2 = history.lastSession.set2Reps != null ? `, ${history.lastSession.set2Weight ?? "-"}kg for ${history.lastSession.set2Reps}` : "";
+  const performance = set1 ? `${set1}${set2} reps` : "no recorded reps";
+  return {
+    status: "returning", daysSinceLastUse,
+    message: `Last used ${daysSinceLastUse} days ago. Previous performance was ${performance}. Resume at the previous load or use a small reduction if setup familiarity has declined.`
+  };
+}
+
+/**
+ * Exercise-slot analysis (Gym App spec Part 2): total training exposure and combined volume
+ * across ALL approved variants of a slot — aggregation only, never merges any variant's raw
+ * load records (each variant's own numbers stay exactly as getExerciseHistory returns them).
+ */
+export function exerciseSlotAnalytics(workouts, exerciseDef) {
+  if (!exerciseDef) return null;
+  const entries = [];
+  (workouts || []).forEach(w => {
+    (w.exercises || []).forEach(e => { if (e.name === exerciseDef.name) entries.push(e); });
+  });
+  const variantUsage = {};
+  let totalVolume = 0;
+  entries.forEach(e => {
+    const vid = resolveVariantId(e, exerciseDef.id);
+    if (vid) variantUsage[vid] = (variantUsage[vid] || 0) + 1;
+    totalVolume += setVolume(e);
+  });
+  const mostUsedVariantId = Object.entries(variantUsage).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  return {
+    totalSessions: entries.length, totalVolume, variantUsage, mostUsedVariantId,
+    distinctVariantsUsed: Object.keys(variantUsage).length
+  };
+}
+
 export function average(nums) {
   const valid = nums.filter(n => typeof n === "number" && !Number.isNaN(n));
   if (!valid.length) return null;
