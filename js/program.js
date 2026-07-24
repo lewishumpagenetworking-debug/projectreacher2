@@ -6,16 +6,55 @@
 
 let seq = 0;
 const eid = (name) => `ex_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`;
+const evid = (exerciseId, variantName) => `${exerciseId}__var_${variantName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`;
 
 function exercise({
   name, category, primaryMuscle, secondaryMuscles = [], movementPattern, equipment,
   repRangeMin, repRangeMax, targetRIRSet1, targetRIRSet2, failureRule, notes = "",
-  active = true, optional = false, volumeGroup = null, distanceBased = false
+  active = true, optional = false, volumeGroup = null, distanceBased = false, variants = []
 }) {
+  const id = eid(name);
   return {
-    id: eid(name), name, category, primaryMuscle, secondaryMuscles, movementPattern, equipment,
-    repRangeMin, repRangeMax, targetRIRSet1, targetRIRSet2, failureRule, notes, active, optional, volumeGroup, distanceBased
+    id, name, category, primaryMuscle, secondaryMuscles, movementPattern, equipment,
+    repRangeMin, repRangeMax, targetRIRSet1, targetRIRSet2, failureRule, notes, active, optional, volumeGroup, distanceBased,
+    // Gym App spec Part 2 — closely matched equipment/machine alternatives for this exercise
+    // slot. The exercise's OWN canonical form is always the implicit default variant (see
+    // canonicalVariant()/allVariantsForExercise() below) — this array holds only ADDITIONAL
+    // options, so an exercise with no variants behaves exactly as it always has.
+    variants: variants.map(v => ({ id: evid(id, v.name), exerciseSlotId: id, isDefault: false, ...v }))
   };
+}
+
+/** Builds one ExerciseVariant entry for an exercise()'s `variants` array. */
+function variant({
+  name, equipmentType, loadingType = "plate_loaded", unilateral = false, weightUnit = "kg",
+  incrementOptions = null, setupInstructions = "", techniqueNotes = "", isActive = true
+}) {
+  return { name, equipmentType, loadingType, unilateral, weightUnit, incrementOptions, setupInstructions, techniqueNotes, isActive };
+}
+
+/** The exercise slot's own canonical implementation, treated as its implicit default
+ * variant (id === the exercise's own id) — this is what all pre-existing logged history
+ * resolves to when no variant was ever explicitly selected. See resolveVariantId() in
+ * calculations.js for the read-side of this same fallback rule. */
+export function canonicalVariant(exerciseDef) {
+  return {
+    id: exerciseDef.id, exerciseSlotId: exerciseDef.id, name: exerciseDef.name,
+    equipmentType: exerciseDef.equipment, loadingType: null, unilateral: false,
+    weightUnit: "kg", incrementOptions: null, setupInstructions: "", techniqueNotes: "",
+    isActive: true, isDefault: true
+  };
+}
+
+/** All selectable variants for an exercise slot: its own canonical form first, then any
+ * additional equipment variants defined on it. */
+export function allVariantsForExercise(exerciseDef) {
+  if (!exerciseDef) return [];
+  return [canonicalVariant(exerciseDef), ...(exerciseDef.variants || [])];
+}
+
+export function findVariant(exerciseDef, variantId) {
+  return allVariantsForExercise(exerciseDef).find(v => v.id === variantId) || null;
 }
 
 export const EXERCISE_DATABASE = [
