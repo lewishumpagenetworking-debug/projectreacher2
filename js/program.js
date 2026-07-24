@@ -60,38 +60,151 @@ export function findVariant(exerciseDef, variantId) {
 export const EXERCISE_DATABASE = [
   exercise({ name: "Hack Squat", category: "compound", primaryMuscle: "quads", secondaryMuscles: ["glutes"], movementPattern: "squat", equipment: "machine", repRangeMin: 6, repRangeMax: 10, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure." }),
   exercise({ name: "Romanian Deadlift", category: "compound", primaryMuscle: "hamstrings", secondaryMuscles: ["glutes", "lower back"], movementPattern: "hinge", equipment: "barbell", repRangeMin: 8, repRangeMax: 10, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure." }),
-  exercise({ name: "Leg Press", category: "compound", primaryMuscle: "quads", secondaryMuscles: ["glutes", "hamstrings"], movementPattern: "squat", equipment: "machine", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure." }),
-  exercise({ name: "Leg Curl", category: "isolation", primaryMuscle: "hamstrings", movementPattern: "knee flexion", equipment: "machine", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure." }),
+  exercise({
+    name: "Leg Press", category: "compound", primaryMuscle: "quads", secondaryMuscles: ["glutes", "hamstrings"], movementPattern: "squat", equipment: "machine", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure.",
+    variants: [
+      variant({ name: "45-Degree Leg Press", equipmentType: "plate-loaded machine", loadingType: "plate_loaded" }),
+      variant({ name: "Horizontal Leg Press", equipmentType: "plate-loaded machine", loadingType: "plate_loaded" }),
+      variant({ name: "Selectorised Seated Leg Press", equipmentType: "selectorised machine", loadingType: "fixed_stack" }),
+      variant({ name: "Pendulum Squat", equipmentType: "plate-loaded machine", loadingType: "plate_loaded", techniqueNotes: "Not identical to a leg press — only offered where the programmed slot allows an equivalent knee-dominant compound." })
+    ]
+  }),
+  exercise({
+    name: "Leg Curl", category: "isolation", primaryMuscle: "hamstrings", movementPattern: "knee flexion", equipment: "machine", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.",
+    variants: [
+      variant({ name: "Seated Leg Curl", equipmentType: "selectorised machine", loadingType: "fixed_stack" }),
+      variant({ name: "Lying Leg Curl", equipmentType: "selectorised machine", loadingType: "fixed_stack", techniqueNotes: "Loads the hamstrings somewhat differently to the seated version — both remain within the knee-flexion slot." }),
+      variant({ name: "Standing Single-Leg Curl", equipmentType: "selectorised machine", loadingType: "fixed_stack", unilateral: true }),
+      variant({ name: "Cable Ankle-Strap Leg Curl", equipmentType: "cable", loadingType: "cable", unilateral: true })
+    ]
+  }),
   exercise({ name: "Standing Calf Raise", category: "isolation", primaryMuscle: "calves", movementPattern: "plantarflexion", equipment: "machine", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure, controlled stretch and squeeze." }),
 
-  exercise({ name: "Incline DB Press", category: "compound", primaryMuscle: "upper chest", secondaryMuscles: ["front delts", "triceps"], movementPattern: "horizontal push", equipment: "dumbbell", repRangeMin: 6, repRangeMax: 10, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure." }),
+  exercise({
+    name: "Incline DB Press", category: "compound", primaryMuscle: "upper chest", secondaryMuscles: ["front delts", "triceps"], movementPattern: "horizontal push", equipment: "dumbbell", repRangeMin: 6, repRangeMax: 10, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure.",
+    // Smith-machine incline pressing already exists as its own separate slot ("Smith Incline
+    // Press") — not duplicated here as a variant.
+    variants: [
+      variant({ name: "Incline Barbell Press", equipmentType: "barbell", loadingType: "free_weight" }),
+      variant({ name: "Plate-Loaded Incline Chest Press", equipmentType: "plate-loaded machine", loadingType: "plate_loaded" }),
+      variant({ name: "Selectorised Incline Chest Press", equipmentType: "selectorised machine", loadingType: "fixed_stack" }),
+      variant({ name: "Low-to-High Cable Press", equipmentType: "cable", loadingType: "cable" })
+    ]
+  }),
   exercise({ name: "Smith Incline Press", category: "compound", primaryMuscle: "upper chest", secondaryMuscles: ["front delts", "triceps"], movementPattern: "horizontal push", equipment: "smith machine", repRangeMin: 6, repRangeMax: 10, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure." }),
   exercise({ name: "Seated DB Shoulder Press", category: "compound", primaryMuscle: "shoulders", secondaryMuscles: ["triceps"], movementPattern: "vertical push", equipment: "dumbbell", repRangeMin: 8, repRangeMax: 10, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure." }),
-  exercise({ name: "Machine Chest Press", category: "compound", primaryMuscle: "chest", secondaryMuscles: ["front delts", "triceps"], movementPattern: "horizontal push", equipment: "machine", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure. Safe failure pressing." }),
+  exercise({
+    name: "Machine Chest Press", category: "compound", primaryMuscle: "chest", secondaryMuscles: ["front delts", "triceps"], movementPattern: "horizontal push", equipment: "machine", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure. Safe failure pressing.",
+    // Flat/horizontal pressing only — incline-dominant presses are not included here (see spec:
+    // "Do not include incline-dominant presses unless the programmed slot allows an upper-chest bias").
+    variants: [
+      variant({ name: "Selectorised Seated Chest Press", equipmentType: "selectorised machine", loadingType: "fixed_stack" }),
+      variant({ name: "Smith-Machine Bench Press", equipmentType: "smith machine", loadingType: "free_weight" }),
+      variant({ name: "Dumbbell Bench Press", equipmentType: "dumbbell", loadingType: "free_weight" }),
+      variant({ name: "Barbell Bench Press", equipmentType: "barbell", loadingType: "free_weight" }),
+      variant({ name: "Cable Chest Press", equipmentType: "cable", loadingType: "cable" })
+    ]
+  }),
   exercise({ name: "Close Grip Chest Press", category: "compound", primaryMuscle: "chest", secondaryMuscles: ["triceps"], movementPattern: "horizontal push", equipment: "machine", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure.", notes: "Counted as indirect triceps volume." }),
 
-  exercise({ name: "Cable Lateral Raise", category: "isolation", primaryMuscle: "side delts", movementPattern: "abduction", equipment: "cable", repRangeMin: 12, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure." }),
+  exercise({
+    name: "Cable Lateral Raise", category: "isolation", primaryMuscle: "side delts", movementPattern: "abduction", equipment: "cable", repRangeMin: 12, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.",
+    variants: [
+      variant({ name: "Lean-Away Cable Lateral Raise", equipmentType: "cable", loadingType: "cable" }),
+      variant({ name: "Machine Lateral Raise", equipmentType: "selectorised machine", loadingType: "fixed_stack" }),
+      variant({ name: "Single-Arm Machine Lateral Raise", equipmentType: "selectorised machine", loadingType: "fixed_stack", unilateral: true })
+    ]
+  }),
   exercise({ name: "Face Pull", category: "isolation", primaryMuscle: "rear delts", secondaryMuscles: ["rotator cuff"], movementPattern: "horizontal pull", equipment: "cable", repRangeMin: 12, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure. Shoulder health." }),
   exercise({ name: "Rear Delt Fly", category: "isolation", primaryMuscle: "rear delts", movementPattern: "horizontal abduction", equipment: "machine", repRangeMin: 12, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure." }),
 
-  exercise({ name: "Neutral Grip Lat Pulldown", category: "compound", primaryMuscle: "lats", secondaryMuscles: ["biceps"], movementPattern: "vertical pull", equipment: "cable", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure.", notes: "Weighted pull-up replacement." }),
+  exercise({
+    name: "Neutral Grip Lat Pulldown", category: "compound", primaryMuscle: "lats", secondaryMuscles: ["biceps"], movementPattern: "vertical pull", equipment: "cable", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure.", notes: "Weighted pull-up replacement.",
+    // Wide-grip and single-arm pulldowns already exist as their own separate slots below —
+    // not duplicated here as variants.
+    variants: [
+      variant({ name: "Supinated Pulldown", equipmentType: "cable", loadingType: "cable" }),
+      variant({ name: "Plate-Loaded Pulldown", equipmentType: "plate-loaded machine", loadingType: "plate_loaded" }),
+      variant({ name: "Assisted Pull-Up", equipmentType: "assisted pull-up machine", loadingType: "assisted" })
+    ]
+  }),
   exercise({ name: "Wide Grip Lat Pulldown", category: "compound", primaryMuscle: "lats", secondaryMuscles: ["biceps"], movementPattern: "vertical pull", equipment: "cable", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure.", notes: "Lat width." }),
   exercise({ name: "Single Arm Lat Pulldown", category: "isolation", primaryMuscle: "lats", movementPattern: "vertical pull", equipment: "cable", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure. Lat isolation." }),
-  exercise({ name: "Chest Supported Row", category: "compound", primaryMuscle: "back thickness", secondaryMuscles: ["lats", "biceps"], movementPattern: "horizontal pull", equipment: "machine", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure." }),
+  exercise({
+    name: "Chest Supported Row", category: "compound", primaryMuscle: "back thickness", secondaryMuscles: ["lats", "biceps"], movementPattern: "horizontal pull", equipment: "machine", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure.",
+    // Seated Cable Row already exists as its own separate slot below — not duplicated here.
+    variants: [
+      variant({ name: "Plate-Loaded Machine Row", equipmentType: "plate-loaded machine", loadingType: "plate_loaded" }),
+      variant({ name: "Selectorised Seated Row", equipmentType: "selectorised machine", loadingType: "fixed_stack" }),
+      variant({ name: "Single-Arm Cable Row", equipmentType: "cable", loadingType: "cable", unilateral: true }),
+      variant({ name: "Iso-Lateral Plate-Loaded Row", equipmentType: "plate-loaded machine", loadingType: "plate_loaded", unilateral: true })
+    ]
+  }),
   exercise({ name: "Seated Cable Row", category: "compound", primaryMuscle: "back thickness", secondaryMuscles: ["lats", "biceps"], movementPattern: "horizontal pull", equipment: "cable", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 ~1 RIR, Set 2 technical failure." }),
-  exercise({ name: "Shrugs", category: "isolation", primaryMuscle: "traps", movementPattern: "elevation", equipment: "dumbbell", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure." }),
+  exercise({
+    name: "Shrugs", category: "isolation", primaryMuscle: "traps", movementPattern: "elevation", equipment: "dumbbell", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.",
+    variants: [
+      variant({ name: "Seated Dumbbell Shrug", equipmentType: "dumbbell", loadingType: "free_weight" }),
+      variant({ name: "Cable Bar Shrug", equipmentType: "cable", loadingType: "cable" }),
+      variant({ name: "EZ-Bar Shrug", equipmentType: "ez bar", loadingType: "free_weight" }),
+      variant({ name: "Barbell Shrug", equipmentType: "barbell", loadingType: "free_weight" }),
+      variant({ name: "Smith-Machine Shrug", equipmentType: "smith machine", loadingType: "free_weight" }),
+      variant({ name: "Plate-Loaded Shrug Machine", equipmentType: "plate-loaded machine", loadingType: "plate_loaded" }),
+      variant({ name: "Trap-Bar Shrug", equipmentType: "trap bar", loadingType: "free_weight" })
+    ]
+  }),
 
   exercise({ name: "Hammer Curl", category: "isolation", primaryMuscle: "biceps", secondaryMuscles: ["brachialis"], movementPattern: "elbow flexion", equipment: "dumbbell", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure. Brachialis / arm thickness.", volumeGroup: "brachialis" }),
   exercise({ name: "EZ Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "ez bar", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure." }),
-  exercise({ name: "Incline DB Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "dumbbell", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Biceps long head / stretched-position biceps. Sub: Bayesian Cable Curl / Preacher Curl / Cable Curl." }),
+  exercise({
+    name: "Incline DB Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "dumbbell", repRangeMin: 8, repRangeMax: 12, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Biceps long head / stretched-position biceps. Sub: Bayesian Cable Curl / Preacher Curl / Cable Curl.",
+    variants: [
+      variant({ name: "Bayesian Cable Curl", equipmentType: "cable", loadingType: "cable" }),
+      variant({ name: "Preacher Curl", equipmentType: "ez bar", loadingType: "free_weight" }),
+      variant({ name: "Cable Curl", equipmentType: "cable", loadingType: "cable" })
+    ]
+  }),
+  // Do not remove or replace — the exercise's own notes explicitly mark this as the main
+  // long-head triceps builder, so no equipment variants are offered for it.
   exercise({ name: "Overhead Triceps Extension", category: "isolation", primaryMuscle: "triceps (long head)", movementPattern: "elbow extension", equipment: "cable", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", notes: "Main long-head triceps builder — excellent stretch reported. Do not remove or replace." }),
-  exercise({ name: "Reverse-Grip Bar Extension", category: "isolation", primaryMuscle: "triceps", movementPattern: "elbow extension", equipment: "cable/bar", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", notes: "Direct triceps isolation movement, contraction / width support. Sub: Straight-Bar Pushdown / Single-Arm Reverse Pushdown." }),
-  exercise({ name: "Triceps Pushdown", category: "isolation", primaryMuscle: "triceps", movementPattern: "elbow extension", equipment: "cable", repRangeMin: 12, repRangeMax: 15, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Rope or straight bar — triceps width / stable contraction. Sub: Straight-Bar Pushdown / V-Bar Pushdown." }),
+  exercise({
+    name: "Reverse-Grip Bar Extension", category: "isolation", primaryMuscle: "triceps", movementPattern: "elbow extension", equipment: "cable/bar", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", notes: "Direct triceps isolation movement, contraction / width support. Sub: Straight-Bar Pushdown / Single-Arm Reverse Pushdown.",
+    variants: [
+      variant({ name: "Straight-Bar Pushdown", equipmentType: "cable", loadingType: "cable" }),
+      variant({ name: "Single-Arm Reverse Pushdown", equipmentType: "cable", loadingType: "cable", unilateral: true })
+    ]
+  }),
+  exercise({
+    name: "Triceps Pushdown", category: "isolation", primaryMuscle: "triceps", movementPattern: "elbow extension", equipment: "cable", repRangeMin: 12, repRangeMax: 15, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Rope or straight bar — triceps width / stable contraction. Sub: Straight-Bar Pushdown / V-Bar Pushdown.",
+    // Overhead extensions are deliberately not included here (spec: a lengthened-position
+    // triceps movement is not automatically interchangeable with a pressdown).
+    variants: [
+      variant({ name: "Rope Pressdown", equipmentType: "cable", loadingType: "cable" }),
+      variant({ name: "Straight-Bar Pressdown", equipmentType: "cable", loadingType: "cable" }),
+      variant({ name: "V-Bar Pressdown", equipmentType: "cable", loadingType: "cable" }),
+      variant({ name: "EZ-Bar Cable Pressdown", equipmentType: "cable", loadingType: "cable" }),
+      variant({ name: "Single-Arm Cable Pressdown", equipmentType: "cable", loadingType: "cable", unilateral: true }),
+      variant({ name: "Machine Triceps Pressdown", equipmentType: "selectorised machine", loadingType: "fixed_stack" })
+    ]
+  }),
 
-  exercise({ name: "Seated DB Lateral Raise", category: "isolation", primaryMuscle: "side delts", movementPattern: "abduction", equipment: "dumbbell", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Strict variation, low momentum, side delt tension over load — improves shoulder-to-waist ratio. Sub: Machine Lateral Raise / Lean-Away Cable Lateral Raise / Strict Cable Lateral Raise." }),
+  exercise({
+    name: "Seated DB Lateral Raise", category: "isolation", primaryMuscle: "side delts", movementPattern: "abduction", equipment: "dumbbell", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Strict variation, low momentum, side delt tension over load — improves shoulder-to-waist ratio. Sub: Machine Lateral Raise / Lean-Away Cable Lateral Raise / Strict Cable Lateral Raise.",
+    variants: [
+      variant({ name: "Machine Lateral Raise", equipmentType: "selectorised machine", loadingType: "fixed_stack" }),
+      variant({ name: "Lean-Away Cable Lateral Raise", equipmentType: "cable", loadingType: "cable" }),
+      variant({ name: "Strict Cable Lateral Raise", equipmentType: "cable", loadingType: "cable" })
+    ]
+  }),
 
-  exercise({ name: "Wrist Curl", category: "isolation", primaryMuscle: "forearm flexors", movementPattern: "wrist flexion", equipment: "dumbbell", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Sub: Cable Wrist Curl / DB Wrist Curl." }),
-  exercise({ name: "Reverse Wrist Curl", category: "isolation", primaryMuscle: "forearm extensors", movementPattern: "wrist extension", equipment: "dumbbell", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Forearm balance vs. Wrist Curl. Sub: Cable Reverse Wrist Curl / DB Reverse Wrist Curl." }),
+  exercise({
+    name: "Wrist Curl", category: "isolation", primaryMuscle: "forearm flexors", movementPattern: "wrist flexion", equipment: "dumbbell", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Sub: Cable Wrist Curl / DB Wrist Curl.",
+    variants: [variant({ name: "Cable Wrist Curl", equipmentType: "cable", loadingType: "cable" })]
+  }),
+  exercise({
+    name: "Reverse Wrist Curl", category: "isolation", primaryMuscle: "forearm extensors", movementPattern: "wrist extension", equipment: "dumbbell", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Forearm balance vs. Wrist Curl. Sub: Cable Reverse Wrist Curl / DB Reverse Wrist Curl.",
+    variants: [variant({ name: "Cable Reverse Wrist Curl", equipmentType: "cable", loadingType: "cable" })]
+  }),
 
   exercise({ name: "Manual Neck Isometrics", category: "isolation", primaryMuscle: "neck", movementPattern: "isometric", equipment: "bodyweight", repRangeMin: null, repRangeMax: null, targetRIRSet1: null, targetRIRSet2: null, failureRule: "3 x 20-30 sec holds.", notes: "Home-based alternative." }),
 
@@ -102,7 +215,10 @@ export const EXERCISE_DATABASE = [
   exercise({ name: "Trap Bar Hold", category: "isolation", primaryMuscle: "traps", secondaryMuscles: ["forearms"], movementPattern: "isometric carry", equipment: "trap bar", repRangeMin: null, repRangeMax: null, targetRIRSet1: null, targetRIRSet2: null, failureRule: "2 sets, 20-45 sec.", notes: "Loaded hold finisher alternative to Farmer's Carry.", active: false, optional: true, volumeGroup: "grip" }),
   exercise({ name: "Incline Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "dumbbell", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
   exercise({ name: "Spider Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "ez bar", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true }),
-  exercise({ name: "Reverse Curl", category: "isolation", primaryMuscle: "forearms", secondaryMuscles: ["biceps"], movementPattern: "elbow flexion", equipment: "ez bar", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Brachioradialis / upper forearm / forearm thickness. Sub: EZ Reverse Curl / Cable Reverse Curl.", volumeGroup: "brachialis" }),
+  exercise({
+    name: "Reverse Curl", category: "isolation", primaryMuscle: "forearms", secondaryMuscles: ["biceps"], movementPattern: "elbow flexion", equipment: "ez bar", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Brachioradialis / upper forearm / forearm thickness. Sub: EZ Reverse Curl / Cable Reverse Curl.", volumeGroup: "brachialis",
+    variants: [variant({ name: "Cable Reverse Curl", equipmentType: "cable", loadingType: "cable" })]
+  }),
   exercise({ name: "Seated Calf Raise", category: "isolation", primaryMuscle: "calves", movementPattern: "plantarflexion", equipment: "machine", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true })
 ];
 
