@@ -100,6 +100,145 @@ export function exerciseSlotAnalytics(workouts, exerciseDef) {
   };
 }
 
+// ---- Muscle-Group Progression Profile (Variant Backlog spec §6) ----
+// A rolling performance index per muscle group, aggregated across every exercise slot and
+// variant that trains it — deliberately NOT raw tonnage, and deliberately separate from
+// each exercise/variant's own exact history (getExerciseHistory / VariantPerformanceProfile
+// above), which stays untouched. This is a read-only derived view: nothing here is persisted,
+// nothing here overwrites an exercise-specific record, and it never invents a session that
+// wasn't actually logged.
+
+const MUSCLE_GROUP_LOOKBACK_DAYS = 180;
+const MUSCLE_GROUP_WINDOW_SIZE = 8;
+const MUSCLE_GROUP_RECENCY_LIMIT_DAYS = 21; // "high" confidence requires data at least this fresh
+const MUSCLE_GROUP_STALE_LIMIT_DAYS = 45; // "medium" confidence requires data at least this fresh
+
+/**
+ * Conservative rep/RIR-adjusted score for one logged set — deliberately NOT weight×reps
+ * (raw tonnage). Reps are capped in their contribution so a set of unusually high reps can't
+ * dominate the index, and a lower RIR (closer to failure, i.e. a more meaningful effort) counts
+ * for slightly more than the same weight/reps performed with several reps in reserve.
+ */
+function setPerformanceScore(weight, reps, rir) {
+  if (!weight || !reps) return null;
+  const repFactor = 1 + Math.min(reps, 20) / 30;
+  const rirFactor = rir != null ? 1 - Math.min(Math.max(rir, 0), 4) * 0.02 : 1;
+  return weight * repFactor * rirFactor;
+}
+
+/**
+ * A single logged exercise entry's session-level performance score — the average of its
+ * sets' individual scores — or null if the entry has no usable weight/reps at all.
+ */
+function sessionPerformanceScore(entry) {
+  const sets = [
+    setPerformanceScore(Number(entry.set1Weight) || 0, Number(entry.set1Reps) || 0, entry.set1RIR),
+    setPerformanceScore(Number(entry.set2Weight) || 0, Number(entry.set2Reps) || 0, entry.set2RIR),
+    setPerformanceScore(Number(entry.optionalSet3Weight) || 0, Number(entry.optionalSet3Reps) || 0, null)
+  ].filter(s => s != null);
+  if (!sets.length) return null;
+  return sets.reduce((a, b) => a + b, 0) / sets.length;
+}
+
+/**
+ * Whether a logged entry is trustworthy evidence of the muscle group's current capacity.
+ * Excludes (not merely dampens) sessions with a pain flag, poor form, or poor ROM control —
+ * those aren't clean signal for a progression trend, mirroring the spec's prediction
+ * safeguards (§9) even though this profile itself doesn't make predictions.
+ */
+function isComparableSession(entry) {
+  if (entry.painFlag) return false;
+  if (entry.formQuality != null && Number(entry.formQuality) < 3) return false;
+  if (entry.rangeOfMotionQuality != null && Number(entry.rangeOfMotionQuality) < 3) return false;
+  return sessionPerformanceScore(entry) != null;
+}
+
+/**
+ * Builds a MuscleGroupProgressionProfile (Variant Backlog spec §6) for one muscle group,
+ * aggregated across every exercise in `exercises` whose primaryMuscle matches — spanning
+ * exercise slots and every variant/machine within them, since a muscle group's capacity is
+ * broader than any single slot's own exact-variant history. `exercises` should be the live
+ * data.exercises array (so any user-added custom variants are included).
+ */
+export function computeMuscleGroupProgressionProfile(workouts, exercises, muscleGroup, referenceDate = new Date()) {
+  const exerciseNames = new Set((exercises || []).filter(e => e.primaryMuscle === muscleGroup).map(e => e.name));
+
+  const entries = [];
+  (workouts || []).forEach(w => {
+    const d = parseLogDate(w.date);
+    if (!d) return;
+    (w.exercises || []).forEach(e => {
+      if (!exerciseNames.has(e.name)) return;
+      entries.push({ ...e, date: w.date, _d: d });
+    });
+  });
+  entries.sort((a, b) => a._d - b._d);
+
+  const lookbackStart = new Date(referenceDate.getTime() - MUSCLE_GROUP_LOOKBACK_DAYS * 86400000);
+  const comparable = entries.filter(e => e._d >= lookbackStart && isComparableSession(e));
+
+  const empty = {
+    muscleGroup, rollingPerformanceIndex: null, previousPerformanceIndex: null,
+    confidence: "low", comparableExposureCount: 0, recentTrendPercent: null,
+    lastUpdatedAt: null
+  };
+  if (!comparable.length) return empty;
+
+  const window = comparable.slice(-MUSCLE_GROUP_WINDOW_SIZE);
+  const scores = window.map(e => sessionPerformanceScore(e));
+  const lastComparable = comparable[comparable.length - 1];
+  const daysSinceLastComparable = Math.max(0, Math.round((referenceDate - lastComparable._d) / 86400000));
+
+  let rollingPerformanceIndex, previousPerformanceIndex = null, recentTrendPercent = null;
+  if (window.length >= 4) {
+    const mid = Math.floor(window.length / 2);
+    const earlierAvg = average(scores.slice(0, mid));
+    const laterAvg = average(scores.slice(mid));
+    previousPerformanceIndex = earlierAvg;
+    rollingPerformanceIndex = laterAvg;
+    recentTrendPercent = earlierAvg ? ((laterAvg - earlierAvg) / earlierAvg) * 100 : null;
+  } else {
+    rollingPerformanceIndex = average(scores);
+  }
+
+  // Consistency: how much the windowed scores vary relative to their own average — a highly
+  // erratic window (very inconsistent effort/load) shouldn't be reported with high confidence
+  // even if there's plenty of it.
+  const meanScore = average(scores) || 0;
+  const variance = scores.length > 1
+    ? scores.reduce((sum, s) => sum + Math.pow(s - meanScore, 2), 0) / scores.length
+    : 0;
+  const coefficientOfVariation = meanScore ? Math.sqrt(variance) / meanScore : 1;
+
+  let confidence = "low";
+  if (comparable.length >= 6 && daysSinceLastComparable <= MUSCLE_GROUP_RECENCY_LIMIT_DAYS && coefficientOfVariation < 0.25) {
+    confidence = "high";
+  } else if (comparable.length >= 3 && daysSinceLastComparable <= MUSCLE_GROUP_STALE_LIMIT_DAYS) {
+    confidence = "medium";
+  }
+
+  return {
+    muscleGroup,
+    rollingPerformanceIndex, previousPerformanceIndex, confidence,
+    comparableExposureCount: comparable.length, recentTrendPercent,
+    lastUpdatedAt: lastComparable.date
+  };
+}
+
+/** Every distinct primaryMuscle value present in the (live) exercise database. */
+export function allMuscleGroups(exercises) {
+  return [...new Set((exercises || []).map(e => e.primaryMuscle).filter(Boolean))].sort();
+}
+
+/** MuscleGroupProgressionProfile for every muscle group at once, keyed by muscle group name. */
+export function muscleGroupProgressionProfiles(workouts, exercises, referenceDate = new Date()) {
+  const profiles = {};
+  allMuscleGroups(exercises).forEach(mg => {
+    profiles[mg] = computeMuscleGroupProgressionProfile(workouts, exercises, mg, referenceDate);
+  });
+  return profiles;
+}
+
 export function average(nums) {
   const valid = nums.filter(n => typeof n === "number" && !Number.isNaN(n));
   if (!valid.length) return null;
