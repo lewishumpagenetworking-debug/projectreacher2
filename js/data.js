@@ -104,6 +104,12 @@ function emptyData() {
     // set/rep draft) so it can never interact with that draft's conflict/discard logic —
     // selecting a variant should never risk losing in-progress logged numbers or vice versa.
     todaysVariantSelections: { day: null, selections: {} },
+    // Variant Backlog spec — persistent "Make Preferred" foreground default per exercise
+    // slot, keyed by exercise name (same key shape as todaysVariantSelections.selections).
+    // Unlike todaysVariantSelections this survives across days/sessions, but it still never
+    // edits the program template itself — it only changes which variant a slot resolves to
+    // when there's no explicit today-selection.
+    preferredVariants: {},
     skinLogs: [],
     hairLogs: [],
     productExperiments: [],
@@ -517,6 +523,10 @@ export function migrateData() {
   if (data.activeWorkoutDraft === undefined) { data.activeWorkoutDraft = null; changed = true; }
   if (!data.todaysVariantSelections || typeof data.todaysVariantSelections !== "object") {
     data.todaysVariantSelections = { day: null, selections: {} };
+    changed = true;
+  }
+  if (!data.preferredVariants || typeof data.preferredVariants !== "object") {
+    data.preferredVariants = {};
     changed = true;
   }
 
@@ -942,6 +952,11 @@ export function importAndMergeData(importedRaw, currentState) {
   merged.todaysVariantSelections = (current.todaysVariantSelections && current.todaysVariantSelections.day)
     ? current.todaysVariantSelections
     : (imported.todaysVariantSelections || { day: null, selections: {} });
+
+  // preferredVariants: persistent per-exercise foreground default. Current device's choices
+  // always win per exercise key; an import only backfills exercises the current device has
+  // no preference recorded for yet — same "current wins per-key" rule as aiSettings/profile.
+  merged.preferredVariants = withDefaults(current.preferredVariants || {}, imported.preferredVariants || {});
 
   merged.schemaVersion = SCHEMA_VERSION;
 

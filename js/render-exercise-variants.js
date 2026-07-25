@@ -23,11 +23,21 @@ function currentSelections(data, day) {
     ? data.todaysVariantSelections.selections : {};
 }
 
-/** The variant id in effect for an exercise right now — an explicit choice for today, or the slot's own canonical/default variant. */
+/** The persistent "Make Preferred" foreground default for an exercise slot, if one is set. */
+export function preferredVariantIdFor(data, exerciseDef) {
+  if (!exerciseDef) return null;
+  return (data.preferredVariants && data.preferredVariants[exerciseDef.name]) || null;
+}
+
+/**
+ * The variant id in effect for an exercise right now: an explicit choice for today (highest
+ * priority, session-only), else the persistent "Make Preferred" default, else the slot's own
+ * canonical/default variant. Neither tier ever edits the program template itself.
+ */
 export function selectedVariantIdFor(data, exerciseDef, day = currentDay()) {
   if (!exerciseDef) return null;
   const selections = currentSelections(data, day);
-  return selections[exerciseDef.name] || exerciseDef.id;
+  return selections[exerciseDef.name] || preferredVariantIdFor(data, exerciseDef) || exerciseDef.id;
 }
 
 function formatSetLine(e) {
@@ -35,14 +45,16 @@ function formatSetLine(e) {
   return `${e.set1Weight ?? "-"}kg×${e.set1Reps ?? "-"}, ${e.set2Weight ?? "-"}kg×${e.set2Reps ?? "-"}`;
 }
 
-function variantCardHtml(data, exerciseDef, variant, currentVariantId) {
+function variantCardHtml(data, exerciseDef, variant, currentVariantId, preferredVariantId) {
   const history = getExerciseHistory(data.workouts, exerciseDef.name, { variantId: variant.id, canonicalVariantId: exerciseDef.id });
   const isCurrent = variant.id === currentVariantId;
+  const isPreferred = variant.id === preferredVariantId;
   const target = history.lastSession ? exerciseProgressionStatus(history.lastSession, exerciseDef, { previousEntry: history.previousWeek }) : null;
   const usage = variantUsageContext(history);
 
   const badges = [
     isCurrent ? `<span class="badge status-on-target">Current</span>` : "",
+    isPreferred ? `<span class="badge">Preferred</span>` : "",
     variant.isDefault ? `<span class="badge">Default</span>` : "",
     variant.isCustom ? `<span class="badge">Custom</span>` : ""
   ].filter(Boolean).join(" ");
@@ -63,7 +75,8 @@ function variantCardHtml(data, exerciseDef, variant, currentVariantId) {
       ${body}
       ${variant.techniqueNotes ? `<p class="small">${esc(variant.techniqueNotes)}</p>` : ""}
       <div class="actions">
-        <button type="button" class="${isCurrent ? "secondary" : ""}" data-select-variant="${esc(variant.id)}" ${isCurrent ? "disabled" : ""}>${isCurrent ? "Selected for today" : "Select for today"}</button>
+        <button type="button" class="${isCurrent ? "secondary" : ""}" data-select-variant="${esc(variant.id)}" ${isCurrent ? "disabled" : ""}>${isCurrent ? "Selected for today" : "Use Today"}</button>
+        <button type="button" class="${isPreferred ? "secondary" : ""}" data-make-preferred="${esc(variant.id)}" ${isPreferred ? "disabled" : ""}>${isPreferred ? "Preferred default" : "Make Preferred"}</button>
       </div>
     </div>`;
 }
@@ -96,8 +109,16 @@ function renderContent() {
 
   const day = currentDay();
   const currentVariantId = selectedVariantIdFor(data, exerciseDef, day);
-  const variants = allVariantsForExercise(exerciseDef);
+  const preferredVariantId = preferredVariantIdFor(data, exerciseDef);
   const slotAnalytics = exerciseSlotAnalytics(data.workouts, exerciseDef);
+
+  // The variant in effect right now (today's choice, else preferred, else canonical) is
+  // moved to the front of the list — the rest keep their existing relative order.
+  const variants = allVariantsForExercise(exerciseDef);
+  const orderedVariants = [
+    ...variants.filter(v => v.id === currentVariantId),
+    ...variants.filter(v => v.id !== currentVariantId)
+  ];
 
   el.innerHTML = `
     <div class="library-detail-header">
@@ -108,13 +129,14 @@ function renderContent() {
       <button type="button" class="close-btn" id="variantSelectorClose" aria-label="Close">✕</button>
     </div>
     <p class="small">Selecting a variant only changes today's equipment for this exercise. The routine, day, exercise order, target muscles, prescribed sets and rep range stay exactly as programmed.</p>
+    <p class="small"><strong>Use Today</strong> applies for this session only. <strong>Make Preferred</strong> sets a persistent foreground default for this slot — it never edits the programme, and today's choice always overrides it when both are set.</p>
     ${variants.length > 1 && slotAnalytics?.totalSessions ? `
     <div class="badge-row">
       <span class="badge">${slotAnalytics.totalSessions} session${slotAnalytics.totalSessions === 1 ? "" : "s"} across all equipment</span>
       <span class="badge">${slotAnalytics.distinctVariantsUsed} variant${slotAnalytics.distinctVariantsUsed === 1 ? "" : "s"} tried</span>
       ${slotAnalytics.mostUsedVariantId ? `<span class="badge">Most used: ${esc(findVariant(exerciseDef, slotAnalytics.mostUsedVariantId)?.name || "—")}</span>` : ""}
     </div>` : ""}
-    ${variants.map(v => variantCardHtml(data, exerciseDef, v, currentVariantId)).join("")}
+    ${orderedVariants.map(v => variantCardHtml(data, exerciseDef, v, currentVariantId, preferredVariantId)).join("")}
     <button type="button" class="secondary" id="variantSelectorToggleCustom" aria-expanded="${showCustomForm}">${showCustomForm ? "Hide" : "+ Add Custom Variant"}</button>
     ${showCustomForm ? customVariantFormHtml(exerciseDef) : ""}
   `;
@@ -147,6 +169,21 @@ function selectVariantForToday(variantId) {
     data.todaysVariantSelections = { day, selections: {} };
   }
   data.todaysVariantSelections.selections[openExerciseName] = variantId;
+  saveData(data);
+  renderContent();
+  refreshAll();
+}
+
+/**
+ * Sets the persistent "Make Preferred" foreground default for this exercise slot. Never
+ * touches the program template — only changes which variant the slot resolves to when
+ * there's no explicit today-selection in effect.
+ */
+function makeVariantPreferred(variantId) {
+  if (!openExerciseName) return;
+  const data = getData();
+  if (!data.preferredVariants || typeof data.preferredVariants !== "object") data.preferredVariants = {};
+  data.preferredVariants[openExerciseName] = variantId;
   saveData(data);
   renderContent();
   refreshAll();
@@ -194,6 +231,9 @@ export function setupVariantSelectorEventDelegation() {
 
     const selectBtn = e.target.closest("[data-select-variant]");
     if (selectBtn && !selectBtn.disabled) { selectVariantForToday(selectBtn.dataset.selectVariant); return; }
+
+    const preferBtn = e.target.closest("[data-make-preferred]");
+    if (preferBtn && !preferBtn.disabled) { makeVariantPreferred(preferBtn.dataset.makePreferred); return; }
 
     if (e.target.closest("#variantSelectorToggleCustom")) { showCustomForm = !showCustomForm; renderContent(); return; }
     if (e.target.closest("#cvSaveBtn")) { saveCustomVariant(); return; }
