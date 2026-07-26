@@ -2,6 +2,8 @@
 // plateaus require several comparable exposures with no meaningful improvement; bodyweight
 // plateaus use rolling averages, never a single week's reading.
 import { parseLogDate } from "./dates.js";
+import { weeklyHeadStimulusHistory, muscleHeadRecoveryForecast, average } from "./calculations.js";
+import { MUSCLE_HEADS } from "./muscle-heads.js";
 
 function round2(n) { return Math.round(n * 100) / 100; }
 
@@ -121,5 +123,56 @@ export function detectBodyweightPlateau(bodyweightLogs, targetWeeklyGain = 0.25,
     reason: preferConfident
       ? `7-day average is ${rateOfChange >= 0 ? "+" : ""}${rateOfChange}kg/wk vs. the previous 7-day average, with 21+ days of history.`
       : `7-day average is ${rateOfChange >= 0 ? "+" : ""}${rateOfChange}kg/wk vs. the previous 7-day average — under 21 days of history, so treat as provisional.`
+  };
+}
+
+/**
+ * Muscle-head plateau (Hypertrophy Intelligence Engine spec): monitors weekly effective-set
+ * stimulus per muscle head (not any single exercise) across a rolling window, using the same
+ * "flat/regressing over several exposures" standard as detectExercisePlateau() above, but at
+ * the muscle-head level — a head can plateau even while individual exercises rotate, since
+ * weekly stimulus is what actually drives (or fails to drive) further growth. Reuses Phase 1-3's
+ * stimulus history and recovery forecast rather than re-deriving them. Always explains why, and
+ * the suggested action follows directly from the recovery/fatigue context, never a guess:
+ * clear pain/poor recovery -> additional recovery; high fatigue with adequate recovery -> a
+ * short deload; otherwise -> exercise rotation, rep-range adjustment or a volume adjustment
+ * (spec's own listed options, left for the user to choose between).
+ */
+export function detectMuscleHeadPlateau(data, headId, referenceDate = new Date()) {
+  const label = MUSCLE_HEADS[headId]?.label || headId;
+  const history = weeklyHeadStimulusHistory(data.workouts || [], data.exercises || [], 8, referenceDate);
+  const nonZeroWeeks = history.map(w => w[headId] || 0).filter(v => v > 0);
+
+  if (nonZeroWeeks.length < 4) {
+    return { plateau: false, strength: "insufficient-data", reason: `Fewer than 4 weeks of logged stimulus for ${label}.`, weeksWithData: nonZeroWeeks.length };
+  }
+
+  const window = nonZeroWeeks.slice(-6);
+  const mid = Math.floor(window.length / 2);
+  const earlierAvg = average(window.slice(0, mid));
+  const laterAvg = average(window.slice(mid));
+  const trendPercent = earlierAvg ? ((laterAvg - earlierAvg) / earlierAvg) * 100 : 0;
+
+  if (trendPercent > 5) {
+    return { plateau: false, strength: "none", reason: `${label}'s weekly stimulus has been increasing (${Math.round(trendPercent)}%) over the recent window — not a plateau.`, weeksWithData: nonZeroWeeks.length };
+  }
+
+  const recovery = muscleHeadRecoveryForecast(data, headId, referenceDate);
+  const suggestedActions = [];
+  if (recovery.recoveryPercent < 50 || recovery.concernFlags.includes("pain_flagged")) {
+    suggestedActions.push("additional-recovery");
+  } else if (recovery.fatigueLevel === "high") {
+    suggestedActions.push("deload");
+  } else {
+    suggestedActions.push("exercise-rotation", "rep-range-adjustment", "volume-adjustment");
+  }
+
+  return {
+    plateau: true,
+    strength: window.length >= 5 ? "stronger" : "possible",
+    reason: `${label}'s weekly stimulus has been flat or declining (${Math.round(trendPercent)}%) over the recent window with training still logged.`,
+    suggestedActions,
+    recoveryContext: { recoveryPercent: recovery.recoveryPercent, fatigueLevel: recovery.fatigueLevel, concernFlags: recovery.concernFlags },
+    weeksWithData: nonZeroWeeks.length
   };
 }

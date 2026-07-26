@@ -13,6 +13,7 @@ import {
 } from "./calculations.js";
 import { MUSCLE_GROUPS } from "./program.js";
 import { MUSCLE_HEADS, MUSCLE_HEAD_REGIONS, headsInRegion } from "./muscle-heads.js";
+import { weakPointRanking, allIntelligentWarnings } from "./hypertrophy-warnings.js";
 import { lineChart, donutChart, barRows } from "./charts.js";
 import { parseLogDate } from "./dates.js";
 import { autoCountUp } from "./motion.js";
@@ -43,6 +44,7 @@ export function renderProgressLab(data) {
   renderLabWeightChart(data);
   renderLabVolumeChart(data);
   renderLabMuscleHeadTargets(data);
+  renderLabWeakPointsAndWarnings(data);
   renderLabNutritionChart(data);
   renderLabProgressionList(data);
   renderLabMeasurementsChart(data);
@@ -199,6 +201,42 @@ function renderLabMuscleHeadTargets(data) {
     }).join("");
     return `<h4>${esc(region.charAt(0).toUpperCase() + region.slice(1))}</h4>${rows}`;
   }).join("");
+}
+
+/**
+ * Hypertrophy Intelligence Engine spec's "Weak Point Analysis" + "Intelligent Warnings":
+ * a ranked list of which muscle heads are the smallest likely fix right now (js/hypertrophy-
+ * warnings.js's weakPointRanking), plus programme-level warnings (overlap, duplicate movement
+ * pattern, poor ordering, recovery conflict, junk volume). Read-only and explainable, like
+ * every other card on this page — nothing here edits the programme.
+ */
+function renderLabWeakPointsAndWarnings(data) {
+  const warningsEl = $("progressLabIntelligentWarnings");
+  const rankingEl = $("progressLabWeakPointRanking");
+  if (!warningsEl && !rankingEl) return;
+
+  const referenceDate = new Date();
+
+  if (warningsEl) {
+    const warnings = allIntelligentWarnings(data, referenceDate);
+    warningsEl.innerHTML = warnings.length
+      ? warnings.map(w => `<div class="warning-banner">${esc(w.message)}</div>`).join("")
+      : "<p class='small'>No programme-level warnings right now.</p>";
+  }
+
+  if (rankingEl) {
+    const ranking = weakPointRanking(data, referenceDate).filter(r => r.isWeakPoint).slice(0, 8);
+    rankingEl.innerHTML = ranking.length
+      ? ranking.map(r => `
+        <div class="history-item">
+          <div class="section-title">
+            <strong>${esc(r.label)}</strong>
+            <span class="badge-row">${r.isPlateaued ? "<span class='badge'>Plateaued</span>" : ""}${r.stimulusStatus === "under" && r.currentStimulus > 0 ? "<span class='badge'>Under target</span>" : ""}</span>
+          </div>
+          <p class="small">${esc(r.suggestion)}</p>
+        </div>`).join("")
+      : "<p class='small'>No standout weak points right now — every tracked muscle head is on target and not plateaued.</p>";
+  }
 }
 
 function renderLabNutritionChart(data) {

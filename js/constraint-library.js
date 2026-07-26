@@ -8,6 +8,8 @@ import {
   average, dailyMealTotals, exerciseProgressionStatus, nutritionConfidenceStatus, calorieAdherence,
   weeklyRateOfGain, readinessScore, weeklyComplianceRate, volumeStatus, sleepStats, weeklyVolumeByMuscleGroup
 } from "./calculations.js";
+import { detectMuscleHeadPlateau } from "./plateau-detection.js";
+import { MUSCLE_HEAD_IDS } from "./muscle-heads.js";
 
 export const CONSTRAINT_LIBRARY_VERSION = "1.0.0";
 
@@ -426,6 +428,41 @@ export const CONSTRAINT_RULES = [
       return {
         fired: true, considered: true, supportPoints: 2, contradictPoints: 0, dataSufficient: true,
         evidenceDetail: [`Under-target weekly volume: ${underGroups.join(", ")}.`],
+        contradictingDetail: [], missingData: []
+      };
+    }
+  }),
+
+  Rule({
+    id: "muscle-head-plateau",
+    category: CONSTRAINT_CATEGORIES.PROGRAMME_DESIGN,
+    title: "Muscle head weekly stimulus plateaued",
+    description: "A muscle head's weekly effective-set stimulus has been flat or declining across a rolling multi-week window, even while training continues.",
+    appliesTo: ["training"],
+    requiredSignals: ["4+ weeks of nonzero weekly stimulus for a muscle head", "No meaningful increase across the recent window"],
+    contradictingSignals: ["Weekly stimulus trending upward by more than 5% across the window"],
+    minimumDataRequirements: ["At least 4 weeks with logged nonzero stimulus for the muscle head"],
+    impactLevel: "medium",
+    recommendedActions: ["Exercise rotation", "Rep-range adjustment", "Volume adjustment", "Additional recovery if fatigue/pain is present", "Short deload if fatigue is high but recovery is otherwise adequate"],
+    monitoringMetrics: ["Weekly effective-set stimulus per muscle head", "Muscle head recovery forecast"],
+    reassessmentWindow: "Next weekly review",
+    escalationRules: ["If unresolved after 2 weekly reviews, consider a programme-design change for that muscle head's exercises"],
+    educationalExplanation: "A muscle head can plateau even while individual exercises still rotate, since weekly stimulus — not any single exercise's numbers — is what actually drives further growth. This mirrors the existing per-exercise plateau rule but operates at the finer muscle-head level, using the same 'several flat/regressing weeks, not one', standard.",
+    evaluate(data, referenceDate = new Date()) {
+      const plateaued = [];
+      let considered = false;
+      MUSCLE_HEAD_IDS.forEach(headId => {
+        const result = detectMuscleHeadPlateau(data, headId, referenceDate);
+        if (result.strength === "insufficient-data") return;
+        considered = true;
+        if (result.plateau) plateaued.push({ headId, result });
+      });
+      if (!plateaued.length) {
+        return { ...NOT_APPLICABLE, considered, missingData: considered ? [] : ["Fewer than 4 weeks of logged stimulus for any muscle head"] };
+      }
+      return {
+        fired: true, considered: true, supportPoints: 2, contradictPoints: 0, dataSufficient: true,
+        evidenceDetail: plateaued.map(p => p.result.reason),
         contradictingDetail: [], missingData: []
       };
     }
