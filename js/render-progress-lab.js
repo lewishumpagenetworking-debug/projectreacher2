@@ -7,9 +7,11 @@ import { $, esc, fmt } from "./dom.js";
 import {
   sevenDayAverage, weeklyRateOfGain, weeklyVolumeByMuscleGroup,
   weeklyComplianceRate, exercisesReadyToIncrease, sleepStats, readinessScore,
-  dailyMealTotals, macroTargets, currentBodyweightKg
+  dailyMealTotals, macroTargets, currentBodyweightKg,
+  weeklyMuscleHeadTargets, adaptiveVolumeWarnings
 } from "./calculations.js";
 import { MUSCLE_GROUPS } from "./program.js";
+import { MUSCLE_HEADS, MUSCLE_HEAD_REGIONS, headsInRegion } from "./muscle-heads.js";
 import { lineChart, donutChart, barRows } from "./charts.js";
 import { parseLogDate } from "./dates.js";
 import { autoCountUp } from "./motion.js";
@@ -39,6 +41,7 @@ export function renderProgressLab(data) {
   renderLabSummaryStrip(data);
   renderLabWeightChart(data);
   renderLabVolumeChart(data);
+  renderLabMuscleHeadTargets(data);
   renderLabNutritionChart(data);
   renderLabProgressionList(data);
   renderLabMeasurementsChart(data);
@@ -138,6 +141,53 @@ function renderLabVolumeChart(data) {
 function setLabVolumeChartType(typeKey) {
   setChartPref("progressLabVolume", typeKey);
   if (lastLabData) renderLabVolumeChart(lastLabData);
+}
+
+const HEAD_TARGET_STATUS_LABEL = {
+  "under": "Under target",
+  "in-range": "On target",
+  "above-adaptive": "Above adaptive ceiling",
+  "over-recoverable": "Over recoverable limit"
+};
+
+/**
+ * Hypertrophy Intelligence Engine spec's "Weekly Muscle Head Targets": current stimulus,
+ * target stimulus, recovery status (interim whole-body proxy — see weeklyMuscleHeadTargets()'s
+ * own doc comment) and confidence, for every tracked muscle head. Presentation-only, like the
+ * rest of this file — all numbers come straight from calculations.js.
+ */
+function renderLabMuscleHeadTargets(data) {
+  const el = $("progressLabMuscleHeadTargets");
+  const warningsEl = $("progressLabMuscleHeadWarnings");
+  if (!el) return;
+
+  const readiness = readinessScore(data);
+  const referenceDate = new Date();
+  const targets = weeklyMuscleHeadTargets(data.workouts, data.exercises, referenceDate, readiness?.status || null);
+  const warnings = adaptiveVolumeWarnings(data.workouts, data.exercises, referenceDate, readiness?.status || null);
+
+  if (warningsEl) {
+    warningsEl.innerHTML = warnings.map(w => `<div class="warning-banner">${esc(w.message)}</div>`).join("");
+  }
+
+  const byId = Object.fromEntries(targets.map(t => [t.headId, t]));
+  el.innerHTML = MUSCLE_HEAD_REGIONS.map(region => {
+    const rows = headsInRegion(region).map(headId => {
+      const t = byId[headId];
+      if (!t) return "";
+      const label = MUSCLE_HEADS[headId]?.label || headId;
+      return `
+        <div class="history-item">
+          <div class="section-title">
+            <strong>${esc(label)}</strong>
+            <span class="badge-row"><span class="badge">${esc(HEAD_TARGET_STATUS_LABEL[t.status] || t.status)}</span><span class="badge">${esc(t.confidence)} confidence</span></span>
+          </div>
+          <p class="small">${esc(String(t.currentStimulus))} effective sets this week · target ${esc(String(t.targetStimulus[0]))}–${esc(String(t.targetStimulus[1]))} · recoverable ceiling ${esc(String(t.landmarks.maximumRecoverableVolume))}</p>
+          <p class="small">${t.landmarks.basis === "personalized" ? "Personalised from your recent progression/recovery data." : "Generic starting band — not yet enough evidence to personalise."}</p>
+        </div>`;
+    }).join("");
+    return `<h4>${esc(region.charAt(0).toUpperCase() + region.slice(1))}</h4>${rows}`;
+  }).join("");
 }
 
 function renderLabNutritionChart(data) {
