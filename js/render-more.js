@@ -10,6 +10,8 @@ import {
 } from "./session-nutrition.js";
 import { eid } from "./program.js";
 import { allSplits, activeSplit, createSplit, renameSplit, deleteSplit, switchActiveSplit, syncActiveSplitDays } from "./training-splits.js";
+import { PRIORITY_TIER_LABELS, DEFAULT_PRIORITY_HEAD_ORDER } from "./hypertrophy-warnings.js";
+import { hypertrophyAllocationPass } from "./hypertrophy-allocation.js";
 
 export function renderVisualModeToggle(data) {
   const checkbox = $("visualModeToggle");
@@ -384,7 +386,101 @@ function renderSplitSwitcherHtml(data) {
     </div>`;
 }
 
+/** Human-readable default priority-tier order (index 0-6), for when no custom order is saved. */
+function currentPriorityTierOrder(data) {
+  const order = data.physiquePriorityTierOrder;
+  if (Array.isArray(order) && order.length === DEFAULT_PRIORITY_HEAD_ORDER.length
+    && new Set(order).size === DEFAULT_PRIORITY_HEAD_ORDER.length
+    && order.every(i => Number.isInteger(i) && i >= 0 && i < DEFAULT_PRIORITY_HEAD_ORDER.length)) {
+    return order;
+  }
+  return DEFAULT_PRIORITY_HEAD_ORDER.map((_, i) => i);
+}
+
+/**
+ * Priority Physique Allocation (Hypertrophy Intelligence Engine spec Phase 8): lets a user
+ * reorder the tiers Weak Point Analysis (js/hypertrophy-warnings.js weakPointRanking) uses to
+ * decide which under-target/plateaued structure to surface first. Purely a ranking preference
+ * — it never changes anything actually programmed.
+ */
+export function renderPhysiquePriorityOrder(data) {
+  const el = $("physiquePriorityOrder");
+  if (!el) return;
+  const order = currentPriorityTierOrder(data);
+
+  el.innerHTML = `
+    <ol class="priority-tier-list">
+      ${order.map((tierIndex, position) => `
+        <li data-tier-index="${tierIndex}">
+          <span>${position + 1}. ${PRIORITY_TIER_LABELS[tierIndex]}</span>
+          <span class="program-editor-row-actions">
+            <button type="button" class="tier-move-up" title="Move up">&uarr;</button>
+            <button type="button" class="tier-move-down" title="Move down">&darr;</button>
+          </span>
+        </li>`).join("")}
+    </ol>
+    <button type="button" id="resetPriorityOrderBtn">Reset to default order</button>`;
+
+  el.querySelectorAll(".tier-move-up, .tier-move-down").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const li = btn.closest("li[data-tier-index]");
+      if (btn.classList.contains("tier-move-up")) {
+        const prev = li.previousElementSibling;
+        if (prev) li.parentElement.insertBefore(li, prev);
+      } else {
+        const next = li.nextElementSibling;
+        if (next) li.parentElement.insertBefore(next, li);
+      }
+      const newOrder = [...el.querySelectorAll("li[data-tier-index]")].map(x => Number(x.dataset.tierIndex));
+      const d = getData();
+      d.physiquePriorityTierOrder = newOrder;
+      saveData(d);
+      window.dispatchEvent(new CustomEvent("reacher:refresh"));
+    });
+  });
+
+  $("resetPriorityOrderBtn")?.addEventListener("click", () => {
+    const d = getData();
+    d.physiquePriorityTierOrder = null;
+    saveData(d);
+    window.dispatchEvent(new CustomEvent("reacher:refresh"));
+  });
+}
+
+const ALLOCATION_SECTION_LABEL = {
+  warnings: "programme warning", fatigueBudgetWarnings: "fatigue budget warning",
+  adaptiveVolumeWarnings: "volume warning", weakPoints: "weak point",
+  orderSuggestions: "suggested day re-order", evolutionRecommendations: "programme evolution suggestion",
+  relocationSuggestions: "relocation suggestion"
+};
+
+/**
+ * Hypertrophy Allocation Pass (Hypertrophy Intelligence Engine spec Phase 8): the
+ * consolidated read of Phases 1-7's output for the currently active split, recomputed after
+ * every Program Editor save or split switch. Purely informational — a count-and-summary
+ * view, not a new source of truth (every underlying number still lives in its own phase).
+ */
+export function renderHypertrophyAllocationSummary(data) {
+  const el = $("hypertrophyAllocationSummary");
+  if (!el) return;
+  const pass = hypertrophyAllocationPass(data, new Date());
+  const sections = Object.keys(ALLOCATION_SECTION_LABEL);
+  const totalCount = sections.reduce((sum, key) => sum + (pass[key]?.length || 0), 0);
+
+  if (!totalCount) {
+    el.innerHTML = "<p class='small'>No overlap, fatigue, placement or stimulus-satisfaction issues found for the active split right now.</p>";
+    return;
+  }
+
+  el.innerHTML = `<ul class="allocation-pass-summary">${sections
+    .filter(key => pass[key]?.length)
+    .map(key => `<li>${pass[key].length} ${esc(ALLOCATION_SECTION_LABEL[key])}${pass[key].length === 1 ? "" : "s"}</li>`)
+    .join("")}</ul>`;
+}
+
 export function renderProgramEditor(data) {
+  renderPhysiquePriorityOrder(data);
+  renderHypertrophyAllocationSummary(data);
   const el = $("programEditor");
   el.innerHTML = renderSplitSwitcherHtml(data) + Object.entries(data.trainingProgram).map(([day, exercises]) => {
     const dayExerciseNames = new Set(exercises.map(e => e.name));
