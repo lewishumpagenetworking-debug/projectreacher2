@@ -7,10 +7,11 @@ import { workoutsInWeek, weeklyMuscleHeadTargets, muscleHeadRecoveryStatusMap, a
 import { detectMuscleHeadPlateau } from "./plateau-detection.js";
 import { MUSCLE_HEADS, MUSCLE_HEAD_IDS } from "./muscle-heads.js";
 
-// Default "superhero" structure priority (spec §"Priority Physique Allocation"). This is a
-// documented starting order, not yet user-configurable — that arrives in a later phase
-// (Priority Physique Allocation). Heads not listed here fall into the lowest ("remaining
-// musculature") tier.
+// Default "superhero" structure priority (spec §"Priority Physique Allocation"). This is the
+// out-of-the-box starting order; see resolvePriorityOrder() below for the user-configurable
+// version (Phase 8), which lets a user reorder these same tiers via data.physiquePriorityTierOrder
+// without ever needing to duplicate or hand-edit the tier contents themselves. Heads not
+// listed here fall into the lowest ("remaining musculature") tier.
 export const DEFAULT_PRIORITY_HEAD_ORDER = [
   ["lateral_delts"],
   ["chest_upper"],
@@ -21,6 +22,35 @@ export const DEFAULT_PRIORITY_HEAD_ORDER = [
   ["quads", "hamstrings"]
 ];
 
+/** Human-readable label per DEFAULT_PRIORITY_HEAD_ORDER tier index, for the priority-order UI. */
+export const PRIORITY_TIER_LABELS = [
+  "Lateral delts (shoulder width)",
+  "Upper chest",
+  "Lats (back width)",
+  "Arms (biceps &amp; triceps)",
+  "Forearms &amp; grip",
+  "Rear delts",
+  "Quads &amp; hamstrings"
+];
+
+/**
+ * Priority Physique Allocation (spec: makes the "default superhero priority" order actually
+ * user-configurable). `data.physiquePriorityTierOrder`, when present, is a permutation of tier
+ * INDICES into DEFAULT_PRIORITY_HEAD_ORDER (e.g. [2,0,1,3,4,5,6]) — storing indices rather than
+ * duplicating the tier contents means a user's reordering preference keeps applying correctly
+ * even if this file's tier definitions are ever revised. An invalid/missing/malformed value
+ * (wrong length, out-of-range index, duplicate index) silently falls back to the documented
+ * default rather than throwing or guessing a repair.
+ */
+export function resolvePriorityOrder(data) {
+  const order = data?.physiquePriorityTierOrder;
+  if (!Array.isArray(order) || order.length !== DEFAULT_PRIORITY_HEAD_ORDER.length) return DEFAULT_PRIORITY_HEAD_ORDER;
+  const inRange = order.every(i => Number.isInteger(i) && i >= 0 && i < DEFAULT_PRIORITY_HEAD_ORDER.length);
+  const noDuplicates = new Set(order).size === DEFAULT_PRIORITY_HEAD_ORDER.length;
+  if (!inRange || !noDuplicates) return DEFAULT_PRIORITY_HEAD_ORDER;
+  return order.map(i => DEFAULT_PRIORITY_HEAD_ORDER[i]);
+}
+
 function priorityTierFor(headId, priorityOrder) {
   const idx = priorityOrder.findIndex(tier => tier.includes(headId));
   return idx === -1 ? priorityOrder.length : idx;
@@ -29,11 +59,11 @@ function priorityTierFor(headId, priorityOrder) {
 /**
  * Weak Point Analysis (spec: "Rank muscles by relative progression, weekly stimulus,
  * frequency, recovery, visual priority. Suggest the smallest changes likely to improve weak
- * points."). Combines Phase 1-3's stimulus/recovery/plateau signals with the default priority
- * order into one explainable ranked list — highest-priority structures that are also under
- * target or plateaued surface first.
+ * points."). Combines Phase 1-3's stimulus/recovery/plateau signals with the (user-configurable,
+ * Phase 8) priority order into one explainable ranked list — highest-priority structures that
+ * are also under target or plateaued surface first.
  */
-export function weakPointRanking(data, referenceDate = new Date(), priorityOrder = DEFAULT_PRIORITY_HEAD_ORDER) {
+export function weakPointRanking(data, referenceDate = new Date(), priorityOrder = resolvePriorityOrder(data)) {
   const recoveryStatusMap = muscleHeadRecoveryStatusMap(data, referenceDate);
   const targets = weeklyMuscleHeadTargets(data.workouts, data.exercises, referenceDate, recoveryStatusMap);
   const targetById = Object.fromEntries(targets.map(t => [t.headId, t]));

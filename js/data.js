@@ -125,6 +125,11 @@ function emptyData() {
     // edits the program template itself — it only changes which variant a slot resolves to
     // when there's no explicit today-selection.
     preferredVariants: {},
+    // Priority Physique Allocation (Hypertrophy Intelligence Engine spec Phase 8): a
+    // permutation of tier indices into hypertrophy-warnings.js's DEFAULT_PRIORITY_HEAD_ORDER,
+    // letting a user reorder the "default superhero priority" tiers to their own physique
+    // goals. null means "use the documented default order" — see resolvePriorityOrder().
+    physiquePriorityTierOrder: null,
     skinLogs: [],
     hairLogs: [],
     productExperiments: [],
@@ -542,6 +547,10 @@ export function migrateData() {
   }
   if (!data.preferredVariants || typeof data.preferredVariants !== "object") {
     data.preferredVariants = {};
+    changed = true;
+  }
+  if (data.physiquePriorityTierOrder === undefined) {
+    data.physiquePriorityTierOrder = null;
     changed = true;
   }
 
@@ -999,6 +1008,13 @@ export function importAndMergeData(importedRaw, currentState) {
   // always win per exercise key; an import only backfills exercises the current device has
   // no preference recorded for yet — same "current wins per-key" rule as aiSettings/profile.
   merged.preferredVariants = withDefaults(current.preferredVariants || {}, imported.preferredVariants || {});
+
+  // physiquePriorityTierOrder: a personal reordering preference, not historical progress —
+  // current device's choice always wins if set; an import only supplies it when current has
+  // none configured yet.
+  merged.physiquePriorityTierOrder = current.physiquePriorityTierOrder != null
+    ? current.physiquePriorityTierOrder
+    : (imported.physiquePriorityTierOrder ?? null);
 
   merged.schemaVersion = SCHEMA_VERSION;
 

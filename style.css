@@ -1522,4 +1522,24 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .ai-message-user { border-left: 3px solid var(--accent); }
 .ai-message-assistant { border-left: 3px solid var(--good); background: linear-gradient(160deg, rgba(51, 209, 122, 0.05), transparent 60%), var(--surface-deep); }
 .ai-message p { margin: 4px 0; }
+
+/* ---- Split Versioning + Program Editor add/remove/reorder controls ---- */
+.split-switcher { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+.split-switcher label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.split-switcher select { min-height: 40px; }
+.split-switcher button { min-height: 36px; padding: 6px 10px; font-size: 13px; }
+.split-switcher p.small { flex-basis: 100%; margin: 4px 0 0; }
+.program-editor-row-actions { display: flex; gap: 4px; white-space: nowrap; }
+.program-editor-row-actions button { min-width: 32px; min-height: 32px; padding: 2px 6px; }
+.program-editor-add-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 16px; }
+.program-editor-add-row select { min-height: 40px; }
+
+/* ---- Priority Physique Allocation + Hypertrophy Allocation Pass ---- */
+.priority-tier-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.priority-tier-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface-deep);
+}
+.allocation-pass-summary { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.allocation-pass-summary li { font-size: 13px; color: var(--muted); }
 .ai-message button { margin-top: 6px; font-size: 12px; padding: 6px 10px; min-height: 32px; }
