@@ -1,6 +1,6 @@
 // Pure calculation utilities. No DOM access, no storage access — easy to reason about and reuse.
 import { MUSCLE_GROUP_MAP, PRIORITY_MUSCLES, findVariant } from "./program.js";
-import { MUSCLE_HEAD_IDS } from "./muscle-heads.js";
+import { MUSCLE_HEAD_IDS, MUSCLE_HEADS } from "./muscle-heads.js";
 import { parseLogDate, isSameWeek, startOfWeek } from "./dates.js";
 import { RECOVERY_PROTOCOLS } from "./recovery-data.js";
 
@@ -948,6 +948,196 @@ export function weeklyHeadStimulus(workouts, exercises, referenceDate = new Date
       });
     });
   return stimulus;
+}
+
+/** weeklyHeadStimulus() for each of the last `weeksBack` Monday-Sunday weeks, oldest first (index weeksBack-1 is the current week). */
+export function weeklyHeadStimulusHistory(workouts, exercises, weeksBack = 8, referenceDate = new Date()) {
+  const weeks = [];
+  for (let i = weeksBack - 1; i >= 0; i--) {
+    const weekRef = new Date(referenceDate.getTime() - i * 7 * 86400000);
+    weeks.push(weeklyHeadStimulus(workouts, exercises, weekRef));
+  }
+  return weeks;
+}
+
+// ---- Adaptive Weekly Volume + Weekly Muscle Head Targets (Hypertrophy Intelligence Engine spec) ----
+// Estimates Maintenance/Minimum-Effective/Maximum-Adaptive/Maximum-Recoverable volume per
+// muscle head, seeded from the app's existing generic volume bands (volumeStatus() above) and
+// then nudged — modestly and only with real supporting evidence — from the individual's actual
+// recent progression and pain/recovery signals. This deliberately does NOT fit a continuous
+// statistical model to sparse personal data (which would just be false precision dressed up as
+// personalization); it's a small, explainable, capped adjustment on top of a documented generic
+// starting point, in the same spirit as every confidence-graded estimate elsewhere in this app.
+
+// Maps a fine-grained muscle head to the existing (coarser) MUSCLE_GROUPS bucket whose generic
+// volume band (see volumeStatus() below) seeds this head's starting landmarks. Several heads
+// intentionally share one legacy bucket (e.g. all three triceps heads share "triceps") since
+// the app has never tracked those sub-structures' volume separately before this engine.
+const HEAD_TO_LEGACY_GROUP = {
+  front_delts: "shoulders", lateral_delts: "side delts", rear_delts: "rear delts",
+  chest_upper: "upper chest", chest_mid: "chest general", chest_lower: "chest general",
+  lat_width: "lats/back width", back_thickness: "back thickness", upper_back: "back thickness", traps: "traps",
+  biceps_long_head: "biceps", biceps_short_head: "biceps", brachialis: "brachialis",
+  triceps_long_head: "triceps", triceps_lateral_head: "triceps", triceps_medial_head: "triceps",
+  brachioradialis: "forearms", wrist_flexors: "forearm-flexors", wrist_extensors: "forearm-extensors",
+  quads: "quads", hamstrings: "hamstrings/glutes", glutes: "hamstrings/glutes", calves: "calves"
+};
+
+const ADAPTIVE_VOLUME_INCREMENT = 2; // sets/week — the capped nudge applied when evidence supports raising the adaptive/recoverable ceiling
+
+/**
+ * Generic (non-personalised) volume landmark band for one muscle head, derived from the app's
+ * existing volumeStatus() target band for its legacy MUSCLE_GROUPS bucket. minimumEffectiveVolume
+ * is that band's lower bound; maximumAdaptiveVolume is its upper bound (or, for buckets with no
+ * upper bound in the generic table, a 2x-of-lower-bound stand-in — documented, not a real
+ * physiological ceiling); maintenanceVolume is a simple half-of-MEV heuristic (commonly cited as
+ * roughly sufficient to hold current muscle, not a precise figure); maximumRecoverableVolume adds
+ * a documented 50% buffer above the adaptive ceiling as a generic starting assumption only.
+ */
+function genericHeadVolumeSeed(headId) {
+  const legacyGroup = HEAD_TO_LEGACY_GROUP[headId];
+  const { target } = volumeStatus(legacyGroup, 0);
+  const minimumEffectiveVolume = target[0];
+  const maximumAdaptiveVolume = target[1] != null ? target[1] : target[0] * 2;
+  return {
+    maintenanceVolume: Math.max(1, Math.round(minimumEffectiveVolume / 2)),
+    minimumEffectiveVolume,
+    maximumAdaptiveVolume,
+    maximumRecoverableVolume: Math.round(maximumAdaptiveVolume * 1.5)
+  };
+}
+
+/**
+ * Real-data evidence for personalising one head's landmarks: whether any exercise contributing
+ * to this head has a recent pain flag (recovery may be the limiting factor), and how many of
+ * those exercises are currently progressing on their latest logged entry (capacity may exceed
+ * the generic ceiling). Looks back 60 days so long-inactive exercises don't count as evidence.
+ */
+function headTrainingEvidence(workouts, exercises, headId, referenceDate = new Date()) {
+  const contributingExercises = exercises.filter(e => e.muscleHeadContributions && headId in e.muscleHeadContributions);
+  const contributingNames = new Set(contributingExercises.map(e => e.name));
+  const lookbackStart = new Date(referenceDate.getTime() - 60 * 86400000);
+
+  let hasRecentPain = false;
+  let exposureCount = 0;
+
+  // exposureCount counts real logged SESSIONS (across every exercise contributing to this
+  // head, not just one) — a head trained by only one or two exercise slots must still be able
+  // to accumulate enough evidence over several sessions, not be capped at "number of slots".
+  workouts.forEach(w => {
+    const d = parseLogDate(w.date);
+    if (!d || d < lookbackStart) return;
+    (w.exercises || []).forEach(e => {
+      if (!contributingNames.has(e.name)) return;
+      if (!(Number(e.set1Reps) > 0 || Number(e.set2Reps) > 0)) return;
+      exposureCount++;
+      if (e.painFlag) hasRecentPain = true;
+    });
+  });
+
+  // progressingCount is a per-exercise-slot signal: is the most recent logged entry for this
+  // contributing exercise currently earning an Increase Load/Reps status?
+  let progressingCount = 0;
+  contributingExercises.forEach(exerciseDef => {
+    const history = getExerciseHistory(workouts, exerciseDef.name, { referenceDate });
+    if (!history.lastSession) return;
+    const lastDate = parseLogDate(history.lastSession.date);
+    if (!lastDate || lastDate < lookbackStart) return;
+    const { status } = exerciseProgressionStatus(history.lastSession, exerciseDef, { previousEntry: history.previousWeek });
+    if (status === "Increase Load" || status === "Increase Reps") progressingCount++;
+  });
+
+  return { hasRecentPain, progressingCount, exposureCount };
+}
+
+/**
+ * Personalised (where evidence supports it) volume landmarks for one muscle head — Maintenance
+ * Volume, Minimum Effective Volume, Maximum Adaptive Volume, Maximum Recoverable Volume — plus
+ * `basis` ("generic" | "personalized") and a `confidence` label. Never claims personalization it
+ * can't support: fewer than 4 weeks of real stimulus history, or evidence that neither clearly
+ * supports nor contradicts the generic seed, both fall back to the documented generic band at
+ * low confidence.
+ */
+export function adaptiveVolumeLandmarks(workouts, exercises, headId, referenceDate = new Date()) {
+  const generic = genericHeadVolumeSeed(headId);
+  const history = weeklyHeadStimulusHistory(workouts, exercises, 8, referenceDate).map(week => week[headId] || 0);
+  const weeksWithData = history.filter(w => w > 0).length;
+
+  if (weeksWithData < 4) {
+    return { ...generic, basis: "generic", confidence: "low" };
+  }
+
+  const evidence = headTrainingEvidence(workouts, exercises, headId, referenceDate);
+  let landmarks = { ...generic };
+  let basis = "generic";
+  let confidence = "low";
+
+  if (evidence.hasRecentPain) {
+    // Recovery is becoming the limiting factor: pull the recoverable ceiling down toward
+    // (not below the effective minimum of) the current week's actual stimulus.
+    const currentWeekStimulus = history[history.length - 1];
+    landmarks.maximumRecoverableVolume = Math.max(landmarks.minimumEffectiveVolume, Math.round(Math.min(landmarks.maximumRecoverableVolume, currentWeekStimulus)));
+    basis = "personalized";
+    confidence = "medium";
+  } else if (evidence.exposureCount >= 3 && evidence.progressingCount > 0) {
+    // Still progressing at/near the generic ceiling with no recent pain: a small, capped
+    // upward nudge — never an unbounded "more must be better" assumption.
+    landmarks.maximumAdaptiveVolume += ADAPTIVE_VOLUME_INCREMENT;
+    landmarks.maximumRecoverableVolume += ADAPTIVE_VOLUME_INCREMENT;
+    basis = "personalized";
+    confidence = "medium";
+  }
+
+  return { ...landmarks, basis, confidence };
+}
+
+/**
+ * Weekly Muscle Head Targets (Hypertrophy Intelligence Engine spec): current stimulus, target
+ * stimulus, status vs. that target, and a confidence-labelled landmark basis, for every tracked
+ * muscle head. `recoveryStatus` here is an interim whole-body proxy (readinessScore's status) —
+ * true per-head recovery arrives with the dedicated Recovery Forecast engine; this field is
+ * explicitly a placeholder until that lands, not a claim of per-muscle recovery tracking.
+ */
+export function weeklyMuscleHeadTargets(workouts, exercises, referenceDate = new Date(), recoveryStatus = null) {
+  const currentStimulus = weeklyHeadStimulus(workouts, exercises, referenceDate);
+  return MUSCLE_HEAD_IDS.map(headId => {
+    const landmarks = adaptiveVolumeLandmarks(workouts, exercises, headId, referenceDate);
+    const current = currentStimulus[headId] || 0;
+    const targetStimulus = [landmarks.minimumEffectiveVolume, landmarks.maximumAdaptiveVolume];
+    let status;
+    if (current < landmarks.minimumEffectiveVolume) status = "under";
+    else if (current > landmarks.maximumRecoverableVolume) status = "over-recoverable";
+    else if (current > landmarks.maximumAdaptiveVolume) status = "above-adaptive";
+    else status = "in-range";
+    return { headId, currentStimulus: current, targetStimulus, landmarks, status, confidence: landmarks.confidence, recoveryStatus };
+  });
+}
+
+/**
+ * Intelligent volume warnings (spec: "Warn when: volume is likely too low to drive growth /
+ * volume is likely exceeding recoverable limits / recovery is becoming the limiting factor").
+ * Read-only, explainable, never auto-adjusts anything — same override-able-warning pattern as
+ * the rest of the app. `recoveryStatus` is the same interim whole-body proxy as above.
+ */
+export function adaptiveVolumeWarnings(workouts, exercises, referenceDate = new Date(), recoveryStatus = null) {
+  const targets = weeklyMuscleHeadTargets(workouts, exercises, referenceDate, recoveryStatus);
+  const warnings = [];
+  const lowRecovery = recoveryStatus === "red" || recoveryStatus === "red-amber";
+
+  targets.forEach(t => {
+    if (t.currentStimulus === 0) return; // no data logged for this head this week — not a "too low" warning, just untrained
+    const label = MUSCLE_HEADS[t.headId]?.label || t.headId;
+    if (t.status === "under") {
+      warnings.push({ headId: t.headId, type: "insufficient-stimulus", message: `${label}: ${t.currentStimulus} effective sets this week is likely below the minimum needed to drive growth (target ${t.targetStimulus[0]}+).` });
+    } else if (t.status === "over-recoverable") {
+      warnings.push({ headId: t.headId, type: "excessive-volume", message: `${label}: ${t.currentStimulus} effective sets this week is likely exceeding the recoverable limit (${t.landmarks.maximumRecoverableVolume}).` });
+    }
+    if (lowRecovery && (t.status === "above-adaptive" || t.status === "over-recoverable")) {
+      warnings.push({ headId: t.headId, type: "recovery-limiting", message: `${label}: recovery signals are low while stimulus is high — recovery may be the limiting factor here, not additional volume.` });
+    }
+  });
+
+  return warnings;
 }
 
 /** Workouts whose (correctly-parsed) date falls in the same Monday-Sunday week as referenceDate. */
