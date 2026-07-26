@@ -987,6 +987,92 @@ export const DEFAULT_TRAINING_PROGRAM = {
   ]
 };
 
+// Aesthetic Protocol v2 -- Superhero Hypertrophy (Active Split Implementation Directive):
+// the SAME 30 exercises and 36 weekly rows as DEFAULT_TRAINING_PROGRAM above (every
+// repRange/note string reused verbatim — no exercise added, removed, or re-dosed), just
+// redistributed across 6 days using this app's own Smart Ordering (compounds before
+// isolations within a day) and Fatigue-Optimised Split Logic (js/hypertrophy-allocation.js's
+// fatigueOptimisedRelocationSuggestions() was run against both this and the legacy structure
+// above to check adjacent-day muscle-head overlap before finalising the day order below).
+//
+// The single worst problem in the legacy structure is resolved: its 10-exercise arm/forearm
+// day sat between two OTHER upper-heavy days on both sides (sharing biceps_long_head,
+// biceps_short_head, brachialis, triceps_lateral_head, lateral_delts and upper_back with its
+// neighbours at once). Here that load is split across two moderate sessions (Shoulders & Arms,
+// Forearm & Grip) with a biceps-free Pull day and a dedicated Legs day placed between them.
+//
+// This still leaves 3 adjacent-day overlaps (the same total count as the legacy structure,
+// not fewer — 30 exercises spread across only 6 days makes some head-sharing unavoidable),
+// each deliberately accepted and explained rather than hidden:
+// - Pull <-> Shoulders & Arms (biceps_long/short_head, brachialis): pulling compounds always
+//   recruit biceps secondarily; Shoulders & Arms is where biceps are trained directly and
+//   completed for the week. Standard "pull, then finish arms" sequencing, not a design flaw.
+// - Shoulders & Arms <-> Upper Accessory (chest_mid, triceps_lateral_head): both are
+//   secondary/incidental contributions (Close Grip Chest Press and Incline DB Press's own
+//   minor secondary weights), not primary emphasis on either day.
+// - Forearm & Grip <-> Push (triceps_lateral_head): Forearm & Grip's direct triceps isolation
+//   vs. Push's compounds' minor secondary triceps involvement.
+// Lateral delts (priority #1 per the directive's structure order) deliberately keeps a
+// higher, spread-out frequency (Push, Legs and Shoulders & Arms each carry a lateral-delt
+// exercise) — intentional per-priority frequency, not an oversight.
+// Forearm specialisation remains fully intact as its own dedicated day (Reverse Curl,
+// Reverse-Grip Bar Extension, Triceps Pushdown, Wrist Curl, Reverse Wrist Curl, Farmer's
+// Carry), sharing zero muscle heads with its Upper Accessory neighbour.
+//
+// This only changes the TEMPLATE for future sessions, exactly like DEFAULT_TRAINING_PROGRAM
+// above — it never touches exercises already recorded in past workout logs, PRs, predicted
+// loads, or progression graphs, all of which are keyed by exercise, not by day.
+export const AESTHETIC_PROTOCOL_V2_PROGRAM = {
+  "Day 1 - Push (Chest & Front Delts)": [
+    progExercise("Incline DB Press", "6-10", "Set 1: 1 RIR | Set 2: technical failure"),
+    progExercise("Smith Incline Press", "6-10", "Upper chest priority"),
+    progExercise("Seated DB Shoulder Press", "8-10", "Shoulder mass"),
+    progExercise("Machine Chest Press", "8-12", "Safe failure pressing"),
+    progExercise("Cable Lateral Raise", "12-15", "Both sets to technical failure"),
+    progExercise("Overhead Triceps Extension", "10-15", "Long-head triceps — main long-head builder, excellent stretch")
+  ],
+  "Day 2 - Pull (Lats, Back Thickness & Rear Delts)": [
+    progExercise("Neutral Grip Lat Pulldown", "8-12", "Weighted pull-up replacement"),
+    progExercise("Wide Grip Lat Pulldown", "8-12", "Lat width"),
+    progExercise("Chest Supported Row", "8-12", "Upper back thickness"),
+    progExercise("Seated Cable Row", "8-12", "Mid-back thickness"),
+    progExercise("Shrugs", "10-15", "Traps"),
+    progExercise("Rear Delt Fly", "12-15", "Rear delts"),
+    progExercise("Face Pull", "12-15", "Rear delts / shoulder health")
+  ],
+  "Day 3 - Shoulders & Arms (Side Delts, Biceps & Triceps)": [
+    progExercise("Close Grip Chest Press", "8-12", "Triceps / pressing power (indirect triceps)"),
+    progExercise("Incline DB Curl", "8-12", "Biceps long head / stretched biceps. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Bayesian Cable Curl / Preacher Curl / Cable Curl"),
+    progExercise("Hammer Curl", "10-12", "Brachialis / arm thickness"),
+    progExercise("EZ Curl", "10-12", "Biceps"),
+    progExercise("Seated DB Lateral Raise", "12-20", "Side delts / shoulder width for shoulder-to-waist ratio. Set 1: 0-1 RIR | Set 2: technical failure. Strict, low momentum. Sub: Machine Lateral Raise / Lean-Away Cable Lateral Raise / Strict Cable Lateral Raise"),
+    progExercise("Cable Lateral Raise", "12-15", "Width builder"),
+    progExercise("Overhead Triceps Extension", "10-15", "Triceps long head in stretched position. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Rope Overhead Extension / DB Overhead Extension")
+  ],
+  "Day 4 - Upper Accessory & Neck": [
+    progExercise("Incline DB Press", "8-12", "Upper chest frequency"),
+    progExercise("Single Arm Lat Pulldown", "10-12", "Lat isolation"),
+    progExercise("Manual Neck Isometrics", "3 x 20-30 sec", "Home-based alternative")
+  ],
+  "Day 5 - Legs (Quads, Hamstrings, Glutes & Calves)": [
+    progExercise("Hack Squat", "6-10", "Quads / total leg size"),
+    progExercise("Romanian Deadlift", "8-10", "Hamstrings / glutes"),
+    progExercise("Leg Press", "10-15", "High-output leg mass"),
+    progExercise("Leg Curl", "10-15", "Both sets to technical failure"),
+    progExercise("Standing Calf Raise", "12-20", "Controlled stretch and squeeze"),
+    progExercise("Cable Lateral Raise", "12-15", "Side delt priority — zero-interference frequency add on a day with no other upper-body work")
+  ],
+  "Day 6 - Forearm & Grip Specialisation": [
+    progExercise("Reverse Curl", "10-15", "Brachioradialis / upper forearm / forearm thickness. Set 1: 0-1 RIR | Set 2: technical failure. Sub: EZ Reverse Curl / Cable Reverse Curl"),
+    progExercise("Hammer Curl", "10-12", "Brachialis / brachioradialis / arm width. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Rope Hammer Curl / Cross-Body Hammer Curl"),
+    progExercise("Reverse-Grip Bar Extension", "10-15", "Triceps contraction / width support. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Straight-Bar Pushdown / Single-Arm Reverse Pushdown"),
+    progExercise("Triceps Pushdown", "12-15", "Rope or cable pushdown — triceps width / stable contraction. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Straight-Bar Pushdown / V-Bar Pushdown"),
+    progExercise("Wrist Curl", "12-20", "Forearm flexors. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Cable Wrist Curl / DB Wrist Curl"),
+    progExercise("Reverse Wrist Curl", "12-20", "Forearm extensors / forearm balance. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Cable Reverse Wrist Curl / DB Reverse Wrist Curl"),
+    progExercise("Farmer's Carry", "2 x 4-6 lengths", "Optional loaded hold finisher — grip / full forearm density / support strength. Distance-based (lengths of your Functional Track Length, set in More > Gym Profile), not reps. Remove this row in the Program Editor if the session runs long. Sub: Trap Bar Hold / Heavy Dumbbell Static Hold")
+  ]
+};
+
 export const DEFAULT_SUPPLEMENTS = [
   { id: uidLike("creatine"), supplementName: "Creatine monohydrate", targetDose: "3-5 g/day", timing: "Any time, daily", active: true },
   { id: uidLike("protein"), supplementName: "Whey/casein", targetDose: "As needed to hit protein target", timing: "Any time", active: true },
