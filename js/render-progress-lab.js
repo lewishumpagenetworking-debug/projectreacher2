@@ -14,6 +14,7 @@ import {
 import { MUSCLE_GROUPS } from "./program.js";
 import { MUSCLE_HEADS, MUSCLE_HEAD_REGIONS, headsInRegion } from "./muscle-heads.js";
 import { weakPointRanking, allIntelligentWarnings } from "./hypertrophy-warnings.js";
+import { allExerciseEffectivenessScores } from "./exercise-effectiveness.js";
 import { lineChart, donutChart, barRows } from "./charts.js";
 import { parseLogDate } from "./dates.js";
 import { autoCountUp } from "./motion.js";
@@ -45,6 +46,7 @@ export function renderProgressLab(data) {
   renderLabVolumeChart(data);
   renderLabMuscleHeadTargets(data);
   renderLabWeakPointsAndWarnings(data);
+  renderLabExerciseEffectiveness(data);
   renderLabNutritionChart(data);
   renderLabProgressionList(data);
   renderLabMeasurementsChart(data);
@@ -237,6 +239,48 @@ function renderLabWeakPointsAndWarnings(data) {
         </div>`).join("")
       : "<p class='small'>No standout weak points right now — every tracked muscle head is on target and not plateaued.</p>";
   }
+}
+
+const EFFECTIVENESS_METRICS = [
+  { key: "growthEffectiveness", label: "Growth Effectiveness" },
+  { key: "progressionReliability", label: "Progression Reliability" },
+  { key: "fatigueCost", label: "Fatigue Cost" },
+  { key: "adherence", label: "Adherence" },
+  { key: "consistency", label: "Consistency" }
+];
+
+function effectivenessMetricLine(metric) {
+  if (metric.score == null) return `<span class="badge">${esc(metric.confidence.replace(/-/g, " "))}</span>`;
+  return `<span class="badge">${Math.round(metric.score * 100)}%</span> <span class="small">${esc(metric.confidence)} confidence</span>`;
+}
+
+/**
+ * Personal Exercise Effectiveness (Hypertrophy Intelligence Engine spec): 5 evidence-gated
+ * scores per active exercise from js/exercise-effectiveness.js. Read-only — no exercise is
+ * ever reordered, hidden or flagged for removal here; that recommendation layer is a later
+ * phase (Programme Evolution). Exercises with no scorable data at all yet are skipped rather
+ * than shown as a wall of "insufficient data" rows.
+ */
+function renderLabExerciseEffectiveness(data) {
+  const el = $("progressLabExerciseEffectiveness");
+  if (!el) return;
+
+  const referenceDate = new Date();
+  const bundles = allExerciseEffectivenessScores(data, referenceDate);
+  const scored = bundles.filter(b => EFFECTIVENESS_METRICS.some(m => b[m.key].score != null));
+
+  if (!scored.length) {
+    el.innerHTML = "<p class='small'>Not enough logged history yet to score any exercise's effectiveness.</p>";
+    return;
+  }
+
+  el.innerHTML = scored.map(b => `
+    <div class="history-item">
+      <div class="section-title"><strong>${esc(b.name)}</strong></div>
+      <div class="badge-row">
+        ${EFFECTIVENESS_METRICS.map(m => `<span class="small">${esc(m.label)}: ${effectivenessMetricLine(b[m.key])}</span>`).join(" &middot; ")}
+      </div>
+    </div>`).join("");
 }
 
 function renderLabNutritionChart(data) {
