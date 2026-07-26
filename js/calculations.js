@@ -1,5 +1,6 @@
 // Pure calculation utilities. No DOM access, no storage access — easy to reason about and reuse.
 import { MUSCLE_GROUP_MAP, PRIORITY_MUSCLES, findVariant } from "./program.js";
+import { MUSCLE_HEAD_IDS } from "./muscle-heads.js";
 import { parseLogDate, isSameWeek, startOfWeek } from "./dates.js";
 import { RECOVERY_PROTOCOLS } from "./recovery-data.js";
 
@@ -909,6 +910,44 @@ export function weeklyVolumeByMuscleGroup(workouts, exercises, referenceDate = n
       });
     });
   return totals;
+}
+
+/**
+ * Muscle Head Allocation Engine (Hypertrophy Intelligence Engine spec) — weekly effective-set
+ * stimulus per muscle head, from workouts logged in the current Monday-Sunday week. Each hard
+ * set contributes to every head the exercise is weighted toward (js/program.js's
+ * muscleHeadContributions, js/muscle-heads.js's taxonomy) — e.g. a hard set of Incline DB Press
+ * contributes 1 set to chest_upper and 0.5 sets to front_delts, not 1 full set to both. This is
+ * additive context alongside weeklyVolumeByMuscleGroup() above, never a replacement for it —
+ * exercises with no muscleHeadContributions (e.g. Manual Neck Isometrics, whose target isn't in
+ * the head taxonomy) simply contribute 0 to every head, same as before this engine existed.
+ */
+export function weeklyHeadStimulus(workouts, exercises, referenceDate = new Date()) {
+  const byName = Object.fromEntries(exercises.map(e => [e.name, e]));
+  const stimulus = Object.fromEntries(MUSCLE_HEAD_IDS.map(id => [id, 0]));
+
+  workouts
+    .filter(w => {
+      const d = parseLogDate(w.date);
+      return d && isSameWeek(d, referenceDate);
+    })
+    .forEach(w => {
+      (w.exercises || []).forEach(e => {
+        const def = byName[e.name];
+        const contributions = def?.muscleHeadContributions;
+        if (!contributions || !Object.keys(contributions).length) return;
+        let hardSets = 0;
+        if (Number(e.set1Reps) > 0) hardSets++;
+        if (Number(e.set2Reps) > 0) hardSets++;
+        if (Number(e.optionalSet3Reps) > 0) hardSets++;
+        if (!hardSets) return;
+        Object.entries(contributions).forEach(([headId, weight]) => {
+          if (!(headId in stimulus)) return;
+          stimulus[headId] += hardSets * weight;
+        });
+      });
+    });
+  return stimulus;
 }
 
 /** Workouts whose (correctly-parsed) date falls in the same Monday-Sunday week as referenceDate. */
