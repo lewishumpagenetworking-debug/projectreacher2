@@ -15,6 +15,7 @@ import { MUSCLE_GROUPS } from "./program.js";
 import { MUSCLE_HEADS, MUSCLE_HEAD_REGIONS, headsInRegion } from "./muscle-heads.js";
 import { weakPointRanking, allIntelligentWarnings } from "./hypertrophy-warnings.js";
 import { allExerciseEffectivenessScores } from "./exercise-effectiveness.js";
+import { allRecommendedExerciseOrders, programmeEvolutionRecommendations } from "./programme-evolution.js";
 import { lineChart, donutChart, barRows } from "./charts.js";
 import { parseLogDate } from "./dates.js";
 import { autoCountUp } from "./motion.js";
@@ -47,6 +48,7 @@ export function renderProgressLab(data) {
   renderLabMuscleHeadTargets(data);
   renderLabWeakPointsAndWarnings(data);
   renderLabExerciseEffectiveness(data);
+  renderLabSmartOrderingAndEvolution(data);
   renderLabNutritionChart(data);
   renderLabProgressionList(data);
   renderLabMeasurementsChart(data);
@@ -281,6 +283,53 @@ function renderLabExerciseEffectiveness(data) {
         ${EFFECTIVENESS_METRICS.map(m => `<span class="small">${esc(m.label)}: ${effectivenessMetricLine(b[m.key])}</span>`).join(" &middot; ")}
       </div>
     </div>`).join("");
+}
+
+const EVOLUTION_TYPE_LABEL = {
+  "retire-candidate": "Retire candidate",
+  "try-different-variant": "Try a different variant",
+  "adjust-before-retiring": "Adjust before retiring",
+  "high-responder": "High responder"
+};
+
+/**
+ * Smart Ordering + Programme Evolution (Hypertrophy Intelligence Engine spec, js/programme-
+ * evolution.js): suggested day-by-day exercise re-ordering plus which exercises are/aren't
+ * earning their slot. Purely advisory, like every other card on this page — the Programme
+ * Editor is still the only place exercises are actually added, removed, or reordered.
+ */
+function renderLabSmartOrderingAndEvolution(data) {
+  const orderEl = $("progressLabSmartOrdering");
+  const evolutionEl = $("progressLabProgrammeEvolution");
+  if (!orderEl && !evolutionEl) return;
+
+  const referenceDate = new Date();
+
+  if (orderEl) {
+    const suggestions = allRecommendedExerciseOrders(data, referenceDate);
+    orderEl.innerHTML = suggestions.length
+      ? suggestions.map(s => `
+        <div class="history-item">
+          <div class="section-title"><strong>${esc(s.day)}</strong></div>
+          <p class="small">Current: ${s.currentOrder.map(esc).join(" &rarr; ")}</p>
+          <p class="small">Suggested: ${s.recommendedOrder.map(esc).join(" &rarr; ")}</p>
+        </div>`).join("")
+      : "<p class='small'>Every programmed day is already in a recommended order.</p>";
+  }
+
+  if (evolutionEl) {
+    const recs = programmeEvolutionRecommendations(data, referenceDate);
+    evolutionEl.innerHTML = recs.length
+      ? recs.map(r => `
+        <div class="history-item">
+          <div class="section-title">
+            <strong>${esc(r.name)}</strong>
+            <span class="badge-row"><span class="badge">${esc(EVOLUTION_TYPE_LABEL[r.type] || r.type)}</span></span>
+          </div>
+          <p class="small">${esc(r.message)}</p>
+        </div>`).join("")
+      : "<p class='small'>No programme evolution suggestions right now.</p>";
+  }
 }
 
 function renderLabNutritionChart(data) {
