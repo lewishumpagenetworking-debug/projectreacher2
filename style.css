@@ -1533,6 +1533,27 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .program-editor-row-actions button { min-width: 32px; min-height: 32px; padding: 2px 6px; }
 .program-editor-add-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 16px; }
 .program-editor-add-row select { min-height: 40px; }
+.program-editor-sets-cell input { width: 56px; }
+
+/* ---- Aesthetic Protocol v2 deterministic audit + Split Management ---- */
+.v2-audit-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.v2-audit-table th, .v2-audit-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.v2-audit-table .status-met { color: var(--good, #2e7d32); }
+.v2-audit-table .status-under { color: var(--warn, #b8860b); }
+.v2-audit-table .status-over { color: var(--muted); }
+.v2-recovery-warning { border: 1px solid var(--warn, #b8860b); border-radius: 8px; padding: 10px 12px; margin: 8px 0; font-size: 13px; }
+.v2-recovery-warning strong { display: block; margin-bottom: 4px; }
+.split-mgmt-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; }
+.split-mgmt-card.is-active { border-color: var(--accent, #4a7dfc); }
+.split-mgmt-card h4 { margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+.split-badge-active { background: var(--accent, #4a7dfc); color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+.split-mgmt-meta { color: var(--muted); font-size: 12px; }
+.split-day-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
+.split-day-card h5 { margin: 0 0 4px; }
+.split-detail-back, .split-day-back { margin-bottom: 10px; }
+.day-detail-exercise { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.day-detail-exercise:last-child { border-bottom: none; }
+.day-detail-exercise .heads { color: var(--muted); font-size: 12px; }
 
 /* ---- Priority Physique Allocation + Hypertrophy Allocation Pass ---- */
 .priority-tier-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }

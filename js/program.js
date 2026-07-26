@@ -340,7 +340,9 @@ export const EXERCISE_DATABASE = [
 
   exercise({
     name: "Hammer Curl", category: "isolation", primaryMuscle: "biceps", secondaryMuscles: ["brachialis"], movementPattern: "elbow flexion", equipment: "dumbbell", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure. Brachialis / arm thickness.", volumeGroup: "brachialis",
-    muscleHeadContributions: { brachialis: 1.0, biceps_short_head: 0.5, biceps_long_head: 0.25 },
+    // Brachioradialis secondary added per the Aesthetic Protocol v2 directive's stated target
+    // for this exercise — additive contribution weight only, nothing else about the record changes.
+    muscleHeadContributions: { brachialis: 1.0, biceps_short_head: 0.5, biceps_long_head: 0.25, brachioradialis: 0.5 },
     variants: [
       variant({ name: "Simultaneous Dumbbell Hammer Curl", equipmentType: "dumbbell", loadingType: "free_weight" }),
       variant({ name: "Cross-Body Hammer Curl", equipmentType: "dumbbell", loadingType: "free_weight" }),
@@ -399,7 +401,9 @@ export const EXERCISE_DATABASE = [
   }),
   exercise({
     name: "Reverse-Grip Bar Extension", category: "isolation", primaryMuscle: "triceps", movementPattern: "elbow extension", equipment: "cable/bar", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", notes: "Direct triceps isolation movement, contraction / width support. Sub: Straight-Bar Pushdown / Single-Arm Reverse Pushdown.",
-    muscleHeadContributions: { triceps_lateral_head: 1.0, triceps_medial_head: 0.5 },
+    // Emphasis flipped to medial-head-primary per the Aesthetic Protocol v2 directive's stated
+    // target for this exact exercise slot ("Triceps medial-head emphasis, secondary lateral head").
+    muscleHeadContributions: { triceps_medial_head: 1.0, triceps_lateral_head: 0.5 },
     variants: [
       variant({ name: "Straight-Bar Pushdown", equipmentType: "cable", loadingType: "cable" }),
       variant({ name: "Single-Arm Reverse Pushdown", equipmentType: "cable", loadingType: "cable", unilateral: true }),
@@ -462,6 +466,7 @@ export const EXERCISE_DATABASE = [
 
   exercise({
     name: "Manual Neck Isometrics", category: "isolation", primaryMuscle: "neck", movementPattern: "isometric", equipment: "bodyweight", repRangeMin: null, repRangeMax: null, targetRIRSet1: null, targetRIRSet2: null, failureRule: "3 x 20-30 sec holds.", notes: "Home-based alternative. No ballistic neck work. Stop for pain, dizziness, headache, tingling or neurological symptoms.",
+    muscleHeadContributions: { neck: 1.0 },
     variants: [
       variant({ name: "Manual Neck Flexion Isometric", equipmentType: "bodyweight", loadingType: "bodyweight", techniqueNotes: "No ballistic neck work. Stop for pain, dizziness, headache, tingling or neurological symptoms." }),
       variant({ name: "Manual Neck Extension Isometric", equipmentType: "bodyweight", loadingType: "bodyweight", techniqueNotes: "No ballistic neck work. Stop for pain, dizziness, headache, tingling or neurological symptoms." }),
@@ -496,7 +501,9 @@ export const EXERCISE_DATABASE = [
   exercise({ name: "Spider Curl", category: "isolation", primaryMuscle: "biceps", movementPattern: "elbow flexion", equipment: "ez bar", repRangeMin: 10, repRangeMax: 12, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true, muscleHeadContributions: { biceps_short_head: 1.0, biceps_long_head: 0.25 } }),
   exercise({
     name: "Reverse Curl", category: "isolation", primaryMuscle: "forearms", secondaryMuscles: ["biceps"], movementPattern: "elbow flexion", equipment: "ez bar", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Brachioradialis / upper forearm / forearm thickness. Sub: EZ Reverse Curl / Cable Reverse Curl.", volumeGroup: "brachialis",
-    muscleHeadContributions: { brachioradialis: 1.0, biceps_short_head: 0.25 },
+    // Brachialis + wrist-extensor secondary contributions added per the Aesthetic Protocol v2
+    // directive's stated target for this exercise — additive weights only.
+    muscleHeadContributions: { brachioradialis: 1.0, biceps_short_head: 0.25, brachialis: 0.5, wrist_extensors: 0.25 },
     variants: [
       variant({ name: "Cable Reverse Curl", equipmentType: "cable", loadingType: "cable" }),
       variant({ name: "Straight-Bar Reverse Curl", equipmentType: "barbell", loadingType: "free_weight" }),
@@ -507,7 +514,31 @@ export const EXERCISE_DATABASE = [
       variant({ name: "Machine Reverse Curl", equipmentType: "selectorised machine", loadingType: "fixed_stack" })
     ]
   }),
-  exercise({ name: "Seated Calf Raise", category: "isolation", primaryMuscle: "calves", movementPattern: "plantarflexion", equipment: "machine", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true, muscleHeadContributions: { calves: 1.0 } })
+  exercise({ name: "Seated Calf Raise", category: "isolation", primaryMuscle: "calves", movementPattern: "plantarflexion", equipment: "machine", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", active: false, optional: true, muscleHeadContributions: { calves: 1.0 } }),
+
+  // Aesthetic Protocol v2 Deterministic Training Rulebook directive — genuinely new exercise
+  // slots with no existing matching database record (checked against every current name,
+  // including existing variants: "Seated Leg Curl" and "Reverse Pec Deck" are already covered
+  // as an existing exercise/variant of Leg Curl and Rear Delt Fly respectively, so those are
+  // reused rather than duplicated here).
+  exercise({
+    name: "Leg Extension", category: "isolation", primaryMuscle: "quads", movementPattern: "knee extension", equipment: "machine", repRangeMin: 10, repRangeMax: 15, targetRIRSet1: 0, targetRIRSet2: 0, failureRule: "Both sets to technical failure.", notes: "Stable shortened-position quad work, including rectus femoris and vasti.",
+    muscleHeadContributions: { quads: 1.0 },
+    variants: [
+      variant({ name: "Selectorised Leg Extension", equipmentType: "selectorised machine", loadingType: "fixed_stack" }),
+      variant({ name: "Plate-Loaded Leg Extension", equipmentType: "plate-loaded machine", loadingType: "plate_loaded" }),
+      variant({ name: "Single-Leg Extension", equipmentType: "selectorised machine", loadingType: "fixed_stack", unilateral: true })
+    ]
+  }),
+  exercise({
+    name: "Hanging Leg Raise", category: "isolation", primaryMuscle: "core", secondaryMuscles: ["hip flexors"], movementPattern: "hip flexion", equipment: "bodyweight", repRangeMin: 8, repRangeMax: 15, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Controlled repetitions, avoid swinging.", notes: "Direct core training without excessive spinal loading.",
+    muscleHeadContributions: { core: 1.0 },
+    variants: [
+      variant({ name: "Captain's Chair Leg Raise", equipmentType: "captain's chair", loadingType: "bodyweight" }),
+      variant({ name: "Hanging Knee Raise", equipmentType: "pull-up bar", loadingType: "bodyweight", techniqueNotes: "Reduced lever length — only offered where straight-leg raises aren't achievable with good control." }),
+      variant({ name: "Ab Straps Leg Raise", equipmentType: "ab straps", loadingType: "bodyweight" })
+    ]
+  })
 ];
 
 // Form guidance content, keyed by exercise id. Merged onto EXERCISE_DATABASE entries
@@ -925,8 +956,17 @@ EXERCISE_DATABASE.forEach(ex => {
   if (guide) Object.assign(ex, guide);
 });
 
-function progExercise(name, reps, note) {
-  return { id: eid(name), name, repRange: reps, note };
+function progExercise(name, reps, note, sets = null) {
+  // `sets` is additive and optional (defaults to null, exactly like every existing call site
+  // that omits it) — it is a PROGRAMME-LEVEL prescribed set count used for the deterministic
+  // weekly volume/recovery audit and the Split/Day Detail UI (Aesthetic Protocol v2
+  // Deterministic Training Rulebook directive, Sections 7/10/15/18). It does not change how a
+  // session is logged: js/render-train.js has always recorded exactly two logged sets per
+  // exercise per session (set1/set2 weight+reps) — that is the app's existing tracking system
+  // (unchanged since before this directive) and replacing it is explicitly out of scope
+  // (Section 20). "Sets: 4" is the prescribed weekly target this audit checks against, the
+  // same way the directive's own hard-coded weekly targets work.
+  return { id: eid(name), name, repRange: reps, note, sets };
 }
 
 // The live 6-day program. Day 3 keeps Overhead Triceps Extension (long-head builder,
@@ -987,89 +1027,77 @@ export const DEFAULT_TRAINING_PROGRAM = {
   ]
 };
 
-// Aesthetic Protocol v2 -- Superhero Hypertrophy (Active Split Implementation Directive):
-// the SAME 30 exercises and 36 weekly rows as DEFAULT_TRAINING_PROGRAM above (every
-// repRange/note string reused verbatim — no exercise added, removed, or re-dosed), just
-// redistributed across 6 days using this app's own Smart Ordering (compounds before
-// isolations within a day) and Fatigue-Optimised Split Logic (js/hypertrophy-allocation.js's
-// fatigueOptimisedRelocationSuggestions() was run against both this and the legacy structure
-// above to check adjacent-day muscle-head overlap before finalising the day order below).
+// Aesthetic Protocol v2 -- Superhero Hypertrophy, per the "Aesthetic Protocol v2 Deterministic
+// Training Rulebook and Implementation Directive." This is the CORRECTED v2 content — it
+// replaces an earlier hand-redesigned attempt that the directive itself identifies as
+// incorrect (that version reused the legacy program's exact exercise set with a different day
+// grouping; this one is the directive's own exact, exercise-by-exercise prescription, Section 9).
 //
-// The single worst problem in the legacy structure is resolved: its 10-exercise arm/forearm
-// day sat between two OTHER upper-heavy days on both sides (sharing biceps_long_head,
-// biceps_short_head, brachialis, triceps_lateral_head, lateral_delts and upper_back with its
-// neighbours at once). Here that load is split across two moderate sessions (Shoulders & Arms,
-// Forearm & Grip) with a biceps-free Pull day and a dedicated Legs day placed between them.
+// Every exercise name below is the app's own existing EXERCISE_DATABASE name so exercise ids,
+// history, PRs and progression all resolve to the SAME records as before — the directive's
+// display names differ slightly in a few spots, mapped here to the matching existing record:
+//   "Incline Dumbbell Press"              -> "Incline DB Press"
+//   "Incline Dumbbell Curl"               -> "Incline DB Curl"
+//   "Chest-Supported Row"                 -> "Chest Supported Row"
+//   "Single-Arm Lat Pulldown"             -> "Single Arm Lat Pulldown"
+//   "Wide-Grip Lat Pulldown"              -> "Wide Grip Lat Pulldown"
+//   "Dumbbell Shrug"                      -> "Shrugs"
+//   "EZ-Bar Curl"                         -> "EZ Curl"
+//   "Reverse-Grip Cable Triceps Extension"-> "Reverse-Grip Bar Extension"
+//   "Overhead Cable Triceps Extension"    -> "Overhead Triceps Extension"
+//   "Rope Triceps Pushdown"               -> "Triceps Pushdown"
+//   "Seated Leg Curl"                     -> "Leg Curl" (an existing variant of this exact
+//        slot is already literally named "Seated Leg Curl" — reusing the parent exercise keeps
+//        that variant selectable rather than creating a colliding duplicate)
+//   "Reverse Pec Deck"                    -> "Rear Delt Fly" (same machine-based rear-delt
+//        horizontal-abduction movement already in the database under this name)
 //
-// This still leaves 3 adjacent-day overlaps (the same total count as the legacy structure,
-// not fewer — 30 exercises spread across only 6 days makes some head-sharing unavoidable),
-// each deliberately accepted and explained rather than hidden:
-// - Pull <-> Shoulders & Arms (biceps_long/short_head, brachialis): pulling compounds always
-//   recruit biceps secondarily; Shoulders & Arms is where biceps are trained directly and
-//   completed for the week. Standard "pull, then finish arms" sequencing, not a design flaw.
-// - Shoulders & Arms <-> Upper Accessory (chest_mid, triceps_lateral_head): both are
-//   secondary/incidental contributions (Close Grip Chest Press and Incline DB Press's own
-//   minor secondary weights), not primary emphasis on either day.
-// - Forearm & Grip <-> Push (triceps_lateral_head): Forearm & Grip's direct triceps isolation
-//   vs. Push's compounds' minor secondary triceps involvement.
-// Lateral delts (priority #1 per the directive's structure order) deliberately keeps a
-// higher, spread-out frequency (Push, Legs and Shoulders & Arms each carry a lateral-delt
-// exercise) — intentional per-priority frequency, not an oversight.
-// Forearm specialisation remains fully intact as its own dedicated day (Reverse Curl,
-// Reverse-Grip Bar Extension, Triceps Pushdown, Wrist Curl, Reverse Wrist Curl, Farmer's
-// Carry), sharing zero muscle heads with its Upper Accessory neighbour.
-//
-// This only changes the TEMPLATE for future sessions, exactly like DEFAULT_TRAINING_PROGRAM
-// above — it never touches exercises already recorded in past workout logs, PRs, predicted
-// loads, or progression graphs, all of which are keyed by exercise, not by day.
+// Two exercises had no existing match at all and were added as new EXERCISE_DATABASE entries
+// (never renaming/removing anything existing): "Leg Extension" and "Hanging Leg Raise."
 export const AESTHETIC_PROTOCOL_V2_PROGRAM = {
-  "Day 1 - Push (Chest & Front Delts)": [
-    progExercise("Incline DB Press", "6-10", "Set 1: 1 RIR | Set 2: technical failure"),
-    progExercise("Smith Incline Press", "6-10", "Upper chest priority"),
-    progExercise("Seated DB Shoulder Press", "8-10", "Shoulder mass"),
-    progExercise("Machine Chest Press", "8-12", "Safe failure pressing"),
-    progExercise("Cable Lateral Raise", "12-15", "Both sets to technical failure"),
-    progExercise("Overhead Triceps Extension", "10-15", "Long-head triceps — main long-head builder, excellent stretch")
+  "Day 1 - Upper A": [
+    progExercise("Incline DB Press", "6-10", "Upper chest / clavicular fibres. Secondary: front delts, triceps. Upper-chest hypertrophy with free-weight stability demand and deep loaded stretch.", 4),
+    progExercise("Neutral Grip Lat Pulldown", "8-12", "Lats / width. Secondary: biceps, brachialis. Heavy bilateral vertical pulling with a lat-biased elbow path.", 4),
+    progExercise("Chest Supported Row", "8-12", "Mid-back / rhomboids. Secondary: lats, rear delts, biceps. Mid-back thickness with reduced lower-back fatigue.", 2),
+    progExercise("Cable Lateral Raise", "10-15", "Lateral delts. Shoulder-width development with consistent cable tension.", 4),
+    progExercise("Face Pull", "12-15", "Rear delts. Secondary: external rotators, upper back. Rear-delt stimulus with scapular control and external rotation.", 2)
   ],
-  "Day 2 - Pull (Lats, Back Thickness & Rear Delts)": [
-    progExercise("Neutral Grip Lat Pulldown", "8-12", "Weighted pull-up replacement"),
-    progExercise("Wide Grip Lat Pulldown", "8-12", "Lat width"),
-    progExercise("Chest Supported Row", "8-12", "Upper back thickness"),
-    progExercise("Seated Cable Row", "8-12", "Mid-back thickness"),
-    progExercise("Shrugs", "10-15", "Traps"),
-    progExercise("Rear Delt Fly", "12-15", "Rear delts"),
-    progExercise("Face Pull", "12-15", "Rear delts / shoulder health")
+  "Day 2 - Lower A": [
+    progExercise("Hack Squat", "6-10", "Quads. Secondary: glutes. Main heavy knee-dominant hypertrophy movement.", 4),
+    progExercise("Leg Curl", "8-12", "Seated Leg Curl — hamstrings through knee flexion. Direct hamstring work without adding another hip-dominant compound.", 2),
+    progExercise("Leg Extension", "10-15", "Quads, including rectus femoris and vasti. Stable shortened-position quad work after the main compound.", 2),
+    progExercise("Standing Calf Raise", "10-20", "Gastrocnemius. Secondary: soleus. First weekly direct calf exposure.", 3),
+    progExercise("Rear Delt Fly", "12-15", "Reverse Pec Deck — rear delts. Direct rear-delt horizontal abduction with minimal systemic fatigue. Intentionally low-fatigue, distinct from Day 1 face pulls.", 2)
   ],
-  "Day 3 - Shoulders & Arms (Side Delts, Biceps & Triceps)": [
-    progExercise("Close Grip Chest Press", "8-12", "Triceps / pressing power (indirect triceps)"),
-    progExercise("Incline DB Curl", "8-12", "Biceps long head / stretched biceps. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Bayesian Cable Curl / Preacher Curl / Cable Curl"),
-    progExercise("Hammer Curl", "10-12", "Brachialis / arm thickness"),
-    progExercise("EZ Curl", "10-12", "Biceps"),
-    progExercise("Seated DB Lateral Raise", "12-20", "Side delts / shoulder width for shoulder-to-waist ratio. Set 1: 0-1 RIR | Set 2: technical failure. Strict, low momentum. Sub: Machine Lateral Raise / Lean-Away Cable Lateral Raise / Strict Cable Lateral Raise"),
-    progExercise("Cable Lateral Raise", "12-15", "Width builder"),
-    progExercise("Overhead Triceps Extension", "10-15", "Triceps long head in stretched position. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Rope Overhead Extension / DB Overhead Extension")
+  "Day 3 - Upper B": [
+    progExercise("Machine Chest Press", "8-12", "Mid chest. Secondary: front delts, triceps. Stable chest-thickness work without repeating incline pressing.", 4),
+    progExercise("Seated Cable Row", "8-12", "Mid-back. Secondary: lats, biceps. Second weekly mid-back exposure using a different resistance profile.", 2),
+    progExercise("Rear Delt Fly", "12-15", "Reverse Pec Deck — rear delts. Third and final weekly rear-delt exposure.", 2),
+    progExercise("EZ Curl", "8-12", "EZ-Bar Curl — biceps. First direct biceps exposure.", 4),
+    progExercise("Reverse-Grip Bar Extension", "10-15", "Reverse-Grip Cable Triceps Extension — triceps medial-head emphasis. Secondary: lateral head. First direct triceps exposure with lower joint stress.", 4)
   ],
-  "Day 4 - Upper Accessory & Neck": [
-    progExercise("Incline DB Press", "8-12", "Upper chest frequency"),
-    progExercise("Single Arm Lat Pulldown", "10-12", "Lat isolation"),
-    progExercise("Manual Neck Isometrics", "3 x 20-30 sec", "Home-based alternative")
+  "Day 4 - Lower B": [
+    progExercise("Romanian Deadlift", "6-10", "Hamstrings in the lengthened position. Secondary: glutes, spinal erectors. Main hip-hinge hypertrophy movement.", 4),
+    progExercise("Leg Press", "10-15", "Quads. Secondary: glutes. Second weekly quad exposure with a different resistance profile from hack squats.", 2),
+    progExercise("Standing Calf Raise", "10-20", "Gastrocnemius. Secondary: soleus. Second weekly calf exposure.", 3),
+    progExercise("Hanging Leg Raise", "8-15", "Abdominal musculature. Secondary: hip flexors. Direct core training without excessive spinal loading. Controlled repetitions.", 2)
   ],
-  "Day 5 - Legs (Quads, Hamstrings, Glutes & Calves)": [
-    progExercise("Hack Squat", "6-10", "Quads / total leg size"),
-    progExercise("Romanian Deadlift", "8-10", "Hamstrings / glutes"),
-    progExercise("Leg Press", "10-15", "High-output leg mass"),
-    progExercise("Leg Curl", "10-15", "Both sets to technical failure"),
-    progExercise("Standing Calf Raise", "12-20", "Controlled stretch and squeeze"),
-    progExercise("Cable Lateral Raise", "12-15", "Side delt priority — zero-interference frequency add on a day with no other upper-body work")
+  "Day 5 - Upper C": [
+    progExercise("Smith Incline Press", "6-10", "Upper chest / clavicular fibres. Secondary: front delts, triceps. Stable high-tension upper-chest overload.", 4),
+    progExercise("Single Arm Lat Pulldown", "8-12", "Single-Arm Lat Pulldown, per side. Lats. Unilateral lat work with controlled elbow-to-hip path.", 2),
+    progExercise("Wide Grip Lat Pulldown", "8-12", "Upper-lat and back-width contribution. Secondary: biceps. Completes the second weekly lat exposure with a different pull orientation.", 2),
+    progExercise("Cable Lateral Raise", "10-15", "Lateral delts. Second weekly shoulder-width exposure.", 4),
+    progExercise("Shrugs", "10-15", "Dumbbell Shrug — upper traps. Maintain balanced trap development without making traps a visual priority.", 2),
+    progExercise("Manual Neck Isometrics", "3 x 20-30 sec", "Neck flexors, extensors and lateral flexors. Controlled neck development without excessive trap emphasis.", 2)
   ],
-  "Day 6 - Forearm & Grip Specialisation": [
-    progExercise("Reverse Curl", "10-15", "Brachioradialis / upper forearm / forearm thickness. Set 1: 0-1 RIR | Set 2: technical failure. Sub: EZ Reverse Curl / Cable Reverse Curl"),
-    progExercise("Hammer Curl", "10-12", "Brachialis / brachioradialis / arm width. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Rope Hammer Curl / Cross-Body Hammer Curl"),
-    progExercise("Reverse-Grip Bar Extension", "10-15", "Triceps contraction / width support. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Straight-Bar Pushdown / Single-Arm Reverse Pushdown"),
-    progExercise("Triceps Pushdown", "12-15", "Rope or cable pushdown — triceps width / stable contraction. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Straight-Bar Pushdown / V-Bar Pushdown"),
-    progExercise("Wrist Curl", "12-20", "Forearm flexors. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Cable Wrist Curl / DB Wrist Curl"),
-    progExercise("Reverse Wrist Curl", "12-20", "Forearm extensors / forearm balance. Set 1: 0-1 RIR | Set 2: technical failure. Sub: Cable Reverse Wrist Curl / DB Reverse Wrist Curl"),
-    progExercise("Farmer's Carry", "2 x 4-6 lengths", "Optional loaded hold finisher — grip / full forearm density / support strength. Distance-based (lengths of your Functional Track Length, set in More > Gym Profile), not reps. Remove this row in the Program Editor if the session runs long. Sub: Trap Bar Hold / Heavy Dumbbell Static Hold")
+  "Day 6 - Arms and Forearms": [
+    progExercise("Incline DB Curl", "8-12", "Incline Dumbbell Curl — biceps long head. Lengthened-position long-head hypertrophy.", 4),
+    progExercise("Hammer Curl", "8-12", "Brachialis. Secondary: brachioradialis. Increase upper-arm thickness beneath the biceps.", 2),
+    progExercise("Reverse Curl", "10-15", "Brachioradialis. Secondary: brachialis, forearm extensors. Increase visible upper-forearm thickness.", 2),
+    progExercise("Overhead Triceps Extension", "8-12", "Overhead Cable Triceps Extension — triceps long head. Lengthened-position long-head hypertrophy.", 4),
+    progExercise("Triceps Pushdown", "10-15", "Rope Triceps Pushdown — triceps lateral head. Secondary: medial head. Shortened-position triceps work and visible outer-arm thickness.", 4),
+    progExercise("Wrist Curl", "12-20", "Wrist flexors. Increase flexor mass on the underside of the forearm.", 4),
+    progExercise("Reverse Wrist Curl", "12-20", "Wrist extensors. Increase extensor thickness and balance forearm development.", 4)
   ]
 };
 
