@@ -1,5 +1,5 @@
 // Data layer: localStorage persistence, versioned schema, non-destructive migration.
-import { DEFAULT_TRAINING_PROGRAM, EXERCISE_DATABASE, DEFAULT_SUPPLEMENTS, DEFAULT_PRS } from "./program.js";
+import { DEFAULT_TRAINING_PROGRAM, AESTHETIC_PROTOCOL_V2_PROGRAM, EXERCISE_DATABASE, DEFAULT_SUPPLEMENTS, DEFAULT_PRS } from "./program.js";
 import { exportAllImagesAsBase64, importImagesFromBase64Map } from "./image-store.js";
 import { exportAllBloodworkFilesAsBase64, importBloodworkFilesFromBase64Map } from "./bloodwork-files.js";
 import { DEFAULT_SESSION_NUTRITION } from "./session-nutrition.js";
@@ -80,8 +80,8 @@ function withDefaults(item, defaults) {
  * data.prs/data.exercises, so history/PRs/predicted loads/notes/progression graphs (all
  * keyed by exercise name/id, never by day) are completely unaffected by which split is active.
  */
-function newTrainingSplit(name, days) {
-  return { id: uid(), name, days: structuredClone(days) };
+function newTrainingSplit(name, days, extra = {}) {
+  return { id: uid(), name, days: structuredClone(days), ...extra };
 }
 
 function emptyData() {
@@ -574,6 +574,33 @@ export function migrateData() {
   }
   if (!data.activeSplitId || !data.trainingSplits.some(s => s.id === data.activeSplitId)) {
     data.activeSplitId = data.trainingSplits[0].id;
+    changed = true;
+  }
+
+  // Aesthetic Protocol v2 Active Split Implementation Directive: create, populate and
+  // activate the redistributed "Aesthetic Protocol v2" split (js/program.js's
+  // AESTHETIC_PROTOCOL_V2_PROGRAM — same 30 exercises/36 weekly rows as the legacy
+  // programme, just regrouped into a fatigue-optimised weekly structure), while preserving
+  // whatever split the user already has as an explicitly-tagged, selectable legacy option.
+  // Runs exactly once, gated on the presence of the "aesthetic-protocol-v2" splitKey, so it
+  // can never re-run, duplicate the split, or silently re-activate v2 after a user switches
+  // away from it. Never touches data.workouts/data.prs/data.exercises — only trainingSplits/
+  // trainingProgram/activeSplitId change, and the pre-existing split's own days (including
+  // any exercises the user already added/removed/reordered via the Program Editor) are
+  // preserved exactly as-is under its new "legacy" label.
+  if (!data.trainingSplits.some(s => s.splitKey === "aesthetic-protocol-v2")) {
+    const preExistingSplit = data.trainingSplits.find(s => s.id === data.activeSplitId) || data.trainingSplits[0];
+    if (preExistingSplit && !preExistingSplit.splitKey) {
+      preExistingSplit.splitKey = "aesthetic-protocol-v1";
+      preExistingSplit.version = 1;
+      preExistingSplit.name = "Aesthetic Protocol v1 — Legacy";
+    }
+    const v2Split = newTrainingSplit("Aesthetic Protocol v2 — Superhero Hypertrophy", AESTHETIC_PROTOCOL_V2_PROGRAM, {
+      splitKey: "aesthetic-protocol-v2", version: 2
+    });
+    data.trainingSplits.push(v2Split);
+    data.activeSplitId = v2Split.id;
+    data.trainingProgram = structuredClone(v2Split.days);
     changed = true;
   }
 
