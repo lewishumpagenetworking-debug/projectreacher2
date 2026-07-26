@@ -594,13 +594,39 @@ export function migrateData() {
       preExistingSplit.splitKey = "aesthetic-protocol-v1";
       preExistingSplit.version = 1;
       preExistingSplit.name = "Aesthetic Protocol v1 — Legacy";
+      preExistingSplit.origin = "migrated-existing-programme";
     }
     const v2Split = newTrainingSplit("Aesthetic Protocol v2 — Superhero Hypertrophy", AESTHETIC_PROTOCOL_V2_PROGRAM, {
-      splitKey: "aesthetic-protocol-v2", version: 2
+      splitKey: "aesthetic-protocol-v2", version: 2, contentVersion: 2,
+      origin: "system-curated", goalProfile: "superhero-aesthetic",
+      lastActivatedDate: new Date().toISOString()
     });
     data.trainingSplits.push(v2Split);
     data.activeSplitId = v2Split.id;
     data.trainingProgram = structuredClone(v2Split.days);
+    changed = true;
+  }
+
+  // Deterministic Training Rulebook directive (supersedes the Active Split Implementation
+  // Directive above): the first "Aesthetic Protocol v2" migration only wrapped the EXISTING
+  // programme's exercises into a new day grouping — it never created the directive's actual
+  // prescribed exercise-by-exercise split. This corrects the "aesthetic-protocol-v2" split's
+  // CONTENT IN PLACE (Section 17: "retain the split key... if safe to update in place"),
+  // exactly once per user, gated on a separate `contentVersion` marker so it can never re-run,
+  // never duplicates a split, and never touches trainingSplits entries other than this one. If
+  // the user has since switched away to legacy, this only rewrites the stored v2 split's own
+  // `days` in the background — data.trainingProgram (the resolved active view) and
+  // data.activeSplitId are left completely alone, so v2 is never silently reactivated.
+  const v2SplitToCorrect = data.trainingSplits.find(s => s.splitKey === "aesthetic-protocol-v2");
+  if (v2SplitToCorrect && v2SplitToCorrect.contentVersion !== 2) {
+    v2SplitToCorrect.days = structuredClone(AESTHETIC_PROTOCOL_V2_PROGRAM);
+    v2SplitToCorrect.contentVersion = 2;
+    v2SplitToCorrect.name = "Aesthetic Protocol v2 — Superhero Hypertrophy";
+    v2SplitToCorrect.origin = "system-curated";
+    v2SplitToCorrect.goalProfile = "superhero-aesthetic";
+    if (data.activeSplitId === v2SplitToCorrect.id) {
+      data.trainingProgram = structuredClone(v2SplitToCorrect.days);
+    }
     changed = true;
   }
 

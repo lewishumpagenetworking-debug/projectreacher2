@@ -60,6 +60,10 @@ export function switchActiveSplit(data, splitId) {
   syncActiveSplitDays(data);
   data.activeSplitId = splitId;
   data.trainingProgram = structuredClone(target.days);
+  // Split Selector UI (Aesthetic Protocol v2 Deterministic Training Rulebook directive,
+  // Section 18) shows "last activated date" per split — stamped here, the one place a split
+  // actually becomes active, so it never needs updating anywhere else.
+  target.lastActivatedDate = new Date().toISOString();
   saveData(data);
   return true;
 }

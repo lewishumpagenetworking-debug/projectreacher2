@@ -2,7 +2,7 @@ import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
 import {
   average, weeklyRateOfGain, sevenDayAverage, ratios, weeklyVolumeByMuscleGroup, workoutsInWeek, armForearmBalance, volumeStatus, armForearmDeltWarnings,
-  weeklyRecoveryDebrief, monthlyRecoveryTrajectory
+  weeklyRecoveryDebrief, monthlyRecoveryTrajectory, getExerciseHistory
 } from "./calculations.js";
 import { parseLogDate, isSameWeek, startOfWeek, isLegacySlashDate } from "./dates.js";
 import {
@@ -12,6 +12,8 @@ import { eid } from "./program.js";
 import { allSplits, activeSplit, createSplit, renameSplit, deleteSplit, switchActiveSplit, syncActiveSplitDays } from "./training-splits.js";
 import { PRIORITY_TIER_LABELS, DEFAULT_PRIORITY_HEAD_ORDER } from "./hypertrophy-warnings.js";
 import { hypertrophyAllocationPass } from "./hypertrophy-allocation.js";
+import { MUSCLE_HEADS } from "./muscle-heads.js";
+import { weeklyDirectSetAudit, structuralRecoveryConflictWarnings } from "./aesthetic-protocol-v2-audit.js";
 
 export function renderVisualModeToggle(data) {
   const checkbox = $("visualModeToggle");
@@ -353,6 +355,7 @@ function programEditorRowHtml(e, i) {
   return `
     <tr data-idx="${i}">
       <td><input data-field="name" value="${esc(e.name)}"></td>
+      <td class="program-editor-sets-cell"><input data-field="sets" type="number" min="1" max="12" value="${e.sets != null ? esc(String(e.sets)) : ""}" title="Prescribed weekly working sets"></td>
       <td><input data-field="repRange" value="${esc(e.repRange)}"></td>
       <td><input data-field="note" value="${esc(e.note || "")}"></td>
       <td class="program-editor-row-actions">
@@ -478,9 +481,196 @@ export function renderHypertrophyAllocationSummary(data) {
     .join("")}</ul>`;
 }
 
+/**
+ * Weekly Direct-Set Audit (Aesthetic Protocol v2 Deterministic Training Rulebook directive,
+ * Sections 7/10/15): hard-coded targets vs. deterministic counts computed from the active
+ * split's own prescribed `sets` fields — never an AI estimate. Also surfaces the deterministic
+ * 72-hour (48-72h rear delts/calves) recovery-spacing check (Section 8) for the active split's
+ * current structure, informational only, never blocking.
+ */
+export function renderV2WeeklyAudit(data) {
+  const el = $("v2WeeklyAudit");
+  if (!el) return;
+  const split = activeSplit(data);
+  const isV2 = split?.splitKey === "aesthetic-protocol-v2";
+
+  const audit = weeklyDirectSetAudit(data);
+  const conflicts = structuralRecoveryConflictWarnings(data);
+  const statusClass = { "Target met": "status-met", "Below target": "status-under", "Exceeds target": "status-over" };
+
+  const tableHtml = `
+    <div class="table-wrap"><table class="v2-audit-table">
+      <thead><tr><th>Structure</th><th>Target</th><th>Current (direct)</th><th>Secondary</th><th>Status</th></tr></thead>
+      <tbody>
+        ${audit.map(row => `
+          <tr>
+            <td>${esc(row.structure)}${row.note ? ` <span class="small">(${esc(row.note)})</span>` : ""}</td>
+            <td>${row.targetMin != null ? `${row.targetMin}&ndash;${row.targetMax}` : row.target}</td>
+            <td>${row.currentDirect}</td>
+            <td>${row.currentSecondary}</td>
+            <td class="${statusClass[row.status] || ""}">${esc(row.status)}</td>
+          </tr>`).join("")}
+      </tbody>
+    </table></div>`;
+
+  const warningsHtml = conflicts.length
+    ? conflicts.map(w => `
+      <div class="v2-recovery-warning">
+        <strong>${esc(w.label)}: recovery-spacing warning</strong>
+        <p class="small">${esc(w.rationale)}</p>
+        <p class="small">Current weekly direct sets: ${w.currentWeeklyDirectTotal}. This does not block anything — the programme is exactly as configured; consider reviewing the spacing if this wasn't intentional.</p>
+      </div>`).join("")
+    : "<p class='small'>No deterministic recovery-spacing conflicts detected for the active split's current structure.</p>";
+
+  el.innerHTML = `
+    ${!isV2 ? `<p class="small">The active split ("${esc(split?.name || "unnamed")}") has no prescribed set counts, so targets below will show 0 current sets everywhere. Switch to Aesthetic Protocol v2 to see this audit populated.</p>` : ""}
+    ${tableHtml}
+    <h3>Recovery Spacing</h3>
+    ${warningsHtml}
+  `;
+}
+
+// ---- Split Management: Splits -> Split Detail -> Day Detail (Aesthetic Protocol v2
+// Deterministic Training Rulebook directive, Sections 4/18). The split remains the parent
+// container throughout; days are never flattened into top-level records. Purely a navigation/
+// display layer over the same data.trainingSplits / data.trainingProgram already used
+// everywhere else — switching, renaming, deleting and editing still go through the existing,
+// already-tested training-splits.js functions and the Program Editor's save flow below.
+let splitMgmtView = { level: "list", splitId: null, day: null };
+
+function dayObjective(dayName) {
+  const objectives = {
+    "Day 1 - Upper A": "Upper Chest, Lat Width, Mid-Back and Shoulder Width",
+    "Day 2 - Lower A": "Quad-Dominant Lower Body, Knee-Flexion Hamstrings, Calves and Rear Delts",
+    "Day 3 - Upper B": "Mid-Chest Thickness, Mid-Back, Rear Delts and First Direct Arm Exposure",
+    "Day 4 - Lower B": "Posterior Chain, Secondary Quad Exposure, Calves and Core",
+    "Day 5 - Upper C": "Upper Chest, Lat Width, Shoulder Width, Upper Traps and Neck",
+    "Day 6 - Arms and Forearms": "Specific Arm-Head and Forearm Hypertrophy"
+  };
+  return objectives[dayName] || null;
+}
+
+function primaryStructuresForDay(exercises, byName) {
+  const labels = new Set();
+  exercises.forEach(ex => {
+    const def = byName[ex.name];
+    Object.entries(def?.muscleHeadContributions || {}).forEach(([headId, weight]) => {
+      if (weight >= 1) labels.add(MUSCLE_HEADS[headId]?.label || headId);
+    });
+  });
+  return [...labels];
+}
+
+function renderSplitListView(data, el) {
+  const splits = allSplits(data);
+  el.innerHTML = splits.map(s => {
+    const isActive = s.id === data.activeSplitId;
+    const dayCount = Object.keys(s.days || {}).length;
+    return `
+      <div class="split-mgmt-card ${isActive ? "is-active" : ""}" data-split-id="${esc(s.id)}">
+        <h4>${esc(s.name)}${isActive ? '<span class="split-badge-active">Active</span>' : ""}</h4>
+        <p class="split-mgmt-meta">
+          ${s.version != null ? `Version ${esc(String(s.version))} &middot; ` : ""}
+          ${s.goalProfile ? `${esc(s.goalProfile)} &middot; ` : ""}
+          ${dayCount} training day${dayCount === 1 ? "" : "s"}
+          ${s.lastActivatedDate ? ` &middot; Last activated ${esc(new Date(s.lastActivatedDate).toLocaleDateString())}` : ""}
+        </p>
+        <div class="program-editor-row-actions">
+          ${!isActive ? `<button type="button" class="split-mgmt-activate" data-split-id="${esc(s.id)}">Activate</button>` : ""}
+          <button type="button" class="split-mgmt-view" data-split-id="${esc(s.id)}">View Days</button>
+        </div>
+      </div>`;
+  }).join("");
+
+  el.querySelectorAll(".split-mgmt-activate").forEach(btn => btn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    const d = getData();
+    switchActiveSplit(d, btn.dataset.splitId);
+    window.dispatchEvent(new CustomEvent("reacher:refresh"));
+  }));
+  el.querySelectorAll(".split-mgmt-view").forEach(btn => btn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    splitMgmtView = { level: "split", splitId: btn.dataset.splitId, day: null };
+    renderSplitManagement(getData());
+  }));
+}
+
+function renderSplitDetailView(data, el, splitId) {
+  const split = allSplits(data).find(s => s.id === splitId);
+  if (!split) { splitMgmtView = { level: "list", splitId: null, day: null }; renderSplitListView(data, el); return; }
+  const byName = Object.fromEntries((data.exercises || []).map(e => [e.name, e]));
+  const days = Object.entries(split.days || {});
+
+  el.innerHTML = `
+    <button type="button" class="split-detail-back">&larr; All splits</button>
+    <h3>${esc(split.name)}${split.id === data.activeSplitId ? '<span class="split-badge-active">Active</span>' : ""}</h3>
+    ${days.map(([day, exercises]) => `
+      <div class="split-day-card" data-day="${esc(day)}">
+        <h5>${esc(day)}</h5>
+        ${dayObjective(day) ? `<p class="small">${esc(dayObjective(day))}</p>` : ""}
+        <p class="split-mgmt-meta">${exercises.length} exercise${exercises.length === 1 ? "" : "s"} &middot; ${esc(primaryStructuresForDay(exercises, byName).join(", ") || "No tracked structures")}</p>
+      </div>`).join("")}
+  `;
+
+  el.querySelector(".split-detail-back").addEventListener("click", () => {
+    splitMgmtView = { level: "list", splitId: null, day: null };
+    renderSplitManagement(getData());
+  });
+  el.querySelectorAll(".split-day-card").forEach(card => card.addEventListener("click", () => {
+    splitMgmtView = { level: "day", splitId, day: card.dataset.day };
+    renderSplitManagement(getData());
+  }));
+}
+
+function renderDayDetailView(data, el, splitId, day) {
+  const split = allSplits(data).find(s => s.id === splitId);
+  const exercises = split?.days?.[day];
+  if (!split || !exercises) { splitMgmtView = { level: "split", splitId, day: null }; renderSplitDetailView(data, el, splitId); return; }
+  const byName = Object.fromEntries((data.exercises || []).map(e => [e.name, e]));
+
+  el.innerHTML = `
+    <button type="button" class="split-day-back">&larr; ${esc(split.name)}</button>
+    <h3>${esc(day)}</h3>
+    ${dayObjective(day) ? `<p class="small">${esc(dayObjective(day))}</p>` : ""}
+    ${exercises.map((ex, i) => {
+      const def = byName[ex.name];
+      const contributions = def?.muscleHeadContributions || {};
+      const primary = Object.entries(contributions).filter(([, w]) => w >= 1).map(([h]) => MUSCLE_HEADS[h]?.label || h);
+      const secondary = Object.entries(contributions).filter(([, w]) => w > 0 && w < 1).map(([h]) => MUSCLE_HEADS[h]?.label || h);
+      const history = getExerciseHistory(data.workouts || [], ex.name);
+      const previousWeight = history.lastSession ? Math.max(Number(history.lastSession.set1Weight) || 0, Number(history.lastSession.set2Weight) || 0) : null;
+      const pr = (data.prs || []).find(p => p.exercise === ex.name);
+      const allTimeBest = pr?.weight ?? (history.previousBest ? Math.max(Number(history.previousBest.set1Weight) || 0, Number(history.previousBest.set2Weight) || 0) : null);
+      return `
+        <div class="day-detail-exercise">
+          <strong>${i + 1}. ${esc(ex.name)}</strong>
+          <p class="small">${ex.sets != null ? `${ex.sets} sets &middot; ` : ""}${esc(ex.repRange || "")}</p>
+          <p class="heads">Primary: ${esc(primary.join(", ") || "&mdash;")}${secondary.length ? ` &middot; Secondary: ${esc(secondary.join(", "))}` : ""}</p>
+          <p class="small">Previous working weight: ${previousWeight != null ? `${previousWeight}kg` : "Not yet logged"} &middot; All-time best: ${allTimeBest != null ? `${allTimeBest}kg` : "Not yet logged"}</p>
+        </div>`;
+    }).join("")}
+    <p class="small">To change, add or remove an exercise on this day, use the Training Program Editor below (Save Program Changes applies to all days at once, exactly as it always has).</p>
+  `;
+
+  el.querySelector(".split-day-back").addEventListener("click", () => {
+    splitMgmtView = { level: "split", splitId, day: null };
+    renderSplitManagement(getData());
+  });
+}
+
+export function renderSplitManagement(data) {
+  const el = $("splitManagementRoot");
+  if (!el) return;
+  if (splitMgmtView.level === "split") renderSplitDetailView(data, el, splitMgmtView.splitId);
+  else if (splitMgmtView.level === "day") renderDayDetailView(data, el, splitMgmtView.splitId, splitMgmtView.day);
+  else renderSplitListView(data, el);
+}
+
 export function renderProgramEditor(data) {
   renderPhysiquePriorityOrder(data);
   renderHypertrophyAllocationSummary(data);
+  renderSplitManagement(data);
+  renderV2WeeklyAudit(data);
   const el = $("programEditor");
   el.innerHTML = renderSplitSwitcherHtml(data) + Object.entries(data.trainingProgram).map(([day, exercises]) => {
     const dayExerciseNames = new Set(exercises.map(e => e.name));
@@ -488,7 +678,7 @@ export function renderProgramEditor(data) {
     return `
     <h3>${esc(day)}</h3>
     <div class="table-wrap"><table class="data-table" data-day="${esc(day)}">
-      <thead><tr><th>Exercise</th><th>Rep Range</th><th>Note</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Exercise</th><th>Sets</th><th>Rep Range</th><th>Note</th><th>Actions</th></tr></thead>
       <tbody>
         ${exercises.map((e, i) => programEditorRowHtml(e, i)).join("")}
       </tbody>
@@ -588,7 +778,9 @@ export function renderProgramEditor(data) {
         const name = row.querySelector('[data-field="name"]').value.trim();
         const repRange = row.querySelector('[data-field="repRange"]').value;
         const note = row.querySelector('[data-field="note"]').value;
-        return { id: eid(name), name, repRange, note };
+        const setsRaw = row.querySelector('[data-field="sets"]')?.value;
+        const sets = setsRaw === "" || setsRaw == null ? null : Number(setsRaw);
+        return { id: eid(name), name, repRange, note, sets };
       }).filter(entry => entry.name);
     });
     const skippedDays = applySessionNutritionEditorToData(el, d);

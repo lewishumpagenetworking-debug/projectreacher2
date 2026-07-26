@@ -12,6 +12,11 @@ import { MUSCLE_HEADS, MUSCLE_HEAD_IDS } from "./muscle-heads.js";
 // version (Phase 8), which lets a user reorder these same tiers via data.physiquePriorityTierOrder
 // without ever needing to duplicate or hand-edit the tier contents themselves. Heads not
 // listed here fall into the lowest ("remaining musculature") tier.
+// Aesthetic Protocol v2 Deterministic Training Rulebook directive, Section 6: an 11-tier
+// hierarchy that happens to match this app's existing (Hypertrophy Engine Phase 8) first 7
+// tiers exactly, so it's extended here rather than replaced — appending Mid-back, Calves,
+// Upper traps and Neck/core as 4 new lower tiers. The directive is explicit that upper traps
+// must NOT be treated as high-priority (tier 10 of 11, deliberately low).
 export const DEFAULT_PRIORITY_HEAD_ORDER = [
   ["lateral_delts"],
   ["chest_upper"],
@@ -19,7 +24,11 @@ export const DEFAULT_PRIORITY_HEAD_ORDER = [
   ["biceps_long_head", "biceps_short_head", "brachialis", "triceps_long_head", "triceps_lateral_head", "triceps_medial_head"],
   ["brachioradialis", "wrist_flexors", "wrist_extensors"],
   ["rear_delts"],
-  ["quads", "hamstrings"]
+  ["quads", "hamstrings"],
+  ["back_thickness"],
+  ["calves"],
+  ["traps"],
+  ["neck", "core"]
 ];
 
 /** Human-readable label per DEFAULT_PRIORITY_HEAD_ORDER tier index, for the priority-order UI. */
@@ -30,7 +39,11 @@ export const PRIORITY_TIER_LABELS = [
   "Arms (biceps &amp; triceps)",
   "Forearms &amp; grip",
   "Rear delts",
-  "Quads &amp; hamstrings"
+  "Quads &amp; hamstrings",
+  "Mid-back",
+  "Calves",
+  "Upper traps",
+  "Neck &amp; core"
 ];
 
 /**

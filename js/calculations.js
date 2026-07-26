@@ -1164,8 +1164,17 @@ function headFatigueLevelFromStimulus(currentStimulus, landmarks) {
   return "low";
 }
 
-function daysSinceHeadLastTrained(workouts, exercises, headId, referenceDate) {
-  const contributingNames = new Set(exercises.filter(e => e.muscleHeadContributions && headId in e.muscleHeadContributions).map(e => e.name));
+/**
+ * `minWeight` (default 0 = any contribution, matching the original behaviour every existing
+ * caller relies on) optionally restricts this to only "direct" exposure — the Aesthetic
+ * Protocol v2 Deterministic Training Rulebook directive's recovery-spacing rule (Section 8)
+ * distinguishes direct (primary, weight 1.0) exposure from indirect/secondary stimulus, so
+ * js/aesthetic-protocol-v2-audit.js passes minWeight: 1.0 for that specific deterministic check.
+ */
+export function daysSinceHeadLastTrained(workouts, exercises, headId, referenceDate, minWeight = 0) {
+  const contributingNames = new Set(
+    exercises.filter(e => e.muscleHeadContributions && headId in e.muscleHeadContributions && e.muscleHeadContributions[headId] >= minWeight).map(e => e.name)
+  );
   let mostRecent = null;
   workouts.forEach(w => {
     const d = parseLogDate(w.date);

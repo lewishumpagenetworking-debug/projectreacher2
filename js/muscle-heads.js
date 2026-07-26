@@ -40,7 +40,13 @@ export const MUSCLE_HEADS = {
   quads: { label: "Quads", region: "legs" },
   hamstrings: { label: "Hamstrings", region: "legs" },
   glutes: { label: "Glutes", region: "legs" },
-  calves: { label: "Calves", region: "legs" }
+  calves: { label: "Calves", region: "legs" },
+
+  // Aesthetic Protocol v2 Deterministic Training Rulebook directive — the app's taxonomy had
+  // no tracked structure for core or neck work until this directive required weekly Core/Neck
+  // targets. Purely additive: nothing above changes shape or meaning.
+  core: { label: "Core", region: "core" },
+  neck: { label: "Neck", region: "neck" }
 };
 
 export const MUSCLE_HEAD_IDS = Object.keys(MUSCLE_HEADS);
