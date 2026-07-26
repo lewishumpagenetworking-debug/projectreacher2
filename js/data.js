@@ -72,11 +72,26 @@ function withDefaults(item, defaults) {
   return { ...defaults, ...item };
 }
 
+/**
+ * Split Versioning (Hypertrophy Intelligence Engine spec): a named, swappable copy of the
+ * whole trainingProgram day-map. `data.trainingProgram` always stays the "resolved active
+ * view" every existing consumer already reads (weeklyComplianceRate, render-train.js, etc.) —
+ * switching splits just replaces that view's contents; it never touches data.workouts/
+ * data.prs/data.exercises, so history/PRs/predicted loads/notes/progression graphs (all
+ * keyed by exercise name/id, never by day) are completely unaffected by which split is active.
+ */
+function newTrainingSplit(name, days) {
+  return { id: uid(), name, days: structuredClone(days) };
+}
+
 function emptyData() {
+  const initialSplit = newTrainingSplit("Current Programme", DEFAULT_TRAINING_PROGRAM);
   return {
     schemaVersion: SCHEMA_VERSION,
     profile: { ...DEFAULT_PROFILE },
-    trainingProgram: structuredClone(DEFAULT_TRAINING_PROGRAM),
+    trainingProgram: structuredClone(initialSplit.days),
+    trainingSplits: [initialSplit],
+    activeSplitId: initialSplit.id,
     exercises: structuredClone(EXERCISE_DATABASE),
     sessionNutrition: structuredClone(DEFAULT_SESSION_NUTRITION),
     checkins: [],
@@ -541,6 +556,18 @@ export function migrateData() {
     }
   });
 
+  // Split Versioning: seed a single split from whatever trainingProgram already is (after
+  // the day-restore above), so upgrading never loses or renames anything the user already
+  // has — it just gives the existing programme a name ("Current Programme") and a home.
+  if (!Array.isArray(data.trainingSplits) || !data.trainingSplits.length) {
+    data.trainingSplits = [newTrainingSplit("Current Programme", data.trainingProgram)];
+    changed = true;
+  }
+  if (!data.activeSplitId || !data.trainingSplits.some(s => s.id === data.activeSplitId)) {
+    data.activeSplitId = data.trainingSplits[0].id;
+    changed = true;
+  }
+
   // Session nutrition: same additive-restore pattern as the training program above.
   // A day the user has already customised (or already has, canonical or otherwise) is
   // never touched; only entirely-missing days (older data saved before this feature, or
@@ -906,6 +933,7 @@ export function importAndMergeData(importedRaw, currentState) {
   record("equipmentProfiles", mergeByIdGeneric(current.equipmentProfiles, imported.equipmentProfiles, detectDuplicateById));
   record("referenceSources", mergeByIdGeneric(current.referenceSources, imported.referenceSources, detectDuplicateById));
   record("changeHistory", mergeByIdGeneric(current.changeHistory, imported.changeHistory, detectDuplicateById));
+  record("trainingSplits", mergeByIdGeneric(current.trainingSplits, imported.trainingSplits, detectDuplicateById));
   // reminders deliberately not merged — never restore stale/old notification schedules from a backup.
 
   // aiSettings: current device's consent/permissions always win (consent must never be
@@ -917,6 +945,20 @@ export function importAndMergeData(importedRaw, currentState) {
 
   const programResult = preserveCurrentProgramTemplate(current.trainingProgram, imported.trainingProgram);
   merged.trainingProgram = programResult.merged;
+
+  // activeSplitId: current device's active split always wins if it still exists in the
+  // merged list; only adopt the import's choice if current has none valid there, falling
+  // back to the first available split so this never points at a split that doesn't exist.
+  // Note: each split's own stored `days` snapshot is merged independently above (current
+  // wins per-field via mergeByIdGeneric) and is not re-derived from the resolved
+  // trainingProgram merge on this line — a split you aren't currently on can only drift
+  // from trainingProgram if you edit the programme on two devices under different active
+  // splits between imports, which never loses data, just leaves that split's copy stale
+  // until you switch to it and re-save.
+  const mergedSplits = merged.trainingSplits || [];
+  merged.activeSplitId = mergedSplits.some(s => s.id === current.activeSplitId)
+    ? current.activeSplitId
+    : (mergedSplits.some(s => s.id === imported.activeSplitId) ? imported.activeSplitId : (mergedSplits[0]?.id || null));
 
   const exerciseResult = preserveCurrentExerciseDatabase(current.exercises, imported.exercises);
   merged.exercises = exerciseResult.merged;

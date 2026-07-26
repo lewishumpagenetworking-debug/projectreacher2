@@ -8,6 +8,8 @@ import { parseLogDate, isSameWeek, startOfWeek, isLegacySlashDate } from "./date
 import {
   DEFAULT_SESSION_NUTRITION, SAFE_FALLBACK_SESSION_NUTRITION, getSessionNutritionForDay, isValidSessionNutritionNumber
 } from "./session-nutrition.js";
+import { eid } from "./program.js";
+import { allSplits, activeSplit, createSplit, renameSplit, deleteSplit, switchActiveSplit, syncActiveSplitDays } from "./training-splits.js";
 
 export function renderVisualModeToggle(data) {
   const checkbox = $("visualModeToggle");
@@ -345,38 +347,156 @@ function applySessionNutritionEditorToData(el, d) {
   return skippedDays;
 }
 
+function programEditorRowHtml(e, i) {
+  return `
+    <tr data-idx="${i}">
+      <td><input data-field="name" value="${esc(e.name)}"></td>
+      <td><input data-field="repRange" value="${esc(e.repRange)}"></td>
+      <td><input data-field="note" value="${esc(e.note || "")}"></td>
+      <td class="program-editor-row-actions">
+        <button type="button" class="row-move-up" title="Move up">&uarr;</button>
+        <button type="button" class="row-move-down" title="Move down">&darr;</button>
+        <button type="button" class="row-remove" title="Remove exercise">&times;</button>
+      </td>
+    </tr>`;
+}
+
+/**
+ * Split Versioning (Hypertrophy Intelligence Engine spec): switch which named split is
+ * active, or create/rename/delete a split. Switching only ever replaces which day-map
+ * data.trainingProgram resolves to — it never touches workouts/PRs/exercises, so history,
+ * predicted loads and progression graphs for every exercise are completely unaffected by
+ * which split is active.
+ */
+function renderSplitSwitcherHtml(data) {
+  const splits = allSplits(data);
+  return `
+    <div class="split-switcher">
+      <label>Active training split
+        <select id="splitSwitcherSelect">
+          ${splits.map(s => `<option value="${esc(s.id)}" ${s.id === data.activeSplitId ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
+        </select>
+      </label>
+      <button type="button" id="newSplitBtn">New split</button>
+      <button type="button" id="renameSplitBtn">Rename split</button>
+      <button type="button" id="deleteSplitBtn">Delete split</button>
+      <p class="small">Splits are named, swappable versions of the whole programme below. Switching splits never deletes or alters any exercise history, PRs, predicted loads, notes or progression graphs — those all stay tied to the exercise itself, not to which split is active.</p>
+    </div>`;
+}
+
 export function renderProgramEditor(data) {
   const el = $("programEditor");
-  el.innerHTML = Object.entries(data.trainingProgram).map(([day, exercises]) => `
+  el.innerHTML = renderSplitSwitcherHtml(data) + Object.entries(data.trainingProgram).map(([day, exercises]) => {
+    const dayExerciseNames = new Set(exercises.map(e => e.name));
+    const availableToAdd = (data.exercises || []).filter(ex => ex.active !== false && !dayExerciseNames.has(ex.name));
+    return `
     <h3>${esc(day)}</h3>
     <div class="table-wrap"><table class="data-table" data-day="${esc(day)}">
-      <thead><tr><th>Exercise</th><th>Rep Range</th><th>Note</th></tr></thead>
+      <thead><tr><th>Exercise</th><th>Rep Range</th><th>Note</th><th>Actions</th></tr></thead>
       <tbody>
-        ${exercises.map((e, i) => `
-          <tr data-idx="${i}">
-            <td><input data-field="name" value="${esc(e.name)}"></td>
-            <td><input data-field="repRange" value="${esc(e.repRange)}"></td>
-            <td><input data-field="note" value="${esc(e.note || "")}"></td>
-          </tr>`).join("")}
+        ${exercises.map((e, i) => programEditorRowHtml(e, i)).join("")}
       </tbody>
     </table></div>
+    <div class="program-editor-add-row">
+      <select data-add-exercise-select data-day="${esc(day)}">
+        <option value="">Add exercise&hellip;</option>
+        ${availableToAdd.map(ex => `<option value="${esc(ex.name)}">${esc(ex.name)}</option>`).join("")}
+      </select>
+      <button type="button" class="add-exercise-btn" data-day="${esc(day)}">Add to ${esc(day)}</button>
+    </div>
     ${renderSessionNutritionEditorHtml(day, getSessionNutritionForDay(data, day))}
-  `).join("") + `<button id="saveProgram">Save Program Changes</button>`;
+  `;
+  }).join("") + `<button id="saveProgram">Save Program Changes</button>`;
+
+  $("splitSwitcherSelect")?.addEventListener("change", (ev) => {
+    const d = getData();
+    switchActiveSplit(d, ev.target.value);
+    window.dispatchEvent(new CustomEvent("reacher:refresh"));
+  });
+
+  $("newSplitBtn")?.addEventListener("click", () => {
+    const name = prompt("New split name:");
+    if (name == null) return;
+    const d = getData();
+    const newId = createSplit(d, name, { copyFromActive: true });
+    if (!newId) { alert("Split name can't be empty."); return; }
+    switchActiveSplit(d, newId);
+    window.dispatchEvent(new CustomEvent("reacher:refresh"));
+  });
+
+  $("renameSplitBtn")?.addEventListener("click", () => {
+    const d = getData();
+    const current = activeSplit(d);
+    const name = prompt("Rename split:", current?.name || "");
+    if (name == null) return;
+    if (!renameSplit(d, d.activeSplitId, name)) { alert("Split name can't be empty."); return; }
+    window.dispatchEvent(new CustomEvent("reacher:refresh"));
+  });
+
+  $("deleteSplitBtn")?.addEventListener("click", () => {
+    const d = getData();
+    if (!confirm("Delete this split? Its exercise names/structure will be removed, but nothing in your logged history, PRs or progression is affected.")) return;
+    const result = deleteSplit(d, d.activeSplitId);
+    if (!result.ok) {
+      const messages = {
+        "at-least-one-required": "You need at least one split — create another before deleting this one.",
+        "cannot-delete-active": "Switch to a different split first, then delete this one.",
+        "not-found": "That split no longer exists."
+      };
+      alert(messages[result.reason] || "Couldn't delete that split.");
+      return;
+    }
+    window.dispatchEvent(new CustomEvent("reacher:refresh"));
+  });
+
+  el.querySelectorAll(".add-exercise-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const day = btn.dataset.day;
+      const select = el.querySelector(`select[data-add-exercise-select][data-day="${CSS.escape(day)}"]`);
+      const name = select?.value;
+      if (!name) return;
+      const table = el.querySelector(`table[data-day="${CSS.escape(day)}"]`);
+      const tbody = table.querySelector("tbody");
+      const alreadyPresent = [...tbody.querySelectorAll('[data-field="name"]')].some(input => input.value === name);
+      if (alreadyPresent) { alert(`${name} is already on ${day}.`); return; }
+      const exerciseDef = (data.exercises || []).find(ex => ex.name === name);
+      const repRange = exerciseDef && exerciseDef.repRangeMin != null && exerciseDef.repRangeMax != null
+        ? `${exerciseDef.repRangeMin}-${exerciseDef.repRangeMax}` : "";
+      const wrapper = document.createElement("tbody");
+      wrapper.innerHTML = programEditorRowHtml({ name, repRange, note: "" }, tbody.children.length);
+      tbody.appendChild(wrapper.firstElementChild);
+      select.value = "";
+    });
+  });
+
+  el.addEventListener("click", (ev) => {
+    const row = ev.target.closest("tr[data-idx]");
+    if (!row) return;
+    if (ev.target.classList.contains("row-remove")) {
+      row.remove();
+    } else if (ev.target.classList.contains("row-move-up")) {
+      const prev = row.previousElementSibling;
+      if (prev) row.parentElement.insertBefore(row, prev);
+    } else if (ev.target.classList.contains("row-move-down")) {
+      const next = row.nextElementSibling;
+      if (next) row.parentElement.insertBefore(next, row);
+    }
+  });
 
   $("saveProgram").addEventListener("click", () => {
     const d = getData();
     el.querySelectorAll("table[data-day]").forEach(table => {
       const day = table.dataset.day;
-      table.querySelectorAll("tbody tr").forEach((row, i) => {
-        const target = d.trainingProgram[day][i];
-        if (!target) return;
-        target.name = row.querySelector('[data-field="name"]').value;
-        target.repRange = row.querySelector('[data-field="repRange"]').value;
-        target.note = row.querySelector('[data-field="note"]').value;
-      });
+      const rows = [...table.querySelectorAll("tbody tr")];
+      d.trainingProgram[day] = rows.map(row => {
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        const repRange = row.querySelector('[data-field="repRange"]').value;
+        const note = row.querySelector('[data-field="note"]').value;
+        return { id: eid(name), name, repRange, note };
+      }).filter(entry => entry.name);
     });
     const skippedDays = applySessionNutritionEditorToData(el, d);
-    saveData(d);
+    syncActiveSplitDays(d);
     window.dispatchEvent(new CustomEvent("reacher:refresh"));
     const skippedNote = skippedDays.length
       ? ` Session nutrition for ${skippedDays.join(", ")} was left unchanged because it contained a negative value.`

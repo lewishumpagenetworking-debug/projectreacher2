@@ -5,7 +5,7 @@
 // file is never read again for that user's edits.
 
 let seq = 0;
-const eid = (name) => `ex_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`;
+export const eid = (name) => `ex_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`;
 const evid = (exerciseId, variantName) => `${exerciseId}__var_${variantName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`;
 
 function exercise({
