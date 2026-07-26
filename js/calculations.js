@@ -1091,12 +1091,20 @@ export function adaptiveVolumeLandmarks(workouts, exercises, headId, referenceDa
   return { ...landmarks, basis, confidence };
 }
 
+// `recoveryStatus` may be a single string (applied to every head alike — the original Phase 2
+// whole-body-proxy shape, kept for backward compatibility) or an object keyed by headId (Phase
+// 3's per-head Recovery Forecast — see muscleHeadRecoveryStatusMap() below).
+function recoveryStatusFor(headId, recoveryStatus) {
+  if (recoveryStatus && typeof recoveryStatus === "object") return recoveryStatus[headId] ?? null;
+  return recoveryStatus;
+}
+
 /**
  * Weekly Muscle Head Targets (Hypertrophy Intelligence Engine spec): current stimulus, target
  * stimulus, status vs. that target, and a confidence-labelled landmark basis, for every tracked
- * muscle head. `recoveryStatus` here is an interim whole-body proxy (readinessScore's status) —
- * true per-head recovery arrives with the dedicated Recovery Forecast engine; this field is
- * explicitly a placeholder until that lands, not a claim of per-muscle recovery tracking.
+ * muscle head. `recoveryStatus` may be a single string (whole-body proxy, applied to every head
+ * alike — Phase 2's original shape, kept working unchanged) or an object keyed by headId (Phase
+ * 3's real per-head Recovery Forecast — see muscleHeadRecoveryStatusMap() below).
  */
 export function weeklyMuscleHeadTargets(workouts, exercises, referenceDate = new Date(), recoveryStatus = null) {
   const currentStimulus = weeklyHeadStimulus(workouts, exercises, referenceDate);
@@ -1109,7 +1117,7 @@ export function weeklyMuscleHeadTargets(workouts, exercises, referenceDate = new
     else if (current > landmarks.maximumRecoverableVolume) status = "over-recoverable";
     else if (current > landmarks.maximumAdaptiveVolume) status = "above-adaptive";
     else status = "in-range";
-    return { headId, currentStimulus: current, targetStimulus, landmarks, status, confidence: landmarks.confidence, recoveryStatus };
+    return { headId, currentStimulus: current, targetStimulus, landmarks, status, confidence: landmarks.confidence, recoveryStatus: recoveryStatusFor(headId, recoveryStatus) };
   });
 }
 
@@ -1117,12 +1125,12 @@ export function weeklyMuscleHeadTargets(workouts, exercises, referenceDate = new
  * Intelligent volume warnings (spec: "Warn when: volume is likely too low to drive growth /
  * volume is likely exceeding recoverable limits / recovery is becoming the limiting factor").
  * Read-only, explainable, never auto-adjusts anything — same override-able-warning pattern as
- * the rest of the app. `recoveryStatus` is the same interim whole-body proxy as above.
+ * the rest of the app. `recoveryStatus` accepts the same string-or-per-head-map shape as above.
  */
 export function adaptiveVolumeWarnings(workouts, exercises, referenceDate = new Date(), recoveryStatus = null) {
   const targets = weeklyMuscleHeadTargets(workouts, exercises, referenceDate, recoveryStatus);
   const warnings = [];
-  const lowRecovery = recoveryStatus === "red" || recoveryStatus === "red-amber";
+  const isLowRecovery = (status) => status === "red" || status === "red-amber";
 
   targets.forEach(t => {
     if (t.currentStimulus === 0) return; // no data logged for this head this week — not a "too low" warning, just untrained
@@ -1132,8 +1140,210 @@ export function adaptiveVolumeWarnings(workouts, exercises, referenceDate = new 
     } else if (t.status === "over-recoverable") {
       warnings.push({ headId: t.headId, type: "excessive-volume", message: `${label}: ${t.currentStimulus} effective sets this week is likely exceeding the recoverable limit (${t.landmarks.maximumRecoverableVolume}).` });
     }
-    if (lowRecovery && (t.status === "above-adaptive" || t.status === "over-recoverable")) {
+    if (isLowRecovery(t.recoveryStatus) && (t.status === "above-adaptive" || t.status === "over-recoverable")) {
       warnings.push({ headId: t.headId, type: "recovery-limiting", message: `${label}: recovery signals are low while stimulus is high — recovery may be the limiting factor here, not additional volume.` });
+    }
+  });
+
+  return warnings;
+}
+
+// ---- Recovery Forecast + Fatigue Budget (Hypertrophy Intelligence Engine spec) ----
+// Estimates a 0-100 recovery percentage per muscle head from days since last trained, how much
+// fatigue that training likely generated (via Phase 2's volume landmarks), recent sleep,
+// recent protein sufficiency, and any pain/declining-performance signal — plus a coarse
+// per-session fatigue estimate and a "redundant fatigue" warning when fatigue keeps
+// accumulating without additional weekly stimulus. Every number here is a documented,
+// explainable heuristic, not a physiological measurement.
+
+const FULL_RECOVERY_DAYS_BY_FATIGUE = { low: 2, moderate: 3, high: 5 };
+
+function headFatigueLevelFromStimulus(currentStimulus, landmarks) {
+  if (currentStimulus >= landmarks.maximumRecoverableVolume) return "high";
+  if (currentStimulus >= landmarks.maximumAdaptiveVolume) return "moderate";
+  return "low";
+}
+
+function daysSinceHeadLastTrained(workouts, exercises, headId, referenceDate) {
+  const contributingNames = new Set(exercises.filter(e => e.muscleHeadContributions && headId in e.muscleHeadContributions).map(e => e.name));
+  let mostRecent = null;
+  workouts.forEach(w => {
+    const d = parseLogDate(w.date);
+    if (!d) return;
+    (w.exercises || []).forEach(e => {
+      if (!contributingNames.has(e.name)) return;
+      if (!(Number(e.set1Reps) > 0 || Number(e.set2Reps) > 0)) return;
+      if (!mostRecent || d > mostRecent) mostRecent = d;
+    });
+  });
+  if (!mostRecent) return null;
+  return Math.max(0, Math.round((referenceDate - mostRecent) / 86400000));
+}
+
+/** Recovery percentage penalty from recent sleep sufficiency vs. the user's own sleep target. */
+function sleepRecoveryModifier(data, referenceDate) {
+  const target = data.profile?.sleepTargetHours || 7.5;
+  const stats = sleepStats(data.sleepLogs || [], referenceDate);
+  if (!stats.hasData || stats.sevenDayAverage == null) return { modifier: 0, hasData: false };
+  const ratio = stats.sevenDayAverage / target;
+  if (ratio >= 1) return { modifier: 0, hasData: true };
+  if (ratio <= 0.7) return { modifier: -20, hasData: true };
+  return { modifier: Math.round(-20 * ((1 - ratio) / 0.3)), hasData: true };
+}
+
+/** Recovery percentage penalty from recent (last 3 logged days) protein intake vs. the user's own target. */
+function nutritionRecoveryModifier(data, referenceDate) {
+  const weightKg = currentBodyweightKg(data);
+  if (!weightKg) return { modifier: 0, hasData: false };
+  const targets = macroTargets(weightKg);
+  const proteinReadings = [];
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(referenceDate.getTime() - i * 86400000);
+    const totals = dailyMealTotals(data.mealLogs || [], d.toLocaleDateString("en-CA"));
+    if (totals.mealCount > 0) proteinReadings.push(totals.protein);
+  }
+  if (!proteinReadings.length) return { modifier: 0, hasData: false };
+  const avgProtein = average(proteinReadings);
+  const ratio = avgProtein / targets.proteinMin;
+  if (ratio >= 1) return { modifier: 0, hasData: true };
+  if (ratio <= 0.6) return { modifier: -15, hasData: true };
+  return { modifier: Math.round(-15 * ((1 - ratio) / 0.4)), hasData: true };
+}
+
+/**
+ * Recovery Forecast for one muscle head: an estimated recovery percentage (0-100), the days
+ * since it was last trained, the fatigue level that training likely generated, and any concern
+ * flags (currently: recent pain). Deliberately does NOT incorporate peptide/administration logs
+ * as a quantitative recovery multiplier — this app has no validated causal link between any
+ * specific compound and muscle recovery rate (js/peptide-correlation.js only ever reports
+ * observed correlations, never asserts causation), and asserting one here would be exactly the
+ * kind of fabricated precision this app avoids everywhere else. A brand-new, never-trained head
+ * is reported as fully recovered (100%) — there's no prior fatigue to still be recovering from.
+ */
+export function muscleHeadRecoveryForecast(data, headId, referenceDate = new Date()) {
+  const workouts = data.workouts || [];
+  const exercises = data.exercises || [];
+  const daysSinceTrained = daysSinceHeadLastTrained(workouts, exercises, headId, referenceDate);
+
+  if (daysSinceTrained == null) {
+    return { headId, recoveryPercent: 100, daysSinceTrained: null, fatigueLevel: null, concernFlags: [], confidence: "low" };
+  }
+
+  const currentStimulus = weeklyHeadStimulus(workouts, exercises, referenceDate)[headId] || 0;
+  const landmarks = adaptiveVolumeLandmarks(workouts, exercises, headId, referenceDate);
+  const fatigueLevel = headFatigueLevelFromStimulus(currentStimulus, landmarks);
+  const fullRecoveryDays = FULL_RECOVERY_DAYS_BY_FATIGUE[fatigueLevel];
+
+  let recoveryPercent = clamp((daysSinceTrained / fullRecoveryDays) * 100, 0, 100);
+
+  const sleep = sleepRecoveryModifier(data, referenceDate);
+  const nutrition = nutritionRecoveryModifier(data, referenceDate);
+  recoveryPercent = clamp(recoveryPercent + sleep.modifier + nutrition.modifier, 0, 100);
+
+  const evidence = headTrainingEvidence(workouts, exercises, headId, referenceDate);
+  const concernFlags = [];
+  if (evidence.hasRecentPain) {
+    concernFlags.push("pain_flagged");
+    recoveryPercent = Math.min(recoveryPercent, 60);
+  }
+
+  const dataPointsAvailable = [sleep.hasData, nutrition.hasData, evidence.exposureCount >= 2].filter(Boolean).length;
+  let confidence = "low";
+  if (dataPointsAvailable >= 2) confidence = "medium";
+  if (dataPointsAvailable === 3 && evidence.exposureCount >= 4) confidence = "high";
+
+  return { headId, recoveryPercent: Math.round(recoveryPercent), daysSinceTrained, fatigueLevel, concernFlags, confidence };
+}
+
+/** muscleHeadRecoveryForecast() for every tracked muscle head at once. */
+export function allMuscleHeadRecoveryForecasts(data, referenceDate = new Date()) {
+  return MUSCLE_HEAD_IDS.map(headId => muscleHeadRecoveryForecast(data, headId, referenceDate));
+}
+
+/**
+ * A per-head recovery-status map (green/amber/red-family) suitable for the `recoveryStatus`
+ * parameter of weeklyMuscleHeadTargets()/adaptiveVolumeWarnings() above — replaces Phase 2's
+ * whole-body placeholder with a real per-head signal now that this Recovery Forecast exists.
+ */
+export function muscleHeadRecoveryStatusMap(data, referenceDate = new Date()) {
+  const map = {};
+  allMuscleHeadRecoveryForecasts(data, referenceDate).forEach(f => {
+    if (f.recoveryPercent >= 70) map[f.headId] = "green";
+    else if (f.recoveryPercent >= 50) map[f.headId] = "amber";
+    else if (f.recoveryPercent >= 30) map[f.headId] = "red-amber";
+    else map[f.headId] = "red";
+  });
+  return map;
+}
+
+/**
+ * Fatigue Budget (spec: "Every session receives a fatigue estimate"): a coarse per-session
+ * fatigue level from hard-set count and proximity to failure (low RIR / technical failure) —
+ * not a physiological measurement, just an explainable relative signal for the redundant-
+ * fatigue warning below.
+ */
+export function sessionFatigueEstimate(workout) {
+  let hardSets = 0;
+  let intensitySets = 0;
+  let painFlagged = false;
+
+  (workout.exercises || []).forEach(e => {
+    [["set1Reps", "set1RIR"], ["set2Reps", "set2RIR"]].forEach(([repsKey, rirKey]) => {
+      if (Number(e[repsKey]) > 0) {
+        hardSets++;
+        const rir = e[rirKey];
+        if ((rir != null && Number(rir) <= 1) || e.technicalFailureReached) intensitySets++;
+      }
+    });
+    if (e.painFlag) painFlagged = true;
+  });
+
+  if (!hardSets) return { fatigueScore: 0, level: "none", hardSets: 0, painFlagged };
+
+  const intensityRatio = intensitySets / hardSets;
+  let level;
+  if (hardSets >= 20 || intensityRatio > 0.6) level = "high";
+  else if (hardSets >= 12 || intensityRatio > 0.3) level = "moderate";
+  else level = "low";
+
+  return { fatigueScore: Math.round(intensityRatio * 100), level, hardSets, painFlagged };
+}
+
+/**
+ * Fatigue Budget warning (spec: "If excessive fatigue accumulates with little additional
+ * stimulus, notify the user that redundant fatigue may reduce growth"). Compares each head's
+ * weekly stimulus trend (flat or declining vs. recent weeks) against how many of this week's
+ * contributing sessions ran at moderate/high fatigue — flags only when both conditions hold
+ * for multiple sessions, so a single hard set doesn't trigger a false alarm.
+ */
+export function fatigueBudgetWarnings(workouts, exercises, referenceDate = new Date()) {
+  const warnings = [];
+  const stimulusHistory = weeklyHeadStimulusHistory(workouts, exercises, 4, referenceDate);
+
+  MUSCLE_HEAD_IDS.forEach(headId => {
+    const series = stimulusHistory.map(w => w[headId] || 0);
+    if (series.every(v => v === 0)) return; // never trained — nothing to say
+
+    const recentStimulus = series[series.length - 1];
+    const priorWeeks = series.slice(0, -1).filter(v => v > 0);
+    const earlierAvg = priorWeeks.length ? average(priorWeeks) : recentStimulus;
+    const stimulusFlatOrDeclining = recentStimulus <= earlierAvg;
+
+    const contributingNames = new Set(exercises.filter(e => e.muscleHeadContributions && headId in e.muscleHeadContributions).map(e => e.name));
+    const thisWeekWorkouts = workoutsInWeek(workouts, referenceDate).filter(w => (w.exercises || []).some(e => contributingNames.has(e.name)));
+    if (thisWeekWorkouts.length < 2) return; // need multiple sessions this week to call a pattern "redundant"
+
+    const elevatedFatigueSessions = thisWeekWorkouts.filter(w => {
+      const { level } = sessionFatigueEstimate(w);
+      return level === "high" || level === "moderate";
+    }).length;
+
+    if (stimulusFlatOrDeclining && elevatedFatigueSessions === thisWeekWorkouts.length) {
+      const label = MUSCLE_HEADS[headId]?.label || headId;
+      warnings.push({
+        headId, type: "redundant-fatigue",
+        message: `${label}: recent sessions are generating consistently high fatigue without additional weekly stimulus — this redundant fatigue may be reducing growth rather than adding to it.`
+      });
     }
   });
 
