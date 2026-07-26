@@ -1,5 +1,5 @@
 // Pure calculation utilities. No DOM access, no storage access — easy to reason about and reuse.
-import { MUSCLE_GROUP_MAP, PRIORITY_MUSCLES } from "./program.js";
+import { MUSCLE_GROUP_MAP, PRIORITY_MUSCLES, findVariant } from "./program.js";
 import { parseLogDate, isSameWeek, startOfWeek } from "./dates.js";
 import { RECOVERY_PROTOCOLS } from "./recovery-data.js";
 
@@ -237,6 +237,190 @@ export function muscleGroupProgressionProfiles(workouts, exercises, referenceDat
     profiles[mg] = computeMuscleGroupProgressionProfile(workouts, exercises, mg, referenceDate);
   });
   return profiles;
+}
+
+// ---- Predictive Load Feature (Variant Backlog spec §7–11) ----
+// Always advisory: the exact previous variant result is the caller's job to display
+// unchanged (see getExerciseHistory/variantCardHtml) — this engine only computes the
+// optional, confidence-labelled, user-confirmed suggestion layered on top of it. It never
+// invents a previous weight, and a "muscle-group only" tier of evidence never produces a
+// precise number, only a test-strategy message, per the spec's evidence hierarchy (§8).
+//
+// The full VariantRelationship similarity model (§11) — per-pair joint/resistance/ROM/
+// machine-transfer scores — isn't implemented: with no real biomechanical measurements to
+// back them, per-pair numeric scores would themselves be fabricated precision, which is
+// exactly what the spec warns against ("raw loads from different machines must never be
+// assumed equivalent"). Instead this collapses the 4-tier hierarchy into the two tiers we can
+// honestly support from real logged data: "exact_variant" (this specific variant has enough
+// of its own recent comparable history to anchor a suggestion — spec tiers 1–2, since
+// machineInstanceId tracking is still optional/future per the spec itself) and
+// "muscle_group_only" (spec tiers 3–4 collapsed — the broader muscle-group trend is real, but
+// nothing this specific about the variant is, so it's always capped at low confidence with no
+// precise number).
+
+const PREDICTION_SUPPRESSION_MESSAGES = {
+  pain_or_injury_logged: "a pain or discomfort flag on the previous session",
+  technique_or_rom_declined: "reduced technique/ROM quality on the previous session",
+  long_layoff: "a long layoff since this exercise was last used",
+  rep_range_changed: "reps outside the programmed rep range on the previous session",
+  suspected_data_error: "a previous entry that looks like it may contain a logging or unit error"
+};
+
+function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+function defaultIncrementFor(variant) {
+  if (variant?.incrementOptions) {
+    const parsed = String(variant.incrementOptions).split(",").map(s => parseFloat(s.trim())).filter(n => !Number.isNaN(n) && n > 0);
+    if (parsed.length) return Math.min(...parsed);
+  }
+  return variant?.weightUnit === "lb" ? 5 : 2.5;
+}
+
+/** Rounds a raw predicted load to the variant's available increment, always at least one full increment above the previous load — a "suggestion" that rounds back down to the previous number isn't a useful suggestion. */
+function roundToIncrement(rawLoad, increment, previousWeight) {
+  let rounded = Math.round(rawLoad / increment) * increment;
+  if (rounded <= previousWeight) rounded = previousWeight + increment;
+  return Math.round(rounded * 100) / 100;
+}
+
+function suppressionMessage(reasons) {
+  const parts = reasons.map(r => PREDICTION_SUPPRESSION_MESSAGES[r]).filter(Boolean);
+  const reasonText = parts.length ? ` due to ${parts.join(" and ")}` : "";
+  return `No specific load increase is suggested this session${reasonText}. Repeat the previous load, or use warm-ups to test a small increase if it feels appropriate.`;
+}
+
+/**
+ * Conservative, confidence-labelled, user-confirmed load suggestion for one exercise variant
+ * (Variant Backlog spec §7–10). Always requires the caller to also show the exact previous
+ * result unchanged (this function's `previousResult` mirrors it for convenience, but doesn't
+ * replace showing history.lastSession directly). `suggestedLoad` is only ever a number when
+ * evidence reaches "exact_variant" tier with no safeguard triggered — every other outcome
+ * returns null and a `message` explaining why, never a fabricated precise figure.
+ */
+export function predictNextLoad(workouts, exercises, exerciseDef, variantId, referenceDate = new Date()) {
+  const base = {
+    hasPrediction: false, confidence: null, evidenceTier: null,
+    suggestedLoad: null,
+    suggestedRepRangeText: exerciseDef?.repRangeMin != null ? `${exerciseDef.repRangeMin}-${exerciseDef.repRangeMax}` : null,
+    reason: null, message: null, suppressedReasons: [], previousResult: null, requiresConfirmation: true
+  };
+  if (!exerciseDef || !variantId) return { ...base, reason: "not_applicable" };
+
+  const variant = findVariant(exerciseDef, variantId);
+  if (exerciseDef.distanceBased || exerciseDef.repRangeMin == null || variant?.loadingType === "bodyweight") {
+    return { ...base, reason: "not_applicable" };
+  }
+
+  const history = getExerciseHistory(workouts, exerciseDef.name, { variantId, canonicalVariantId: exerciseDef.id, referenceDate });
+  const previous = history.lastSession;
+  const previousResult = previous ? { weight: previous.set1Weight ?? null, reps: previous.set1Reps ?? null, date: previous.date ?? null } : null;
+
+  if (!previous) {
+    return {
+      ...base, reason: "new_variant", previousResult,
+      message: "No exact history exists for this exercise. Recent muscle-group progression suggests improved capacity, but today's session must establish the baseline. Use warm-up sets to select a conservative working load."
+    };
+  }
+
+  if (previous.painFlag) {
+    return {
+      ...base, reason: "pain_flagged", previousResult, suppressedReasons: ["pain_or_injury_logged"],
+      message: suppressionMessage(["pain_or_injury_logged"])
+    };
+  }
+
+  const suppressedReasons = [];
+  const formOk = previous.formQuality == null || Number(previous.formQuality) >= 3;
+  const romOk = previous.rangeOfMotionQuality == null || Number(previous.rangeOfMotionQuality) >= 3;
+  if (!formOk || !romOk) suppressedReasons.push("technique_or_rom_declined");
+
+  const usage = variantUsageContext(history, referenceDate);
+  let recencyFactor = 1.0;
+  if (usage.status === "returning") {
+    recencyFactor = usage.daysSinceLastUse > 45 ? 0.3 : 0.6;
+    if (usage.daysSinceLastUse > 45) suppressedReasons.push("long_layoff");
+  }
+
+  const repsOk = previous.set1Reps != null && previous.set1Reps >= exerciseDef.repRangeMin - 2 && previous.set1Reps <= exerciseDef.repRangeMax + 3;
+  if (!repsOk) suppressedReasons.push("rep_range_changed");
+
+  // Exact-variant sessions of its own, within the same lookback used by the muscle-group
+  // profile — this determines how much of the trend genuinely belongs to this variant
+  // (evidenceTier "exact_variant") versus only the broader muscle group ("muscle_group_only").
+  const exactEntries = [];
+  (workouts || []).forEach(w => {
+    const d = parseLogDate(w.date);
+    if (!d) return;
+    (w.exercises || []).forEach(e => {
+      if (e.name !== exerciseDef.name) return;
+      if (resolveVariantId(e, exerciseDef.id) !== variantId) return;
+      exactEntries.push({ ...e, _d: d });
+    });
+  });
+  const lookbackStart = new Date(referenceDate.getTime() - MUSCLE_GROUP_LOOKBACK_DAYS * 86400000);
+  const ownComparableCount = exactEntries.filter(e => e._d >= lookbackStart && isComparableSession(e)).length;
+
+  // Suspected unit/logging error: the previous session's weight is wildly out of line with
+  // this variant's own recent history — don't let a likely typo drive a suggestion.
+  const priorWeights = exactEntries.filter(e => e._d < parseLogDate(previous.date)).map(e => Number(e.set1Weight) || 0).filter(w => w > 0);
+  if (priorWeights.length) {
+    const sorted = [...priorWeights].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const lastWeight = Number(previous.set1Weight) || 0;
+    if (median > 0 && (lastWeight > median * 2.5 || lastWeight < median * 0.4)) suppressedReasons.push("suspected_data_error");
+  }
+
+  const muscleProfile = computeMuscleGroupProgressionProfile(workouts, exercises, exerciseDef.primaryMuscle, referenceDate);
+  const hasEnoughEvidence = muscleProfile.comparableExposureCount >= 3
+    && muscleProfile.recentTrendPercent != null && muscleProfile.recentTrendPercent > 0;
+
+  if (!hasEnoughEvidence) {
+    return {
+      ...base, previousResult, suppressedReasons,
+      reason: muscleProfile.comparableExposureCount < 3 ? "sparse_data" : "no_positive_trend",
+      message: "Repeat the previous load and reassess next session — there isn't yet enough consistent recent evidence to suggest an increase."
+    };
+  }
+
+  const evidenceTier = ownComparableCount >= 3 ? "exact_variant" : "muscle_group_only";
+
+  if (suppressedReasons.length > 0 || evidenceTier === "muscle_group_only") {
+    return {
+      ...base, previousResult, suppressedReasons, evidenceTier,
+      confidence: "low",
+      reason: evidenceTier === "muscle_group_only" ? "muscle_group_evidence_only" : "safeguard_triggered",
+      message: evidenceTier === "muscle_group_only" && suppressedReasons.length === 0
+        ? `Your ${exerciseDef.primaryMuscle} performance has improved since this exercise was last used. Test the previous load during warm-ups, then consider the next available increment.`
+        : suppressionMessage(suppressedReasons)
+    };
+  }
+
+  // evidenceTier === "exact_variant" with no safeguard triggered — this is the only path
+  // that produces a precise numeric suggestion.
+  const movementSimilarity = 1.0;
+  const machineConfidence = 1.0;
+  const techniqueConfidence = (previous.formQuality != null && Number(previous.formQuality) >= 4
+    && previous.rangeOfMotionQuality != null && Number(previous.rangeOfMotionQuality) >= 4) ? 1.0 : 0.8;
+  const muscleGroupTrend = clamp(muscleProfile.recentTrendPercent / 100, 0, 0.15);
+  const cappedTransferFactor = muscleGroupTrend * movementSimilarity * recencyFactor * techniqueConfidence * machineConfidence;
+
+  const confidence = (muscleProfile.confidence === "high" && recencyFactor === 1.0 && techniqueConfidence === 1.0) ? "high" : "medium";
+  const cap = confidence === "high" ? 0.08 : 0.04;
+  const factor = Math.min(cappedTransferFactor, cap);
+  const increment = defaultIncrementFor(variant);
+  const previousWeight = Number(previous.set1Weight) || 0;
+  const suggestedLoad = previousWeight > 0 ? roundToIncrement(previousWeight * (1 + factor), increment, previousWeight) : null;
+
+  if (suggestedLoad == null) {
+    return { ...base, previousResult, suppressedReasons, evidenceTier, confidence: "low", reason: "no_load_recorded", message: suppressionMessage([]) };
+  }
+
+  return {
+    ...base, previousResult, suppressedReasons, evidenceTier, confidence,
+    hasPrediction: true, suggestedLoad,
+    reason: "muscle_group_trend",
+    message: `Reason: ${exerciseDef.primaryMuscle} performance improved across ${muscleProfile.comparableExposureCount} comparable sessions. Confidence: ${confidence[0].toUpperCase()}${confidence.slice(1)}.`
+  };
 }
 
 export function average(nums) {

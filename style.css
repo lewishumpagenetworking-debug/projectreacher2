@@ -220,6 +220,13 @@ textarea { min-height: 88px; margin: 12px 0; resize: vertical; }
   color: var(--muted);
 }
 .history-item strong { color: var(--text); display: inline; font-size: 15px; }
+.prediction-block {
+  background: var(--accent-soft);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 10px 0;
+}
+.prediction-block .small { margin-top: 4px; }
 
 /* Compact expandable card (progressive disclosure): collapsed shows only the summary
    line, full detail appears on expand. Uses the native <details> element already used
