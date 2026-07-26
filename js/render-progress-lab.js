@@ -8,7 +8,8 @@ import {
   sevenDayAverage, weeklyRateOfGain, weeklyVolumeByMuscleGroup,
   weeklyComplianceRate, exercisesReadyToIncrease, sleepStats, readinessScore,
   dailyMealTotals, macroTargets, currentBodyweightKg,
-  weeklyMuscleHeadTargets, adaptiveVolumeWarnings
+  weeklyMuscleHeadTargets, adaptiveVolumeWarnings,
+  muscleHeadRecoveryStatusMap, allMuscleHeadRecoveryForecasts, fatigueBudgetWarnings
 } from "./calculations.js";
 import { MUSCLE_GROUPS } from "./program.js";
 import { MUSCLE_HEADS, MUSCLE_HEAD_REGIONS, headsInRegion } from "./muscle-heads.js";
@@ -151,20 +152,25 @@ const HEAD_TARGET_STATUS_LABEL = {
 };
 
 /**
- * Hypertrophy Intelligence Engine spec's "Weekly Muscle Head Targets": current stimulus,
- * target stimulus, recovery status (interim whole-body proxy — see weeklyMuscleHeadTargets()'s
- * own doc comment) and confidence, for every tracked muscle head. Presentation-only, like the
- * rest of this file — all numbers come straight from calculations.js.
+ * Hypertrophy Intelligence Engine spec's "Weekly Muscle Head Targets" + "Recovery Forecast" +
+ * "Fatigue Budget": current stimulus, target stimulus, a real per-head recovery percentage
+ * (Phase 3's muscleHeadRecoveryForecast — replaces Phase 2's whole-body placeholder), and
+ * confidence, for every tracked muscle head. Presentation-only, like the rest of this file —
+ * all numbers come straight from calculations.js.
  */
 function renderLabMuscleHeadTargets(data) {
   const el = $("progressLabMuscleHeadTargets");
   const warningsEl = $("progressLabMuscleHeadWarnings");
   if (!el) return;
 
-  const readiness = readinessScore(data);
   const referenceDate = new Date();
-  const targets = weeklyMuscleHeadTargets(data.workouts, data.exercises, referenceDate, readiness?.status || null);
-  const warnings = adaptiveVolumeWarnings(data.workouts, data.exercises, referenceDate, readiness?.status || null);
+  const recoveryStatusMap = muscleHeadRecoveryStatusMap(data, referenceDate);
+  const recoveryByHead = Object.fromEntries(allMuscleHeadRecoveryForecasts(data, referenceDate).map(f => [f.headId, f]));
+  const targets = weeklyMuscleHeadTargets(data.workouts, data.exercises, referenceDate, recoveryStatusMap);
+  const warnings = [
+    ...adaptiveVolumeWarnings(data.workouts, data.exercises, referenceDate, recoveryStatusMap),
+    ...fatigueBudgetWarnings(data.workouts, data.exercises, referenceDate)
+  ];
 
   if (warningsEl) {
     warningsEl.innerHTML = warnings.map(w => `<div class="warning-banner">${esc(w.message)}</div>`).join("");
@@ -175,7 +181,11 @@ function renderLabMuscleHeadTargets(data) {
     const rows = headsInRegion(region).map(headId => {
       const t = byId[headId];
       if (!t) return "";
+      const recovery = recoveryByHead[headId];
       const label = MUSCLE_HEADS[headId]?.label || headId;
+      const recoveryLine = recovery?.daysSinceTrained == null
+        ? "Not yet trained — nothing to recover from."
+        : `${esc(String(recovery.recoveryPercent))}% recovered · ${esc(String(recovery.daysSinceTrained))} day${recovery.daysSinceTrained === 1 ? "" : "s"} since last trained${recovery.concernFlags.includes("pain_flagged") ? " · pain flagged recently" : ""}`;
       return `
         <div class="history-item">
           <div class="section-title">
@@ -183,6 +193,7 @@ function renderLabMuscleHeadTargets(data) {
             <span class="badge-row"><span class="badge">${esc(HEAD_TARGET_STATUS_LABEL[t.status] || t.status)}</span><span class="badge">${esc(t.confidence)} confidence</span></span>
           </div>
           <p class="small">${esc(String(t.currentStimulus))} effective sets this week · target ${esc(String(t.targetStimulus[0]))}–${esc(String(t.targetStimulus[1]))} · recoverable ceiling ${esc(String(t.landmarks.maximumRecoverableVolume))}</p>
+          <p class="small">${recoveryLine}</p>
           <p class="small">${t.landmarks.basis === "personalized" ? "Personalised from your recent progression/recovery data." : "Generic starting band — not yet enough evidence to personalise."}</p>
         </div>`;
     }).join("");
