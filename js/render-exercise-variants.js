@@ -6,7 +6,7 @@
 import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
 import { allVariantsForExercise, findVariant } from "./program.js";
-import { getExerciseHistory, exerciseProgressionStatus, resolveVariantId, variantUsageContext, exerciseSlotAnalytics } from "./calculations.js";
+import { getExerciseHistory, exerciseProgressionStatus, resolveVariantId, variantUsageContext, exerciseSlotAnalytics, predictNextLoad } from "./calculations.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -45,6 +45,33 @@ function formatSetLine(e) {
   return `${e.set1Weight ?? "-"}kg×${e.set1Reps ?? "-"}, ${e.set2Weight ?? "-"}kg×${e.set2Reps ?? "-"}`;
 }
 
+/**
+ * Predictive Load Feature (spec §7-10) — always advisory, only shown for the variant
+ * actually in effect today (predicting off a variant you're not using isn't actionable).
+ * The exact previous result is already shown unchanged above this block regardless of what
+ * this returns; this only ever adds an optional, confidence-labelled, user-confirmed
+ * suggestion on top — never a substitute for it.
+ */
+function predictionHtml(data, exerciseDef, variant) {
+  const prediction = predictNextLoad(data.workouts, data.exercises, exerciseDef, variant.id);
+  if (prediction.reason === "not_applicable" || prediction.reason === "new_variant") return "";
+  if (prediction.suggestedLoad != null) {
+    return `
+      <div class="prediction-block">
+        <p class="small"><strong>Suggested today: ${esc(String(prediction.suggestedLoad))}kg${prediction.suggestedRepRangeText ? ` × ${esc(prediction.suggestedRepRangeText)}` : ""}</strong> <span class="badge">${esc(prediction.confidence)} confidence</span></p>
+        <p class="small">${esc(prediction.message)}</p>
+        <p class="small">This is a suggestion only — your previous exact result above is unchanged, and nothing is applied until you confirm.</p>
+        <div class="actions">
+          <button type="button" data-apply-prediction="${esc(String(prediction.suggestedLoad))}">Use this suggestion</button>
+        </div>
+      </div>`;
+  }
+  if (prediction.message) {
+    return `<div class="prediction-block"><p class="small">${esc(prediction.message)}</p></div>`;
+  }
+  return "";
+}
+
 function variantCardHtml(data, exerciseDef, variant, currentVariantId, preferredVariantId) {
   const history = getExerciseHistory(data.workouts, exerciseDef.name, { variantId: variant.id, canonicalVariantId: exerciseDef.id });
   const isCurrent = variant.id === currentVariantId;
@@ -74,6 +101,7 @@ function variantCardHtml(data, exerciseDef, variant, currentVariantId, preferred
       <p class="small">${esc(variant.equipmentType || "")}${variant.unilateral ? " · unilateral" : ""}</p>
       ${body}
       ${variant.techniqueNotes ? `<p class="small">${esc(variant.techniqueNotes)}</p>` : ""}
+      ${isCurrent ? predictionHtml(data, exerciseDef, variant) : ""}
       <div class="actions">
         <button type="button" class="${isCurrent ? "secondary" : ""}" data-select-variant="${esc(variant.id)}" ${isCurrent ? "disabled" : ""}>${isCurrent ? "Selected for today" : "Use Today"}</button>
         <button type="button" class="${isPreferred ? "secondary" : ""}" data-make-preferred="${esc(variant.id)}" ${isPreferred ? "disabled" : ""}>${isPreferred ? "Preferred default" : "Make Preferred"}</button>
@@ -189,6 +217,24 @@ function makeVariantPreferred(variantId) {
   refreshAll();
 }
 
+/**
+ * Applies a confirmed predicted load suggestion (spec §7: "require user confirmation") to
+ * today's workout form for this exercise — never to any saved record. Only fills the weight
+ * field if it's currently empty, so it can never silently overwrite a value the user already
+ * typed; the user can still edit it freely before saving, and nothing is logged until they
+ * explicitly save the workout as normal.
+ */
+function applyPredictedLoad(weight) {
+  if (!openExerciseName) return;
+  const exerciseName = openExerciseName;
+  closeVariantSelector();
+  requestAnimationFrame(() => {
+    const card = document.querySelector(`.exercise[data-exercise="${CSS.escape(exerciseName)}"]`);
+    const input = card?.querySelector(".set1w");
+    if (input && !input.value) input.value = weight;
+  });
+}
+
 function saveCustomVariant() {
   const data = getData();
   const exerciseDef = data.exercises.find(e => e.name === openExerciseName);
@@ -234,6 +280,9 @@ export function setupVariantSelectorEventDelegation() {
 
     const preferBtn = e.target.closest("[data-make-preferred]");
     if (preferBtn && !preferBtn.disabled) { makeVariantPreferred(preferBtn.dataset.makePreferred); return; }
+
+    const applyPredictionBtn = e.target.closest("[data-apply-prediction]");
+    if (applyPredictionBtn) { applyPredictedLoad(applyPredictionBtn.dataset.applyPrediction); return; }
 
     if (e.target.closest("#variantSelectorToggleCustom")) { showCustomForm = !showCustomForm; renderContent(); return; }
     if (e.target.closest("#cvSaveBtn")) { saveCustomVariant(); return; }
