@@ -6,7 +6,7 @@
 import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
 import { allVariantsForExercise, findVariant } from "./program.js";
-import { getExerciseHistory, exerciseProgressionStatus, resolveVariantId, variantUsageContext, exerciseSlotAnalytics, predictNextLoad } from "./calculations.js";
+import { getExerciseHistory, exerciseProgressionStatus, resolveVariantId, variantUsageContext, exerciseSlotAnalytics, predictNextLoad, previousExercisesInThisPosition } from "./calculations.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
@@ -140,6 +140,11 @@ function renderContent() {
   const preferredVariantId = preferredVariantIdFor(data, exerciseDef);
   const slotAnalytics = exerciseSlotAnalytics(data.workouts, exerciseDef);
 
+  // Gym App Exercise Optionality update (Section 4.4): different EXERCISES that have
+  // previously occupied this same routine position, without merging their progression data.
+  const positionIndex = (data.trainingProgram[day] || []).findIndex(e => e.name === openExerciseName);
+  const previousInPosition = positionIndex >= 0 ? previousExercisesInThisPosition(data.workouts, day, positionIndex, openExerciseName) : [];
+
   // The variant in effect right now (today's choice, else preferred, else canonical) is
   // moved to the front of the list — the rest keep their existing relative order.
   const variants = allVariantsForExercise(exerciseDef);
@@ -165,6 +170,15 @@ function renderContent() {
       ${slotAnalytics.mostUsedVariantId ? `<span class="badge">Most used: ${esc(findVariant(exerciseDef, slotAnalytics.mostUsedVariantId)?.name || "—")}</span>` : ""}
     </div>` : ""}
     ${orderedVariants.map(v => variantCardHtml(data, exerciseDef, v, currentVariantId, preferredVariantId)).join("")}
+    ${previousInPosition.length ? `
+    <h4>Previous exercises used in this position</h4>
+    <p class="small">Different exercises this routine slot has used before. Each keeps its own separate history — nothing here is merged.</p>
+    ${previousInPosition.slice(0, 5).map(p => `
+      <div class="history-item">
+        <strong>${esc(p.name)}</strong>${p.date ? ` · ${esc(p.date)}` : ""}
+        <p class="small">${esc(formatSetLine(p.entry))}</p>
+      </div>`).join("")}
+    ` : ""}
     <button type="button" class="secondary" id="variantSelectorToggleCustom" aria-expanded="${showCustomForm}">${showCustomForm ? "Hide" : "+ Add Custom Variant"}</button>
     ${showCustomForm ? customVariantFormHtml(exerciseDef) : ""}
   `;

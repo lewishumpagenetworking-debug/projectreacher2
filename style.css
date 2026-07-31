@@ -1535,6 +1535,10 @@ table.data-table th { color: var(--muted); font-weight: 700; }
 .program-editor-add-row select { min-height: 40px; }
 .program-editor-sets-cell input { width: 56px; }
 
+/* ---- Gym App Exercise Optionality: important/pain note banners on exercise cards ---- */
+.important-note-banner { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 6px 10px; border-radius: 4px; margin: 6px 0; }
+.pain-note-banner { border-left: 3px solid var(--danger); background: var(--danger-soft); padding: 6px 10px; border-radius: 4px; margin: 6px 0; }
+
 /* ---- Aesthetic Protocol v2 deterministic audit + Split Management ---- */
 .v2-audit-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .v2-audit-table th, .v2-audit-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }

@@ -550,6 +550,36 @@ function dayObjective(dayName) {
   return objectives[dayName] || null;
 }
 
+/**
+ * Gym App Exercise Optionality update (Section 6.1-6.3): duplicate/overlap audit for adding an
+ * exercise to a day, using the existing exercise database's primaryMuscle/movementPattern and
+ * muscleHeadContributions fields — target-region metadata, not exercise names alone. Informative
+ * only: returns a message string to show, or null when there's nothing to flag. Never prevents
+ * the addition.
+ */
+function duplicateWarningForAddition(data, existingNames, newName) {
+  const byName = Object.fromEntries((data.exercises || []).map(e => [e.name, e]));
+  const incoming = byName[newName];
+  if (!incoming) return null;
+  const incomingPrimaryHeads = new Set(Object.entries(incoming.muscleHeadContributions || {}).filter(([, w]) => w >= 1).map(([h]) => h));
+
+  for (const existingName of existingNames) {
+    if (existingName === newName) continue;
+    const existing = byName[existingName];
+    if (!existing) continue;
+    if (existing.primaryMuscle && existing.primaryMuscle === incoming.primaryMuscle && existing.movementPattern && existing.movementPattern === incoming.movementPattern) {
+      return `"${newName}" and "${existingName}" share the same primary muscle and movement pattern — likely redundant unless intentionally paired for specialisation. It has still been added; remove it below if you'd rather choose a mechanically distinct variation.`;
+    }
+    const existingPrimaryHeads = Object.entries(existing.muscleHeadContributions || {}).filter(([, w]) => w >= 1).map(([h]) => h);
+    const sharedHead = existingPrimaryHeads.find(h => incomingPrimaryHeads.has(h));
+    if (sharedHead) {
+      const label = MUSCLE_HEADS[sharedHead]?.label || sharedHead;
+      return `"${newName}" adds another direct ${label} exercise alongside "${existingName}" on this day — worth checking whether both are needed for stimulus coverage or whether this duplicates local fatigue. It has still been added.`;
+    }
+  }
+  return null;
+}
+
 function primaryStructuresForDay(exercises, byName) {
   const labels = new Set();
   exercises.forEach(ex => {
@@ -748,10 +778,18 @@ export function renderProgramEditor(data) {
       const exerciseDef = (data.exercises || []).find(ex => ex.name === name);
       const repRange = exerciseDef && exerciseDef.repRangeMin != null && exerciseDef.repRangeMax != null
         ? `${exerciseDef.repRangeMin}-${exerciseDef.repRangeMax}` : "";
+
+      // Gym App Exercise Optionality update (Section 6): duplicate/overlap audit against the
+      // day's own current (possibly unsaved) rows, using target-region metadata rather than
+      // exercise names alone — informative only, never blocks the add.
+      const existingNames = [...tbody.querySelectorAll('[data-field="name"]')].map(i => i.value);
+      const overlapWarning = duplicateWarningForAddition(data, existingNames, name);
+
       const wrapper = document.createElement("tbody");
       wrapper.innerHTML = programEditorRowHtml({ name, repRange, note: "" }, tbody.children.length);
       tbody.appendChild(wrapper.firstElementChild);
       select.value = "";
+      if (overlapWarning) alert(overlapWarning);
     });
   });
 

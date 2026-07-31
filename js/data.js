@@ -597,7 +597,7 @@ export function migrateData() {
       preExistingSplit.origin = "migrated-existing-programme";
     }
     const v2Split = newTrainingSplit("Aesthetic Protocol v2 — Superhero Hypertrophy", AESTHETIC_PROTOCOL_V2_PROGRAM, {
-      splitKey: "aesthetic-protocol-v2", version: 2, contentVersion: 2,
+      splitKey: "aesthetic-protocol-v2", version: 2, contentVersion: 3,
       origin: "system-curated", goalProfile: "superhero-aesthetic",
       lastActivatedDate: new Date().toISOString()
     });
@@ -618,9 +618,9 @@ export function migrateData() {
   // `days` in the background — data.trainingProgram (the resolved active view) and
   // data.activeSplitId are left completely alone, so v2 is never silently reactivated.
   const v2SplitToCorrect = data.trainingSplits.find(s => s.splitKey === "aesthetic-protocol-v2");
-  if (v2SplitToCorrect && v2SplitToCorrect.contentVersion !== 2) {
+  if (v2SplitToCorrect && v2SplitToCorrect.contentVersion !== 3) {
     v2SplitToCorrect.days = structuredClone(AESTHETIC_PROTOCOL_V2_PROGRAM);
-    v2SplitToCorrect.contentVersion = 2;
+    v2SplitToCorrect.contentVersion = 3;
     v2SplitToCorrect.name = "Aesthetic Protocol v2 — Superhero Hypertrophy";
     v2SplitToCorrect.origin = "system-curated";
     v2SplitToCorrect.goalProfile = "superhero-aesthetic";

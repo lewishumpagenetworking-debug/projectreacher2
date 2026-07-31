@@ -433,7 +433,13 @@ export const EXERCISE_DATABASE = [
   exercise({
     name: "Seated DB Lateral Raise", category: "isolation", primaryMuscle: "side delts", movementPattern: "abduction", equipment: "dumbbell", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Strict variation, low momentum, side delt tension over load — improves shoulder-to-waist ratio. Sub: Machine Lateral Raise / Lean-Away Cable Lateral Raise / Strict Cable Lateral Raise.",
     muscleHeadContributions: { lateral_delts: 1.0 },
+    // Gym App Exercise Optionality update: the seated single-arm leaning dumbbell variation
+    // is explicitly required as a lateral-delt option — added here as this slot's own
+    // dumbbell-based variant, listed first.
     variants: [
+      variant({ name: "Seated Single-Arm Leaning Dumbbell Lateral Raise", equipmentType: "dumbbell", loadingType: "free_weight", unilateral: true, techniqueNotes: "Lean away from the working arm to bias the lateral head through a longer effective range." }),
+      variant({ name: "Standing Single-Arm Leaning Dumbbell Lateral Raise", equipmentType: "dumbbell", loadingType: "free_weight", unilateral: true }),
+      variant({ name: "Incline-Bench Lateral Raise", equipmentType: "dumbbell", loadingType: "free_weight" }),
       variant({ name: "Machine Lateral Raise", equipmentType: "selectorised machine", loadingType: "fixed_stack" }),
       variant({ name: "Lean-Away Cable Lateral Raise", equipmentType: "cable", loadingType: "cable" }),
       variant({ name: "Strict Cable Lateral Raise", equipmentType: "cable", loadingType: "cable" })
@@ -1072,7 +1078,11 @@ export const AESTHETIC_PROTOCOL_V2_PROGRAM = {
   "Day 3 - Upper B": [
     progExercise("Machine Chest Press", "8-12", "Mid chest. Secondary: front delts, triceps. Stable chest-thickness work without repeating incline pressing.", 4),
     progExercise("Seated Cable Row", "8-12", "Mid-back. Secondary: lats, biceps. Second weekly mid-back exposure using a different resistance profile.", 2),
-    progExercise("Rear Delt Fly", "12-15", "Reverse Pec Deck — rear delts. Third and final weekly rear-delt exposure.", 2),
+    // Rear-delt relocation (Gym App Exercise Optionality update, Section 5): the direct
+    // rear-delt slot moved to Day 6 - Arms and Forearms. Reverse Curl (2-set brachioradialis
+    // isolation, matching set-count/duration and non-duplicative of this day's existing
+    // biceps/triceps work) fills the vacated slot as the one-for-one exchange.
+    progExercise("Reverse Curl", "10-15", "Brachioradialis. Secondary: brachialis, forearm extensors. Relocated from Day 6 to fill the slot vacated by the rear-delt exercise.", 2),
     progExercise("EZ Curl", "8-12", "EZ-Bar Curl — biceps. First direct biceps exposure.", 4),
     progExercise("Reverse-Grip Bar Extension", "10-15", "Reverse-Grip Cable Triceps Extension — triceps medial-head emphasis. Secondary: lateral head. First direct triceps exposure with lower joint stress.", 4)
   ],
@@ -1093,7 +1103,11 @@ export const AESTHETIC_PROTOCOL_V2_PROGRAM = {
   "Day 6 - Arms and Forearms": [
     progExercise("Incline DB Curl", "8-12", "Incline Dumbbell Curl — biceps long head. Lengthened-position long-head hypertrophy.", 4),
     progExercise("Hammer Curl", "8-12", "Brachialis. Secondary: brachioradialis. Increase upper-arm thickness beneath the biceps.", 2),
-    progExercise("Reverse Curl", "10-15", "Brachioradialis. Secondary: brachialis, forearm extensors. Increase visible upper-forearm thickness.", 2),
+    // Rear-delt relocation (Gym App Exercise Optionality update, Section 5): receives the
+    // direct rear-delt slot vacated on Day 3 - Upper B, in exchange for Reverse Curl moving
+    // there. Same 2-set count and low-fatigue isolation profile, so this day's exercise count
+    // and approximate duration stay balanced.
+    progExercise("Rear Delt Fly", "12-15", "Reverse Pec Deck — rear delts. Relocated from Day 3 - Upper B; no longer duplicated there.", 2),
     progExercise("Overhead Triceps Extension", "8-12", "Overhead Cable Triceps Extension — triceps long head. Lengthened-position long-head hypertrophy.", 4),
     progExercise("Triceps Pushdown", "10-15", "Rope Triceps Pushdown — triceps lateral head. Secondary: medial head. Shortened-position triceps work and visible outer-arm thickness.", 4),
     progExercise("Wrist Curl", "12-20", "Wrist flexors. Increase flexor mass on the underside of the forearm.", 4),
