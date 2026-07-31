@@ -1558,6 +1558,61 @@ export function armForearmDeltWarnings({ workouts, exercises, recoveryLogs = [] 
   return warnings;
 }
 
+/**
+ * Nutrition System Enhancement (automatic meal classification, replacing manual
+ * categorisation): a set of informational tags derived purely from the macro composition
+ * already entered for a meal — never a new source of nutritional truth, never written back
+ * into calorie/macro totals, and never physiological/medical advice, exactly like every other
+ * heuristic label in this app. Computed once at save/edit time and cached on the record (see
+ * data.js's classificationTags field) rather than recalculated on every screen render.
+ *
+ * Thresholds are simple, documented percentages of calorie contribution (protein/carbs = 4
+ * kcal/g, fat = 9 kcal/g) plus a couple of absolute thresholds (fibre grams, total calories)
+ * where a percentage wouldn't make sense. A meal can carry several tags at once.
+ */
+export function classifyMeal({ calories, protein, carbs, fat, fibre } = {}) {
+  const proteinG = Number(protein) || 0, carbsG = Number(carbs) || 0, fatG = Number(fat) || 0, fibreG = Number(fibre) || 0;
+  const proteinCals = proteinG * 4, carbCals = carbsG * 4, fatCals = fatG * 9;
+  const derivedTotal = proteinCals + carbCals + fatCals;
+  const totalCals = Number(calories) > 0 ? Number(calories) : derivedTotal;
+  if (!totalCals) return [];
+
+  const proteinPct = proteinCals / totalCals;
+  const carbPct = carbCals / totalCals;
+  const fatPct = fatCals / totalCals;
+
+  // Independent thresholds, not "whichever macro is highest" — a meal can legitimately carry
+  // more than one composition tag at once (e.g. high protein AND high carb).
+  const tags = [];
+  const isHighProtein = proteinPct >= 0.30;
+  const isHighCarb = carbPct >= 0.45;
+  const isHighFat = fatPct >= 0.40;
+  if (isHighProtein) tags.push("High Protein");
+  if (isHighCarb) tags.push("High Carb");
+  if (isHighFat) tags.push("High Fat");
+
+  const spread = Math.max(proteinPct, carbPct, fatPct) - Math.min(proteinPct, carbPct, fatPct);
+  if (spread <= 0.15) tags.push("Balanced Meal");
+  if (!isHighProtein && !isHighCarb && proteinPct + carbPct >= 0.7 && fatPct < 0.2) tags.push("Protein + Carb");
+
+  if (carbPct < 0.15) tags.push("Low Carb");
+  if (fatPct < 0.15) tags.push("Low Fat");
+
+  if (totalCals >= 700) tags.push("Calorie Dense");
+  else if (totalCals <= 300) tags.push("Light Meal");
+
+  if (fibreG >= 8) tags.push("High Fibre");
+
+  // Timing-appropriateness labels describe macro shape only (not actual meal timing, which
+  // this function has no visibility into) — a higher-protein, carb-present profile suits
+  // post-workout intake; a moderate-carb, lower-fat profile digests well pre-workout. Mutually
+  // exclusive so a meal isn't tagged as appropriate for both ends of a session at once.
+  if (proteinG >= 25 && carbPct >= 0.30) tags.push("Post Workout Appropriate");
+  else if (carbPct >= 0.30 && fatPct < 0.25 && totalCals >= 250 && totalCals <= 650) tags.push("Pre Workout Appropriate");
+
+  return tags;
+}
+
 /** Sums calories/protein/carbs/fat/fibre for all meals logged on a given ISO date. */
 export function dailyMealTotals(mealLogs, dateStr) {
   const meals = mealLogs.filter(m => m.date === dateStr && !m.isDraft);

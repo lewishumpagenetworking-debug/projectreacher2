@@ -1,11 +1,11 @@
 import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
 import { estimateMealMacros } from "./food-estimator.js";
-import { macroTargets, dailyMealTotals, remainingMacros, macroAdherence, monthlyMealSummary, loggingStreakDays, validateMealEntry, nutritionConfidenceStatus, preWorkoutReadinessToday, trainingNutritionCorrelation } from "./calculations.js";
+import { macroTargets, dailyMealTotals, remainingMacros, macroAdherence, monthlyMealSummary, loggingStreakDays, validateMealEntry, nutritionConfidenceStatus, preWorkoutReadinessToday, trainingNutritionCorrelation, classifyMeal } from "./calculations.js";
 import { lineChart, stackedBarRows } from "./charts.js";
 import { hasApiKey, estimateMealMacrosViaClaude } from "./claude-client.js";
 import { remainingDailyTargets, macroGapUrgency, rankSavedMealsForGap } from "./calculations.js";
-import { findOrCreateSavedMeal, buildDailyLogEntryFromSavedMeal } from "./meal-cookbook.js";
+import { findOrCreateSavedMeal, findSimilarSavedMeal, buildDailyLogEntryFromSavedMeal } from "./meal-cookbook.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 const todayISO = () => new Date().toLocaleDateString("en-CA");
@@ -187,6 +187,20 @@ function cancelMealEdit() {
  * below is purely diagnostic (an optional on-screen note) and can never stop the push.
  * Missing fields are stored as `null`, never silently coerced to 0.
  */
+/**
+ * Nutrition System Enhancement §1: a blank Meal Name field must never write the literal
+ * fallback string "Meal" into storage — that's what caused every unnamed meal to display as
+ * "Meal" forever afterward. Falls back to the raw description (what the user actually typed
+ * for "What did you eat?"), truncated, exactly like saveFoodTemplateFromCurrentMeal already
+ * does above — only "Untitled Meal" as an absolute last resort when neither exists.
+ */
+function resolveMealName(explicitName, rawDescription) {
+  const trimmed = (explicitName || "").trim();
+  if (trimmed) return trimmed;
+  const fromDescription = (rawDescription || "").trim().slice(0, 40);
+  return fromDescription || "Untitled Meal";
+}
+
 export function saveMeal(asDraft = false) {
   const data = getData();
   const now = new Date();
@@ -216,6 +230,11 @@ export function saveMeal(asDraft = false) {
     : true; // no estimate was run at all -> fully manual entry
   const loggedNutrition = { calories, protein, carbs, fat, fibre };
 
+  const resolvedName = resolveMealName(mealName, $("mealDescription").value);
+  // Nutrition System Enhancement §3, §13: computed once here and cached on the record —
+  // never recalculated on every screen render.
+  const classificationTags = classifyMeal({ calories, protein, carbs, fat, fibre });
+
   if (editingMealId) {
     const existing = data.mealLogs.find(m => m.id === editingMealId);
     if (existing) {
@@ -226,11 +245,11 @@ export function saveMeal(asDraft = false) {
       };
       Object.assign(existing, {
         time: $("mealTime").value || existing.time,
-        mealName: mealName || existing.mealName,
+        mealName: resolvedName,
         rawDescription: $("mealDescription").value,
         calories, protein, carbs, fat, fibre,
         enteredCalories: calories, calculatedCaloriesFromMacros: validation.calculatedCaloriesFromMacros,
-        isManuallyEdited: true, loggedNutrition,
+        isManuallyEdited: true, loggedNutrition, classificationTags,
         recoveryTag: $("mealRecoveryTag")?.value || null,
         quantity, unit, isDraft: asDraft,
         updatedAt: now.toISOString()
@@ -247,14 +266,29 @@ export function saveMeal(asDraft = false) {
   const foodsDetected = lastEstimate?.foodsDetected || [];
   const sourceType = lastEstimate ? (lastEstimate.source === "template" ? "database" : "ai") : "custom";
   let savedMealId = null;
-  // Every genuinely-saved (non-draft) meal auto-joins the Meal History cookbook —
-  // an exact repeat (same name/ingredients/macros) reuses the existing catalog entry
-  // rather than creating a duplicate, per the exact-duplicate-prevention requirement.
+
   if (!asDraft) {
-    const { savedMeal } = findOrCreateSavedMeal(data, {
-      name: mealName || "Meal", ingredients: foodsDetected,
-      calories: calories ?? 0, protein: protein ?? 0, carbs: carbs ?? 0, fat: fat ?? 0, fibre: fibre ?? 0
-    }, now.toISOString());
+    const candidateData = {
+      name: resolvedName, ingredients: foodsDetected,
+      calories: calories ?? 0, protein: protein ?? 0, carbs: carbs ?? 0, fat: fat ?? 0, fibre: fibre ?? 0,
+      classificationTags
+    };
+    // Nutrition System Enhancement §8: a close-but-not-identical match (by name or macro
+    // profile) is offered as a suggestion rather than silently spawning a near-duplicate
+    // catalog entry — declining proceeds exactly as before. An exact match is still handled
+    // silently by findOrCreateSavedMeal below either way.
+    const similar = findSimilarSavedMeal(data, candidateData);
+    if (similar && confirm(`It looks like this meal matches your saved "${similar.name}". Use that instead?`)) {
+      addSavedMealToToday(similar.id, 1);
+      clearMealForm();
+      refreshAll();
+      alert("Meal saved.");
+      return;
+    }
+    // Every genuinely-saved (non-draft) meal auto-joins the Meal History cookbook —
+    // an exact repeat (same name/ingredients/macros) reuses the existing catalog entry
+    // rather than creating a duplicate, per the exact-duplicate-prevention requirement.
+    const { savedMeal } = findOrCreateSavedMeal(data, candidateData, now.toISOString());
     savedMealId = savedMeal.id;
   }
 
@@ -262,7 +296,7 @@ export function saveMeal(asDraft = false) {
     id: uid(),
     date: todayISO(),
     time: $("mealTime").value || now.toTimeString().slice(0, 5),
-    mealName: mealName || "Meal",
+    mealName: resolvedName,
     rawDescription: $("mealDescription").value,
     foodsDetected,
     calories, protein, carbs, fat, fibre,
@@ -279,7 +313,7 @@ export function saveMeal(asDraft = false) {
     originalNutrition: lastEstimate
       ? { calories: lastEstimate.calories, protein: lastEstimate.protein, carbs: lastEstimate.carbs, fat: lastEstimate.fat, fibre: lastEstimate.fibre }
       : null,
-    loggedNutrition, editHistory: [],
+    loggedNutrition, editHistory: [], classificationTags,
     savedMealId, servingMultiplier: 1,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
@@ -371,13 +405,18 @@ function renderTodayMeals(data) {
   }
 }
 
-// Compact expandable meal card: collapsed shows only name/calories/protein (spec 7.1),
-// full breakdown appears on expand — replaces the old always-expanded long row.
+// Compact expandable meal card: collapsed shows name/calories/protein/carbs/fat plus
+// automatic classification tags (spec worked example: "Chicken & Rice / 620 kcal / 54g
+// Protein / 61g Carbs / 12g Fat / High Protein • Post Workout"). Full breakdown appears
+// on expand — replaces the old always-expanded long row.
 function mealHistoryItem(m) {
+  const starred = isMealLogEntryStarred(m);
+  const tags = m.classificationTags || [];
   return `<details class="history-item meal-card">
     <summary>
       <strong>${m.time ? esc(m.time) + " · " : ""}${esc(m.mealName)}</strong>
-      <span class="small">${m.calories} kcal · ${m.protein}g protein</span>
+      <span class="small">${m.calories} kcal · ${m.protein}g Protein · ${m.carbs}g Carbs · ${m.fat}g Fat</span>
+      ${tags.length ? `<span class="small">${tags.map(esc).join(" • ")}</span>` : ""}
       ${m.isDraft ? `<span class="badge status-under">Draft</span>` : ""}
     </summary>
     <div class="section-title">
@@ -390,15 +429,45 @@ function mealHistoryItem(m) {
       <span class="badge">C${m.carbs}</span>
       <span class="badge">F${m.fat}</span>
       <span class="badge">Fibre${m.fibre}</span>
+      ${tags.map(t => `<span class="badge">${esc(t)}</span>`).join("")}
       ${m.recoveryTag ? `<span class="badge status-on-target">${esc(m.recoveryTag.replace(/-/g, " "))}</span>` : ""}
       ${m.isDraft ? `<span class="badge status-under">Draft — not counted in totals</span>` : ""}
     </div>
     <div class="actions">
+      <button class="secondary" data-star-meal="${m.id}">${starred ? "★ Saved" : "☆ Save"}</button>
       <button class="secondary" data-edit-meal="${m.id}">Edit</button>
       <button class="secondary" data-duplicate-meal="${m.id}">Add Again Today</button>
       <button class="danger" data-delete="mealLogs" data-id="${m.id}">Delete</button>
     </div>
   </details>`;
+}
+
+// Star = favourite on the meal's linked saved-meal library entry. Every logged meal is
+// already permanently kept in the nutrition history regardless of star state — the star
+// only controls whether it's pinned as a quick-access "Saved Meal" shortcut (spec §6).
+function isMealLogEntryStarred(m) {
+  if (!m.savedMealId) return false;
+  const data = getData();
+  return !!data.savedMeals.find(s => s.id === m.savedMealId)?.favourite;
+}
+
+function toggleStarForMealLogEntry(entryId) {
+  const data = getData();
+  const entry = data.mealLogs.find(m => m.id === entryId);
+  if (!entry) return;
+  let savedMeal = entry.savedMealId ? data.savedMeals.find(s => s.id === entry.savedMealId) : null;
+  if (!savedMeal) {
+    const { savedMeal: created } = findOrCreateSavedMeal(data, {
+      name: entry.mealName, ingredients: entry.foodsDetected || [],
+      calories: entry.calories, protein: entry.protein, carbs: entry.carbs, fat: entry.fat, fibre: entry.fibre,
+      classificationTags: entry.classificationTags || []
+    });
+    entry.savedMealId = created.id;
+    savedMeal = created;
+  }
+  savedMeal.favourite = !savedMeal.favourite;
+  saveData(data);
+  refreshAll();
 }
 
 function renderMonthSelect(data) {
@@ -457,10 +526,12 @@ let cookbookSearch = "";
 let cookbookFilter = "all"; // all | favourites | archived
 
 function savedMealCardHtml(m) {
+  const tags = m.classificationTags || [];
   return `<details class="history-item meal-card" data-saved-meal="${m.id}">
     <summary>
-      <strong>${m.favourite ? "★ " : ""}${esc(m.name)}</strong>
-      <span class="small">${m.calories} kcal · ${m.protein}g protein</span>
+      <strong>${m.pinned ? "📌 " : ""}${m.favourite ? "★ " : ""}${esc(m.name)}</strong>
+      <span class="small">${m.calories} kcal · ${m.protein}g Protein · ${m.carbs}g Carbs · ${m.fat}g Fat</span>
+      ${tags.length ? `<span class="small">${tags.map(esc).join(" • ")}</span>` : ""}
       ${m.archived ? `<span class="badge">Archived</span>` : ""}
     </summary>
     <p class="small">${m.ingredients.length ? esc(m.ingredients.join(", ")) : "No ingredients recorded."}</p>
@@ -470,7 +541,7 @@ function savedMealCardHtml(m) {
       <span class="badge">C${m.carbs}</span>
       <span class="badge">F${m.fat}</span>
       <span class="badge">Fibre${m.fibre ?? 0}</span>
-      ${m.mealType ? `<span class="badge">${esc(m.mealType)}</span>` : ""}
+      ${tags.map(t => `<span class="badge">${esc(t)}</span>`).join("")}
       <span class="badge">Logged ${m.timesLogged}x</span>
       <span class="badge">Last used ${esc((m.lastUsedAt || "").slice(0, 10) || "--")}</span>
     </div>
@@ -481,6 +552,7 @@ function savedMealCardHtml(m) {
     <div class="actions">
       <button class="secondary" data-cookbook-add="${m.id}">Add to Today</button>
       <button class="secondary" data-cookbook-favourite="${m.id}">${m.favourite ? "Unfavourite" : "Favourite"}</button>
+      <button class="secondary" data-cookbook-pin="${m.id}">${m.pinned ? "Unpin" : "Pin to Top"}</button>
       <button class="secondary" data-cookbook-archive="${m.id}">${m.archived ? "Unarchive" : "Archive"}</button>
       <button class="secondary" data-cookbook-duplicate="${m.id}">Duplicate as New</button>
       <button class="danger" data-delete="savedMeals" data-id="${m.id}">Delete</button>
@@ -498,9 +570,15 @@ export function renderMealCookbook(data) {
 
   if (cookbookSearch) {
     const s = cookbookSearch.toLowerCase();
-    meals = meals.filter(m => m.name.toLowerCase().includes(s) || m.ingredients.some(i => i.toLowerCase().includes(s)));
+    meals = meals.filter(m => m.name.toLowerCase().includes(s)
+      || m.ingredients.some(i => i.toLowerCase().includes(s))
+      || (m.classificationTags || []).some(t => t.toLowerCase().includes(s)));
   }
-  meals.sort((a, b) => (b.favourite ? 1 : 0) - (a.favourite ? 1 : 0) || new Date(b.lastUsedAt) - new Date(a.lastUsedAt));
+  // Favourite ordering (spec §10): pinned entries first, then by usage frequency —
+  // manual pinning is the explicit override, frequency is the default signal otherwise.
+  meals.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)
+    || (b.timesLogged || 0) - (a.timesLogged || 0)
+    || new Date(b.lastUsedAt) - new Date(a.lastUsedAt));
 
   el.innerHTML = meals.length ? meals.map(savedMealCardHtml).join("")
     : "<p class='small'>No saved meals yet. Meals you create or log will appear here for quick reuse.</p>";
@@ -728,6 +806,9 @@ export function setupMealEventDelegation() {
     if (editBtn) { startEditMeal(editBtn.dataset.editMeal); return; }
     if (e.target.closest("#cancelMealEditBtn")) { cancelMealEdit(); return; }
 
+    const starBtn = e.target.closest("[data-star-meal]");
+    if (starBtn) { toggleStarForMealLogEntry(starBtn.dataset.starMeal); return; }
+
     const dup = e.target.closest("[data-duplicate-meal]");
     if (dup) {
       const data = getData();
@@ -773,6 +854,13 @@ export function setupMealEventDelegation() {
       const data = getData();
       const m = data.savedMeals.find(x => x.id === favBtn.dataset.cookbookFavourite);
       if (m) { m.favourite = !m.favourite; saveData(data); refreshAll(); }
+      return;
+    }
+    const pinBtn = e.target.closest("[data-cookbook-pin]");
+    if (pinBtn) {
+      const data = getData();
+      const m = data.savedMeals.find(x => x.id === pinBtn.dataset.cookbookPin);
+      if (m) { m.pinned = !m.pinned; saveData(data); refreshAll(); }
       return;
     }
     const archiveBtn = e.target.closest("[data-cookbook-archive]");
