@@ -44,6 +44,24 @@ let draftSaveTimer = null;
 let conflictAsked = false;
 let hasShownRestoredOnce = false;
 
+/**
+ * Gym App Exercise Optionality update (Section 4.2, 4.9, 4.10): the most recent important-
+ * flagged and pain-flagged entries for this exact exercise, searched across ALL logged
+ * sessions (not scoped to today's equipment variant — an important or pain warning should
+ * surface regardless of which variant is selected today). Read-only; never mutates workouts.
+ */
+function mostRecentFlaggedEntry(workouts, exerciseName, flagKey) {
+  let mostRecent = null, mostRecentDate = null;
+  (workouts || []).forEach(w => {
+    (w.exercises || []).forEach(e => {
+      if (e.name !== exerciseName || !e[flagKey]) return;
+      const d = w.date;
+      if (!mostRecentDate || d > mostRecentDate) { mostRecent = { ...e, date: w.date }; mostRecentDate = d; }
+    });
+  });
+  return mostRecent;
+}
+
 function totalVolume(entry) {
   return (entry.exercises || []).reduce((sum, e) => {
     const s1 = (Number(e.set1Weight) || 0) * (Number(e.set1Reps) || 0);
@@ -184,6 +202,19 @@ export function renderWorkoutForm(data) {
     const completedElsewhereBadge = (completedElsewhere && completedElsewhere.day !== day)
       ? `<span class="exercise-state-tag tag-progression">Completed in Custom Session</span>` : "";
 
+    // Gym App Exercise Optionality update (Section 4.2, 4.9, 4.10): note preview + important/
+    // pain warnings on the main card, so they're visible without opening history.
+    const lastNoteEntry = history.lastSession && (history.lastSession.notes || history.lastSession.formNote) ? history.lastSession : null;
+    const notePreviewLine = lastNoteEntry
+      ? `<p class="small">Last note (${esc(lastNoteEntry.date || "")}${lastNoteEntry.noteCategory ? ` · ${esc(lastNoteEntry.noteCategory.replace(/-/g, " "))}` : ""}): ${esc(lastNoteEntry.notes || lastNoteEntry.formNote)}</p>`
+      : "";
+    const importantEntry = mostRecentFlaggedEntry(data.workouts, x.name, "importantNote");
+    const importantBanner = importantEntry
+      ? `<p class="small important-note-banner">Important (${esc(importantEntry.date || "")}): ${esc(importantEntry.notes || importantEntry.formNote || "")}</p>` : "";
+    const painEntry = mostRecentFlaggedEntry(data.workouts, x.name, "painFlag");
+    const painBanner = painEntry
+      ? `<p class="small pain-note-banner">You previously recorded discomfort on this exercise (${esc(painEntry.date || "")}): ${esc(painEntry.notes || painEntry.formNote || "")}</p>` : "";
+
     return `
     <div class="exercise" data-exercise="${esc(x.name)}" ${isDistanceBased ? `data-distance-based="true" data-track-length="${trackLength}"` : ""}>
       <div class="exercise-header">
@@ -200,6 +231,9 @@ export function renderWorkoutForm(data) {
           ${recBadge ? `<div class="badge-row">${recBadge}</div>` : ""}
           ${reasonLine}
           ${contextNotesLines}
+          ${importantBanner}
+          ${painBanner}
+          ${notePreviewLine}
         </div>
         <button type="button" class="technique-btn" data-toggle-guide="${esc(x.name)}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? "Hide" : "See"} technique guide for ${esc(x.name)}">
           <span class="technique-btn-icon">${isExpanded ? "▴" : "🎯"}</span>
@@ -234,6 +268,24 @@ export function renderWorkoutForm(data) {
         ${metricLabel("formQuality", "Form Quality 1-5", `<input class="formq" type="number" min="1" max="5">`)}
         ${metricLabel("targetMuscle", "Target Muscle Connection 1-5", `<input class="mmc" type="number" min="1" max="5">`)}
         ${metricLabel("notes", "Notes", `<input class="exnotes" placeholder="form / machine / pain">`)}
+        <label>Note Category
+          <select class="notecategory">
+            <option value="">General</option>
+            <option value="technique">Technique</option>
+            <option value="machine-setup">Machine setup</option>
+            <option value="progression">Progression</option>
+            <option value="pain">Pain or discomfort</option>
+            <option value="range-of-motion">Range of motion</option>
+            <option value="grip">Grip</option>
+            <option value="stance">Stance</option>
+            <option value="tempo">Tempo</option>
+            <option value="mind-muscle">Mind-muscle connection</option>
+            <option value="equipment-issue">Equipment issue</option>
+            <option value="preference">Exercise preference</option>
+            <option value="recovery">Recovery</option>
+          </select>
+        </label>
+        <label class="checklist-row"><input class="importantnote" type="checkbox"> <span>Mark note as important</span></label>
       </div>
       <div class="form-guide" ${isExpanded ? "" : "hidden"}>
         ${renderGuideContent(exerciseDef)}
@@ -388,6 +440,11 @@ function readEntryFromCard(el) {
     formQuality: numOrNull(".formq"),
     targetMuscleConnection: numOrNull(".mmc"),
     notes: q(".exnotes").value,
+    // Gym App Exercise Optionality update (Section 4.8-4.9): a note category and an
+    // "important" flag, additive on the same free-text note the app already had — never a
+    // new note system, just richer metadata on the one that exists.
+    noteCategory: q(".notecategory") ? q(".notecategory").value : "",
+    importantNote: q(".importantnote") ? q(".importantnote").checked : false,
     rangeOfMotionQuality: numOrNull(".romq"),
     tempoControl: numOrNull(".tempoq"),
     painFlag: q(".painflag") ? q(".painflag").checked : false,
@@ -404,7 +461,7 @@ function isEntryEmpty(entry) {
   const optionalEmpty = ["set1RIR", "set2RIR", "optionalSet3Weight", "optionalSet3Reps", "RPE",
     "formQuality", "targetMuscleConnection", "rangeOfMotionQuality", "tempoControl"].every(k => entry[k] == null);
   const textEmpty = !entry.warmup && !entry.notes && !entry.formNote;
-  const flagsEmpty = !entry.technicalFailureReached && !entry.painFlag;
+  const flagsEmpty = !entry.technicalFailureReached && !entry.painFlag && !entry.importantNote;
   const checklistEmpty = !entry.validRepChecklist || Object.values(entry.validRepChecklist).every(v => !v);
   return zeroableEmpty && optionalEmpty && textEmpty && flagsEmpty && checklistEmpty;
 }
@@ -451,6 +508,8 @@ function applyEntryToCard(card, entry) {
   fillField(card, ".formq", entry.formQuality, { allowZero: true });
   fillField(card, ".mmc", entry.targetMuscleConnection, { allowZero: true });
   fillField(card, ".exnotes", entry.notes);
+  fillField(card, ".notecategory", entry.noteCategory);
+  fillField(card, ".importantnote", entry.importantNote);
   fillField(card, ".romq", entry.rangeOfMotionQuality, { allowZero: true });
   fillField(card, ".tempoq", entry.tempoControl, { allowZero: true });
   fillField(card, ".painflag", entry.painFlag);

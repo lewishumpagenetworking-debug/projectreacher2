@@ -33,6 +33,29 @@ export function resolveVariantId(entry, fallbackId = null) {
  * with no selectedVariantId/exerciseId of their own still correctly resolve to the canonical
  * variant instead of matching nothing.
  */
+/**
+ * Gym App Exercise Optionality update (Section 4.4: "Previous exercises used in this routine
+ * position"). This app has no formal routine-slot ID yet (that's Phase 11's deterministic
+ * architecture, deferred) — as a lightweight approximation on the existing data model, a
+ * "position" is the exercise's array index within a named day. Different exercises that have
+ * occupied that same index on that same day in past logged sessions are surfaced here, most
+ * recent first, WITHOUT merging their progression data (each keeps its own history — this is
+ * read-only lookup, never a write path).
+ */
+export function previousExercisesInThisPosition(workouts, day, positionIndex, currentExerciseName) {
+  const latestByName = {};
+  (workouts || []).forEach(w => {
+    if (w.day !== day) return;
+    const entry = (w.exercises || [])[positionIndex];
+    if (!entry || entry.name === currentExerciseName) return;
+    const existing = latestByName[entry.name];
+    if (!existing || (w.date || "") > (existing.date || "")) {
+      latestByName[entry.name] = { name: entry.name, date: w.date, entry };
+    }
+  });
+  return Object.values(latestByName).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+}
+
 export function getExerciseHistory(workouts, exerciseName, { variantId = null, canonicalVariantId = null, referenceDate = new Date() } = {}) {
   const entries = [];
   workouts.forEach(w => {
