@@ -34,6 +34,73 @@ export function resolveVariantId(entry, fallbackId = null) {
  * variant instead of matching nothing.
  */
 /**
+ * Gym App Exercise Optionality update (Section 6.1-6.3): duplicate/overlap audit for adding or
+ * substituting an exercise on a day, using the exercise database's primaryMuscle/
+ * movementPattern and muscleHeadContributions fields — target-region metadata, not exercise
+ * names alone. Informative only: returns a message string to show, or null when there's
+ * nothing to flag. Never prevents the action; `actionDescription` customises the trailing
+ * sentence for the calling context (e.g. "It has still been added." vs "It has still been used
+ * for this workout.").
+ */
+export function duplicateOverlapWarning(data, existingNames, newName, actionDescription = "It has still been added.") {
+  const byName = Object.fromEntries((data.exercises || []).map(e => [e.name, e]));
+  const incoming = byName[newName];
+  if (!incoming) return null;
+  const incomingPrimaryHeads = new Set(Object.entries(incoming.muscleHeadContributions || {}).filter(([, w]) => w >= 1).map(([h]) => h));
+
+  for (const existingName of existingNames) {
+    if (existingName === newName) continue;
+    const existing = byName[existingName];
+    if (!existing) continue;
+    if (existing.primaryMuscle && existing.primaryMuscle === incoming.primaryMuscle && existing.movementPattern && existing.movementPattern === incoming.movementPattern) {
+      return `"${newName}" and "${existingName}" share the same primary muscle and movement pattern — likely redundant unless intentionally paired for specialisation. ${actionDescription}`;
+    }
+    const existingPrimaryHeads = Object.entries(existing.muscleHeadContributions || {}).filter(([, w]) => w >= 1).map(([h]) => h);
+    const sharedHead = existingPrimaryHeads.find(h => incomingPrimaryHeads.has(h));
+    if (sharedHead) {
+      const label = MUSCLE_HEADS[sharedHead]?.label || sharedHead;
+      return `"${newName}" adds another direct ${label} exercise alongside "${existingName}" on this day — worth checking whether both are needed for stimulus coverage or whether this duplicates local fatigue. ${actionDescription}`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Corrective Update (Missing Change Dropdown and Full Exercise Library): the routine-slot
+ * approximation shared by the substitution system and previousExercisesInThisPosition below —
+ * this app has no formal routine-slot ID yet (deferred), so a "slot" is the exercise's array
+ * index within a named day.
+ */
+export function routineSlotKey(day, positionIndex) {
+  return `${day}::${positionIndex}`;
+}
+
+/**
+ * The active session-only exercise substitution for a routine slot, if any (Corrective Update
+ * §7-10). Only ever returns something when today's substitutions were recorded for THIS exact
+ * day — switching days, or a fresh session, never carries a stale substitution forward.
+ */
+export function activeExerciseSubstitution(data, day, positionIndex) {
+  const store = data.todaysExerciseSubstitutions;
+  if (!store || store.day !== day) return null;
+  return store.substitutions?.[routineSlotKey(day, positionIndex)] || null;
+}
+
+/**
+ * The exercise actually in effect for a routine slot right now: the active substitution's
+ * performed exercise if one is set for today, otherwise the planned (programmed) exercise.
+ * Never merges the two — callers use `.name` to resolve history/progression, which naturally
+ * stays scoped to whichever exercise this returns since getExerciseHistory looks up by name.
+ */
+export function effectiveExerciseForSlot(data, day, positionIndex, plannedName) {
+  const substitution = activeExerciseSubstitution(data, day, positionIndex);
+  if (substitution) {
+    return { name: substitution.performedExerciseName, plannedName, isSubstituted: true, substitution };
+  }
+  return { name: plannedName, plannedName, isSubstituted: false, substitution: null };
+}
+
+/**
  * Gym App Exercise Optionality update (Section 4.4: "Previous exercises used in this routine
  * position"). This app has no formal routine-slot ID yet (that's Phase 11's deterministic
  * architecture, deferred) — as a lightweight approximation on the existing data model, a

@@ -1,5 +1,9 @@
 import { $, esc } from "./dom.js";
-import { recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore, farmersCarryAnalytics, exerciseProgressionStatus, recoveryMealCompliance, preWorkoutReadinessToday, sessionReviewMissingFields, exerciseCompletedInCustomSessionThisWeek } from "./calculations.js";
+import {
+  recommendProgression, getExerciseHistory, localExerciseAdvice, readinessScore, farmersCarryAnalytics, exerciseProgressionStatus,
+  recoveryMealCompliance, preWorkoutReadinessToday, sessionReviewMissingFields, exerciseCompletedInCustomSessionThisWeek,
+  effectiveExerciseForSlot, routineSlotKey, activeExerciseSubstitution
+} from "./calculations.js";
 import { getData, saveData, uid, DEFAULT_SESSION_REVIEW } from "./data.js";
 import { metricLabel } from "./metric-info.js";
 import { showMissionStart, celebrateSetRow, celebrateExerciseComplete, showOperationComplete, formatVolumeComparison } from "./reward-system.js";
@@ -165,17 +169,27 @@ export function renderWorkoutForm(data) {
   const rawMealCompliance = recoveryMealCompliance(data.mealLogs);
   const mealCompliance = { ...rawMealCompliance, preWorkoutComplete: rawMealCompliance.preWorkoutComplete || !!preWorkoutReadinessToday(data.preWorkoutLogs) };
 
+  const dayIsCustom = isCustomSessionDay(day);
   $("workoutList").innerHTML = exercises.map((x, i) => {
-    const exerciseDef = data.exercises.find(e => e.name === x.name);
+    // Corrective Update (Missing Change Dropdown and Full Exercise Library): the exercise
+    // actually in effect for this slot right now — the planned/programmed one, or today's
+    // session-only substitution if one was selected via Change > More. Everything below
+    // (history, progression, save target) resolves against the EFFECTIVE exercise, never the
+    // planned one, so a substituted exercise's own history is what loads and what gets written
+    // to. Substitution only applies to real programme days, not custom sessions (which have no
+    // trainingProgram slot to resolve against).
+    const plannedName = x.name;
+    const effective = dayIsCustom ? { name: plannedName, plannedName, isSubstituted: false, substitution: null } : effectiveExerciseForSlot(data, day, i, plannedName);
+    const effectiveName = effective.name;
+    const exerciseDef = data.exercises.find(e => e.name === effectiveName);
     const isDistanceBased = !!exerciseDef?.distanceBased;
     // Gym App spec Part 2: history/progression are scoped to whichever equipment variant is
     // selected for today (defaulting to the exercise's own canonical form) — never blended
     // across variants, so switching equipment never inherits another variant's numbers.
     const selectedVariantId = selectedVariantIdFor(data, exerciseDef, day);
     const selectedVariant = exerciseDef ? { id: selectedVariantId, name: variantDisplayName({ selectedVariantId }, exerciseDef) } : null;
-    const hasVariants = !!(exerciseDef?.variants && exerciseDef.variants.length);
-    const history = getExerciseHistory(data.workouts, x.name, { variantId: selectedVariantId, canonicalVariantId: exerciseDef?.id });
-    const isExpanded = expandedExercises.has(x.name);
+    const history = getExerciseHistory(data.workouts, effectiveName, { variantId: selectedVariantId, canonicalVariantId: exerciseDef?.id });
+    const isExpanded = expandedExercises.has(effectiveName);
     // Always live-computed from the last logged entry's raw fields (never trusts a
     // possibly-null stored snapshot) — this is what makes a fully-qualifying session
     // logged before this feature existed (e.g. a historical Hammer Curl PR) surface
@@ -198,7 +212,7 @@ export function renderWorkoutForm(data) {
     // rather than relying on session names, so an exercise already logged this week in a
     // DIFFERENT session (custom or, indirectly, the current one) is flagged here rather
     // than left looking untouched — prevents accidentally repeating it later in the week.
-    const completedElsewhere = exerciseCompletedInCustomSessionThisWeek(data.workouts, x.name);
+    const completedElsewhere = exerciseCompletedInCustomSessionThisWeek(data.workouts, effectiveName);
     const completedElsewhereBadge = (completedElsewhere && completedElsewhere.day !== day)
       ? `<span class="exercise-state-tag tag-progression">Completed in Custom Session</span>` : "";
 
@@ -208,18 +222,24 @@ export function renderWorkoutForm(data) {
     const notePreviewLine = lastNoteEntry
       ? `<p class="small">Last note (${esc(lastNoteEntry.date || "")}${lastNoteEntry.noteCategory ? ` · ${esc(lastNoteEntry.noteCategory.replace(/-/g, " "))}` : ""}): ${esc(lastNoteEntry.notes || lastNoteEntry.formNote)}</p>`
       : "";
-    const importantEntry = mostRecentFlaggedEntry(data.workouts, x.name, "importantNote");
+    const importantEntry = mostRecentFlaggedEntry(data.workouts, effectiveName, "importantNote");
     const importantBanner = importantEntry
       ? `<p class="small important-note-banner">Important (${esc(importantEntry.date || "")}): ${esc(importantEntry.notes || importantEntry.formNote || "")}</p>` : "";
-    const painEntry = mostRecentFlaggedEntry(data.workouts, x.name, "painFlag");
+    const painEntry = mostRecentFlaggedEntry(data.workouts, effectiveName, "painFlag");
     const painBanner = painEntry
       ? `<p class="small pain-note-banner">You previously recorded discomfort on this exercise (${esc(painEntry.date || "")}): ${esc(painEntry.notes || painEntry.formNote || "")}</p>` : "";
 
+    // Corrective Update (Missing Change Dropdown and Full Exercise Library §1-2): Change is
+    // always visible on every eligible node, never gated on whether extra variants exist —
+    // its "More" control is what surfaces the full exercise library regardless.
+    const substitutionBadge = effective.isSubstituted
+      ? `<p class="small important-note-banner">Substituted for this workout only — planned: ${esc(plannedName)}. Sets save under ${esc(effectiveName)}'s own history.</p>` : "";
+
     return `
-    <div class="exercise" data-exercise="${esc(x.name)}" ${isDistanceBased ? `data-distance-based="true" data-track-length="${trackLength}"` : ""}>
+    <div class="exercise" data-exercise="${esc(effectiveName)}" data-planned-exercise="${esc(plannedName)}" data-slot-day="${esc(day)}" data-slot-index="${i}" ${isDistanceBased ? `data-distance-based="true" data-track-length="${trackLength}"` : ""}>
       <div class="exercise-header">
-        <div class="exercise-header-info" data-toggle-guide="${esc(x.name)}">
-          <h3>${i + 1}. ${esc(x.name)}</h3>
+        <div class="exercise-header-info" data-toggle-guide="${esc(effectiveName)}">
+          <h3>${i + 1}. ${esc(effectiveName)}</h3>
           <div class="exercise-state-row">
             <span class="exercise-state-tag tag-active" hidden>Active Exercise</span>
             <span class="exercise-state-tag tag-complete" hidden>Exercise Complete</span>
@@ -227,7 +247,8 @@ export function renderWorkoutForm(data) {
             ${completedElsewhereBadge}
           </div>
           <div class="small">Target: ${esc(x.repRange)} · Last: ${lastDisplay} · Best: ${bestDisplay}</div>
-          ${hasVariants ? `<div class="small">Equipment: <strong>${esc(selectedVariant?.name || exerciseDef.name)}</strong> <button type="button" class="link-button" data-open-variants="${esc(x.name)}">Change / View History</button></div>` : ""}
+          <div class="small">Equipment: <strong>${esc(selectedVariant?.name || exerciseDef?.name || effectiveName)}</strong> ${!dayIsCustom ? `<button type="button" class="link-button" data-open-variants="${esc(effectiveName)}" data-open-variants-index="${i}" data-open-variants-planned="${esc(plannedName)}">Change</button>` : `<button type="button" class="link-button" data-open-variants="${esc(effectiveName)}">Change / View History</button>`}</div>
+          ${substitutionBadge}
           ${recBadge ? `<div class="badge-row">${recBadge}</div>` : ""}
           ${reasonLine}
           ${contextNotesLines}
@@ -235,7 +256,7 @@ export function renderWorkoutForm(data) {
           ${painBanner}
           ${notePreviewLine}
         </div>
-        <button type="button" class="technique-btn" data-toggle-guide="${esc(x.name)}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? "Hide" : "See"} technique guide for ${esc(x.name)}">
+        <button type="button" class="technique-btn" data-toggle-guide="${esc(effectiveName)}" aria-expanded="${isExpanded}" aria-label="${isExpanded ? "Hide" : "See"} technique guide for ${esc(effectiveName)}">
           <span class="technique-btn-icon">${isExpanded ? "▴" : "🎯"}</span>
           <span class="technique-btn-label">${isExpanded ? "Hide Technique" : "See Technique"}</span>
         </button>
@@ -761,6 +782,26 @@ export function saveWorkout() {
       const selectedVariantId = exerciseDef ? selectedVariantIdFor(data, exerciseDef, day) : null;
       const history = getExerciseHistory(data.workouts, name, { variantId: selectedVariantId, canonicalVariantId: exerciseDef?.id });
       const entry = { exerciseId: exerciseDef?.id || null, selectedVariantId, name, ...readEntryFromCard(el), createdAt: now, updatedAt: now };
+
+      // Corrective Update (Missing Change Dropdown and Full Exercise Library §9): a saved
+      // entry retains the routine-slot identity and, when today's exercise differs from the
+      // programmed one, which exercise was planned vs. actually performed — never merged, and
+      // the planned exercise's own history/PRs are never touched by a substituted session.
+      const plannedName = el.dataset.plannedExercise;
+      const slotDay = el.dataset.slotDay;
+      const slotIndex = el.dataset.slotIndex != null && el.dataset.slotIndex !== "" ? Number(el.dataset.slotIndex) : null;
+      if (slotDay && slotIndex != null) {
+        entry.routineSlotId = routineSlotKey(slotDay, slotIndex);
+        const substitution = activeExerciseSubstitution(data, slotDay, slotIndex);
+        if (substitution) {
+          const plannedDef = data.exercises.find(e => e.name === plannedName);
+          entry.plannedExerciseId = plannedDef?.id || null;
+          entry.performedExerciseId = exerciseDef?.id || null;
+          entry.substitutionReason = substitution.reason || "";
+          entry.substitutionSource = substitution.source || "full_library";
+          entry.temporaryOrPermanent = substitution.temporaryOrPermanent || "temporary";
+        }
+      }
       if (exerciseDef?.distanceBased) {
         const trackLength = data.profile?.functionalTrackLengthMetres || 15;
         entry.trackLengthMetres = trackLength;

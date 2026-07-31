@@ -125,6 +125,13 @@ function emptyData() {
     // edits the program template itself — it only changes which variant a slot resolves to
     // when there's no explicit today-selection.
     preferredVariants: {},
+    // Corrective Update: Missing Change Dropdown and Full Exercise Library — a session-only
+    // substitution of which EXERCISE (not just equipment variant) a routine slot uses today,
+    // keyed by a `${day}::${index}` routine-slot approximation (this app has no formal slot-ID
+    // architecture yet). Separate from todaysVariantSelections (which only ever changes
+    // equipment for the SAME exercise) — this changes which exercise's own history/identity
+    // the slot resolves to for the current workout, without touching data.trainingProgram.
+    todaysExerciseSubstitutions: { day: null, substitutions: {} },
     // Priority Physique Allocation (Hypertrophy Intelligence Engine spec Phase 8): a
     // permutation of tier indices into hypertrophy-warnings.js's DEFAULT_PRIORITY_HEAD_ORDER,
     // letting a user reorder the "default superhero priority" tiers to their own physique
@@ -547,6 +554,10 @@ export function migrateData() {
   }
   if (!data.preferredVariants || typeof data.preferredVariants !== "object") {
     data.preferredVariants = {};
+    changed = true;
+  }
+  if (!data.todaysExerciseSubstitutions || typeof data.todaysExerciseSubstitutions !== "object") {
+    data.todaysExerciseSubstitutions = { day: null, substitutions: {} };
     changed = true;
   }
   if (data.physiquePriorityTierOrder === undefined) {
@@ -1056,6 +1067,12 @@ export function importAndMergeData(importedRaw, currentState) {
   merged.todaysVariantSelections = (current.todaysVariantSelections && current.todaysVariantSelections.day)
     ? current.todaysVariantSelections
     : (imported.todaysVariantSelections || { day: null, selections: {} });
+
+  // Same rule as todaysVariantSelections above — a session-only exercise substitution choice,
+  // not historical data.
+  merged.todaysExerciseSubstitutions = (current.todaysExerciseSubstitutions && current.todaysExerciseSubstitutions.day)
+    ? current.todaysExerciseSubstitutions
+    : (imported.todaysExerciseSubstitutions || { day: null, substitutions: {} });
 
   // preferredVariants: persistent per-exercise foreground default. Current device's choices
   // always win per exercise key; an import only backfills exercises the current device has

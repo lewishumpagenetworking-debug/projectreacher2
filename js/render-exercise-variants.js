@@ -5,14 +5,29 @@
 // range — it only records which equipment implementation today's session uses.
 import { $, esc, fmt } from "./dom.js";
 import { getData, saveData, uid } from "./data.js";
-import { allVariantsForExercise, findVariant } from "./program.js";
-import { getExerciseHistory, exerciseProgressionStatus, resolveVariantId, variantUsageContext, exerciseSlotAnalytics, predictNextLoad, previousExercisesInThisPosition } from "./calculations.js";
+import { allVariantsForExercise, findVariant, eid } from "./program.js";
+import { syncActiveSplitDays } from "./training-splits.js";
+import {
+  getExerciseHistory, exerciseProgressionStatus, resolveVariantId, variantUsageContext, exerciseSlotAnalytics, predictNextLoad,
+  previousExercisesInThisPosition, routineSlotKey, activeExerciseSubstitution, duplicateOverlapWarning
+} from "./calculations.js";
 
 const refreshAll = () => window.dispatchEvent(new CustomEvent("reacher:refresh"));
 
 let openExerciseName = null;
 let showCustomForm = false;
 let lastFocusedBeforeModal = null;
+// Corrective Update (Missing Change Dropdown and Full Exercise Library): the routine slot this
+// modal was opened for — day + array index (this app's routine-slot approximation) and the
+// PLANNED (programmed) exercise name, distinct from `openExerciseName` above, which tracks
+// whichever exercise is currently EFFECTIVE for the slot (the plan, or today's substitution).
+let openSlotDay = null;
+let openSlotIndex = null;
+let openPlannedName = null;
+let showFullLibrary = false;
+let libraryQuery = "";
+let libraryEquipmentFilter = "";
+let libraryPerformedFilter = "";
 
 function currentDay() {
   return $("daySelect")?.value || null;
@@ -128,10 +143,102 @@ function customVariantFormHtml(exerciseDef) {
     </div>`;
 }
 
+/**
+ * Corrective Update (Missing Change Dropdown and Full Exercise Library, §2): compatibility
+ * label for a full-library candidate against the routine slot's PLANNED exercise — this app
+ * has no formal slot-contract/rule-directory architecture yet (deferred), so this is a
+ * best-effort, explainable classification from the existing exercise-database metadata, not a
+ * hard block. Never prevents a selection; purely informational.
+ */
+function compatibilityLabel(plannedDef, candidateDef) {
+  if (!plannedDef || !candidateDef) return "Conditional alternative";
+  if (plannedDef.primaryMuscle && plannedDef.primaryMuscle === candidateDef.primaryMuscle && plannedDef.movementPattern === candidateDef.movementPattern) {
+    return "Best match";
+  }
+  const plannedHeads = new Set(Object.entries(plannedDef.muscleHeadContributions || {}).filter(([, w]) => w >= 1).map(([h]) => h));
+  const sharesHead = Object.entries(candidateDef.muscleHeadContributions || {}).some(([h, w]) => w >= 1 && plannedHeads.has(h));
+  if (sharesHead) return "Same target";
+  if (plannedDef.primaryMuscle && plannedDef.primaryMuscle === candidateDef.primaryMuscle) return "Cross-pattern alternative";
+  return "Conditional alternative";
+}
+
+function libraryResultCardHtml(data, plannedDef, candidateDef) {
+  const history = getExerciseHistory(data.workouts, candidateDef.name);
+  const label = compatibilityLabel(plannedDef, candidateDef);
+  const labelClass = { "Best match": "status-on-target", "Same target": "status-on-target", "Cross-pattern alternative": "", "Conditional alternative": "status-under" }[label] || "";
+  return `
+    <div class="history-item">
+      <div class="section-title"><strong>${esc(candidateDef.name)}</strong><span class="badge-row"><span class="badge ${labelClass}">${esc(label)}</span></span></div>
+      <p class="small">${esc(candidateDef.primaryMuscle || "")}${candidateDef.movementPattern ? ` · ${esc(candidateDef.movementPattern)}` : ""}${candidateDef.equipment ? ` · ${esc(candidateDef.equipment)}` : ""}</p>
+      ${history.lastSession
+        ? `<p class="small">Last: ${esc(formatSetLine(history.lastSession))}${history.lastSession.date ? ` · ${esc(history.lastSession.date)}` : ""}</p><p class="small">Best: ${esc(formatSetLine(history.previousBest))}</p>`
+        : `<p class="small">Never performed — no history yet on this exercise.</p>`}
+      ${history.lastSession?.notes ? `<p class="small">Last note: ${esc(history.lastSession.notes)}</p>` : ""}
+      <div class="actions">
+        <button type="button" data-use-for-workout="${esc(candidateDef.name)}">Use for this workout</button>
+        <button type="button" class="secondary" data-replace-in-routine="${esc(candidateDef.name)}">Replace in routine</button>
+      </div>
+    </div>`;
+}
+
+function renderFullLibraryContent(el, data, plannedDef) {
+  const query = libraryQuery.trim().toLowerCase();
+  const equipmentOptions = [...new Set((data.exercises || []).map(e => e.equipment).filter(Boolean))].sort();
+  let results = (data.exercises || []).filter(e => e.active !== false);
+  if (query) {
+    results = results.filter(e => [e.name, e.primaryMuscle, e.movementPattern, e.equipment].some(f => (f || "").toLowerCase().includes(query)));
+  }
+  if (libraryEquipmentFilter) results = results.filter(e => e.equipment === libraryEquipmentFilter);
+  if (libraryPerformedFilter) {
+    results = results.filter(e => {
+      const performed = !!getExerciseHistory(data.workouts, e.name).lastSession;
+      return libraryPerformedFilter === "performed" ? performed : !performed;
+    });
+  }
+  results = [...results].sort((a, b) => {
+    const rank = l => ({ "Best match": 0, "Same target": 1, "Cross-pattern alternative": 2, "Conditional alternative": 3 })[l];
+    return rank(compatibilityLabel(plannedDef, a)) - rank(compatibilityLabel(plannedDef, b)) || a.name.localeCompare(b.name);
+  });
+
+  el.innerHTML = `
+    <div class="library-detail-header">
+      <div>
+        <p class="eyebrow">Full Exercise Library</p>
+        <h2>Browse all exercises</h2>
+      </div>
+      <button type="button" class="close-btn" id="variantSelectorClose" aria-label="Close">✕</button>
+    </div>
+    <p class="small">Every active exercise in the database, not just recommended alternatives for "${esc(openPlannedName)}". Selecting one here changes which exercise this routine slot uses — never adds a new one, and never touches "${esc(openPlannedName)}"'s own history.</p>
+    <div class="form-grid">
+      <label>Search <input type="text" id="libSearchInput" value="${esc(libraryQuery)}" placeholder="name, muscle, equipment..."></label>
+      <label>Equipment
+        <select id="libEquipmentFilter">
+          <option value="">All</option>
+          ${equipmentOptions.map(eq => `<option value="${esc(eq)}" ${eq === libraryEquipmentFilter ? "selected" : ""}>${esc(eq)}</option>`).join("")}
+        </select>
+      </label>
+      <label>History
+        <select id="libPerformedFilter">
+          <option value="" ${!libraryPerformedFilter ? "selected" : ""}>All</option>
+          <option value="performed" ${libraryPerformedFilter === "performed" ? "selected" : ""}>Previously performed</option>
+          <option value="never" ${libraryPerformedFilter === "never" ? "selected" : ""}>Never performed</option>
+        </select>
+      </label>
+    </div>
+    <p class="small">${results.length} exercise${results.length === 1 ? "" : "s"} found.</p>
+    ${results.map(c => libraryResultCardHtml(data, plannedDef, c)).join("")}
+    <button type="button" class="secondary" id="libBackBtn">&larr; Back to recommended alternatives</button>
+  `;
+}
+
 function renderContent() {
   const el = $("variantSelectorContent");
   if (!el || !openExerciseName) return;
   const data = getData();
+  const plannedDef = openPlannedName ? data.exercises.find(e => e.name === openPlannedName) : null;
+
+  if (showFullLibrary) { renderFullLibraryContent(el, data, plannedDef); return; }
+
   const exerciseDef = data.exercises.find(e => e.name === openExerciseName);
   if (!exerciseDef) { closeVariantSelector(); return; }
 
@@ -142,8 +249,10 @@ function renderContent() {
 
   // Gym App Exercise Optionality update (Section 4.4): different EXERCISES that have
   // previously occupied this same routine position, without merging their progression data.
-  const positionIndex = (data.trainingProgram[day] || []).findIndex(e => e.name === openExerciseName);
+  const positionIndex = openSlotIndex != null ? openSlotIndex : (data.trainingProgram[day] || []).findIndex(e => e.name === openExerciseName);
   const previousInPosition = positionIndex >= 0 ? previousExercisesInThisPosition(data.workouts, day, positionIndex, openExerciseName) : [];
+
+  const substitution = (openSlotDay != null && openSlotIndex != null) ? activeExerciseSubstitution(data, openSlotDay, openSlotIndex) : null;
 
   // The variant in effect right now (today's choice, else preferred, else canonical) is
   // moved to the front of the list — the rest keep their existing relative order.
@@ -161,6 +270,12 @@ function renderContent() {
       </div>
       <button type="button" class="close-btn" id="variantSelectorClose" aria-label="Close">✕</button>
     </div>
+    ${substitution ? `
+    <div class="important-note-banner">
+      <strong>Substituted for this workout only.</strong>
+      <p class="small">Planned exercise: ${esc(openPlannedName)}. Sets you log now save under ${esc(substitution.performedExerciseName)}'s own history — ${esc(openPlannedName)}'s history/progression is untouched.</p>
+      <button type="button" class="secondary" id="revertSubstitutionBtn">Revert to planned exercise</button>
+    </div>` : ""}
     <p class="small">Selecting a variant only changes today's equipment for this exercise. The routine, day, exercise order, target muscles, prescribed sets and rep range stay exactly as programmed.</p>
     <p class="small"><strong>Use Today</strong> applies for this session only. <strong>Make Preferred</strong> sets a persistent foreground default for this slot — it never edits the programme, and today's choice always overrides it when both are set.</p>
     ${variants.length > 1 && slotAnalytics?.totalSessions ? `
@@ -181,12 +296,27 @@ function renderContent() {
     ` : ""}
     <button type="button" class="secondary" id="variantSelectorToggleCustom" aria-expanded="${showCustomForm}">${showCustomForm ? "Hide" : "+ Add Custom Variant"}</button>
     ${showCustomForm ? customVariantFormHtml(exerciseDef) : ""}
+    <button type="button" class="secondary" id="libMoreBtn">More &mdash; Browse full exercise library</button>
   `;
 }
 
-export function openVariantSelector(exerciseName) {
+/**
+ * Corrective Update §1: opened from EVERY eligible exercise node's "Change" control, not just
+ * ones with extra equipment variants. `day`/`index` identify the routine slot (this app's
+ * day+array-index slot approximation); `plannedName` is the programmed exercise for that slot,
+ * which may differ from `exerciseName` (the currently EFFECTIVE exercise) when a substitution
+ * is already active.
+ */
+export function openVariantSelector(exerciseName, { day = null, index = null, plannedName = null } = {}) {
   openExerciseName = exerciseName;
+  openSlotDay = day;
+  openSlotIndex = index;
+  openPlannedName = plannedName || exerciseName;
   showCustomForm = false;
+  showFullLibrary = false;
+  libraryQuery = "";
+  libraryEquipmentFilter = "";
+  libraryPerformedFilter = "";
   renderContent();
   lastFocusedBeforeModal = document.activeElement;
   $("variantSelectorBackdrop").hidden = false;
@@ -197,9 +327,91 @@ export function openVariantSelector(exerciseName) {
 export function closeVariantSelector() {
   if (!openExerciseName) return;
   openExerciseName = null;
+  openSlotDay = null;
+  openSlotIndex = null;
+  openPlannedName = null;
+  showFullLibrary = false;
+  libraryQuery = "";
+  libraryEquipmentFilter = "";
+  libraryPerformedFilter = "";
   $("variantSelectorBackdrop").hidden = true;
   $("variantSelectorModal").hidden = true;
   (lastFocusedBeforeModal || document.body)?.focus();
+  refreshAll();
+}
+
+/**
+ * Corrective Update §6-9: session-only substitution — writes to data.todaysExerciseSubstitutions
+ * (never data.trainingProgram), so the planned routine is completely unchanged. Sets logged
+ * after this save under the performed exercise's own name/history, never the planned one's.
+ */
+function useExerciseForWorkout(candidateName) {
+  if (openSlotDay == null || openSlotIndex == null) {
+    alert("Couldn't determine which routine slot this is for — close this and reopen Change from the exercise card.");
+    return;
+  }
+  const data = getData();
+  const existingNames = (data.trainingProgram[openSlotDay] || []).map(e => e.name);
+  const warning = duplicateOverlapWarning(data, existingNames, candidateName, "It has still been used for this workout.");
+  if (!data.todaysExerciseSubstitutions || data.todaysExerciseSubstitutions.day !== openSlotDay) {
+    data.todaysExerciseSubstitutions = { day: openSlotDay, substitutions: {} };
+  }
+  data.todaysExerciseSubstitutions.substitutions[routineSlotKey(openSlotDay, openSlotIndex)] = {
+    performedExerciseName: candidateName,
+    plannedExerciseName: openPlannedName,
+    reason: "",
+    source: "full_library",
+    temporaryOrPermanent: "temporary",
+    selectedAt: new Date().toISOString()
+  };
+  saveData(data);
+  openExerciseName = candidateName;
+  showFullLibrary = false;
+  renderContent();
+  refreshAll();
+  if (warning) alert(warning);
+}
+
+/**
+ * Corrective Update §8: explicit, separate permanent action — rewrites data.trainingProgram
+ * (and re-syncs the active split's stored days, exactly like the Program Editor's own save
+ * flow), and never fires just because a temporary substitution was made. Clears any today-only
+ * substitution for this slot afterward since the plan itself now matches what was substituted.
+ */
+function replaceExerciseInRoutine(candidateName) {
+  if (openSlotDay == null || openSlotIndex == null) return;
+  if (!confirm(`Replace "${openPlannedName}" with "${candidateName}" permanently in this day's programme? Logged history for both exercises stays separate and intact either way.`)) return;
+  const data = getData();
+  const dayExercises = data.trainingProgram[openSlotDay];
+  if (!dayExercises || !dayExercises[openSlotIndex]) return;
+  const existingNames = dayExercises.map(e => e.name);
+  const warning = duplicateOverlapWarning(data, existingNames, candidateName, "It has still been added to the routine.");
+  const candidateDef = data.exercises.find(e => e.name === candidateName);
+  const repRange = candidateDef && candidateDef.repRangeMin != null && candidateDef.repRangeMax != null
+    ? `${candidateDef.repRangeMin}-${candidateDef.repRangeMax}` : dayExercises[openSlotIndex].repRange;
+  dayExercises[openSlotIndex] = { id: eid(candidateName), name: candidateName, repRange, note: dayExercises[openSlotIndex].note || "", sets: dayExercises[openSlotIndex].sets ?? null };
+  if (data.todaysExerciseSubstitutions?.day === openSlotDay) {
+    delete data.todaysExerciseSubstitutions.substitutions[routineSlotKey(openSlotDay, openSlotIndex)];
+  }
+  syncActiveSplitDays(data);
+  saveData(data);
+  openExerciseName = candidateName;
+  openPlannedName = candidateName;
+  showFullLibrary = false;
+  renderContent();
+  refreshAll();
+  if (warning) alert(warning);
+}
+
+function revertSubstitution() {
+  if (openSlotDay == null || openSlotIndex == null) return;
+  const data = getData();
+  if (data.todaysExerciseSubstitutions?.day === openSlotDay) {
+    delete data.todaysExerciseSubstitutions.substitutions[routineSlotKey(openSlotDay, openSlotIndex)];
+    saveData(data);
+  }
+  openExerciseName = openPlannedName;
+  renderContent();
   refreshAll();
 }
 
@@ -283,7 +495,11 @@ function saveCustomVariant() {
 export function setupVariantSelectorEventDelegation() {
   document.addEventListener("click", (e) => {
     const openBtn = e.target.closest("[data-open-variants]");
-    if (openBtn) { openVariantSelector(openBtn.dataset.openVariants); return; }
+    if (openBtn) {
+      const index = openBtn.dataset.openVariantsIndex != null ? Number(openBtn.dataset.openVariantsIndex) : null;
+      openVariantSelector(openBtn.dataset.openVariants, { day: currentDay(), index, plannedName: openBtn.dataset.openVariantsPlanned || openBtn.dataset.openVariants });
+      return;
+    }
 
     if (!openExerciseName) return;
 
@@ -300,6 +516,34 @@ export function setupVariantSelectorEventDelegation() {
 
     if (e.target.closest("#variantSelectorToggleCustom")) { showCustomForm = !showCustomForm; renderContent(); return; }
     if (e.target.closest("#cvSaveBtn")) { saveCustomVariant(); return; }
+
+    // Corrective Update (Missing Change Dropdown and Full Exercise Library)
+    if (e.target.closest("#libMoreBtn")) { showFullLibrary = true; renderContent(); return; }
+    if (e.target.closest("#libBackBtn")) { showFullLibrary = false; renderContent(); return; }
+    if (e.target.closest("#revertSubstitutionBtn")) { revertSubstitution(); return; }
+
+    const useBtn = e.target.closest("[data-use-for-workout]");
+    if (useBtn) { useExerciseForWorkout(useBtn.dataset.useForWorkout); return; }
+
+    const replaceBtn = e.target.closest("[data-replace-in-routine]");
+    if (replaceBtn) { replaceExerciseInRoutine(replaceBtn.dataset.replaceInRoutine); return; }
+  });
+
+  document.addEventListener("input", (e) => {
+    if (!openExerciseName || !showFullLibrary) return;
+    if (e.target.id === "libSearchInput") {
+      libraryQuery = e.target.value;
+      const selectionStart = e.target.selectionStart;
+      renderContent();
+      const refocused = $("libSearchInput");
+      if (refocused) { refocused.focus(); refocused.setSelectionRange(selectionStart, selectionStart); }
+    }
+  });
+
+  document.addEventListener("change", (e) => {
+    if (!openExerciseName || !showFullLibrary) return;
+    if (e.target.id === "libEquipmentFilter") { libraryEquipmentFilter = e.target.value; renderContent(); }
+    if (e.target.id === "libPerformedFilter") { libraryPerformedFilter = e.target.value; renderContent(); }
   });
 
   document.addEventListener("keydown", (e) => {
