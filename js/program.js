@@ -433,7 +433,13 @@ export const EXERCISE_DATABASE = [
   exercise({
     name: "Seated DB Lateral Raise", category: "isolation", primaryMuscle: "side delts", movementPattern: "abduction", equipment: "dumbbell", repRangeMin: 12, repRangeMax: 20, targetRIRSet1: 1, targetRIRSet2: 0, failureRule: "Set 1 0-1 RIR, Set 2 technical failure.", notes: "Strict variation, low momentum, side delt tension over load — improves shoulder-to-waist ratio. Sub: Machine Lateral Raise / Lean-Away Cable Lateral Raise / Strict Cable Lateral Raise.",
     muscleHeadContributions: { lateral_delts: 1.0 },
+    // Gym App Exercise Optionality update: the seated single-arm leaning dumbbell variation
+    // is explicitly required as a lateral-delt option — added here as this slot's own
+    // dumbbell-based variant, listed first.
     variants: [
+      variant({ name: "Seated Single-Arm Leaning Dumbbell Lateral Raise", equipmentType: "dumbbell", loadingType: "free_weight", unilateral: true, techniqueNotes: "Lean away from the working arm to bias the lateral head through a longer effective range." }),
+      variant({ name: "Standing Single-Arm Leaning Dumbbell Lateral Raise", equipmentType: "dumbbell", loadingType: "free_weight", unilateral: true }),
+      variant({ name: "Incline-Bench Lateral Raise", equipmentType: "dumbbell", loadingType: "free_weight" }),
       variant({ name: "Machine Lateral Raise", equipmentType: "selectorised machine", loadingType: "fixed_stack" }),
       variant({ name: "Lean-Away Cable Lateral Raise", equipmentType: "cable", loadingType: "cable" }),
       variant({ name: "Strict Cable Lateral Raise", equipmentType: "cable", loadingType: "cable" })
