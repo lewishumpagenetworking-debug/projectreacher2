@@ -3,6 +3,7 @@ import { DEFAULT_TRAINING_PROGRAM, AESTHETIC_PROTOCOL_V2_PROGRAM, EXERCISE_DATAB
 import { exportAllImagesAsBase64, importImagesFromBase64Map } from "./image-store.js";
 import { exportAllBloodworkFilesAsBase64, importBloodworkFilesFromBase64Map } from "./bloodwork-files.js";
 import { DEFAULT_SESSION_NUTRITION } from "./session-nutrition.js";
+import { classifyMeal } from "./calculations.js";
 
 export const STORAGE_KEY = "projectReacher";
 export const SCHEMA_VERSION = 2;
@@ -296,13 +297,19 @@ export function migrateData() {
     // specifically needs "what the user typed" rather than "the log's calorie field".
     enteredCalories: m.calories ?? null, calculatedCaloriesFromMacros: null,
     sourceType: "custom", isManuallyEdited: m.userCorrected ?? false,
-    originalNutrition: null, loggedNutrition: null, editHistory: []
+    originalNutrition: null, loggedNutrition: null, editHistory: [],
+    // Nutrition System Enhancement — informational-only automatic classification, cached
+    // rather than recomputed on every render. A pre-existing entry saved before this feature
+    // existed gets backfilled once here (from its own already-stored macros, never touching
+    // the macros themselves) so historical meals show tags too without needing to be re-saved.
+    classificationTags: m.classificationTags ?? classifyMeal(m)
   }));
 
   data.savedMeals = data.savedMeals.map(m => withDefaults(m, {
     ingredients: [], fibre: null, micronutrients: {}, notes: "", mealType: null,
     contentHash: null, timesLogged: 0, firstCreatedAt: m.createdAt || null, lastUsedAt: m.createdAt || null,
-    archived: false, favourite: false
+    archived: false, favourite: false,
+    classificationTags: m.classificationTags ?? classifyMeal(m), pinned: false
   }));
 
   data.reviews = data.reviews.map(r => withDefaults(r, {

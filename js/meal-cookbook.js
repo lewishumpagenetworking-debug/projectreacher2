@@ -43,12 +43,48 @@ export function findOrCreateSavedMeal(data, mealData, now = new Date().toISOStri
     fat: mealData.fat || 0, fibre: mealData.fibre || 0, micronutrients: {},
     notes: mealData.notes || "",
     contentHash,
+    // Nutrition System Enhancement: cached at creation time (never recalculated on render) —
+    // the caller computes this from calculations.js's classifyMeal() and passes it through so
+    // a saved meal and the log entry it was created from always carry identical tags.
+    classificationTags: mealData.classificationTags || [],
+    pinned: false,
     timesLogged: 1,
     firstCreatedAt: now, lastUsedAt: now,
     archived: false, favourite: false
   };
   data.savedMeals.push(savedMeal);
   return { savedMeal, isNew: true };
+}
+
+function isClose(a, b, tolPct = 0.12, tolAbs = 5) {
+  if (a == null || b == null) return false;
+  const diff = Math.abs(a - b);
+  return diff <= tolAbs || diff <= Math.max(Math.abs(a), Math.abs(b)) * tolPct;
+}
+
+/**
+ * Nutrition System Enhancement §8 ("Intelligent Meal Suggestions"): a LOOSER match than
+ * computeMealContentHash's exact-duplicate check above — this deliberately does NOT require
+ * identical macros/ingredients, only a close name or close macro profile, so it catches
+ * "basically the same meal" before a near-duplicate catalog entry gets created. An exact
+ * content-hash match is excluded here (that case is already handled silently by
+ * findOrCreateSavedMeal — no prompt needed for something byte-identical).
+ */
+export function findSimilarSavedMeal(data, mealData) {
+  const targetHash = computeMealContentHash(mealData);
+  const normName = normalizeText(mealData.name);
+  let best = null, bestScore = 0;
+  (data.savedMeals || []).forEach(m => {
+    if (m.archived || m.contentHash === targetHash) return;
+    const otherName = normalizeText(m.name);
+    const nameClose = !!normName && !!otherName && (otherName === normName || otherName.includes(normName) || normName.includes(otherName));
+    const macroClose = isClose(m.calories, mealData.calories) && isClose(m.protein, mealData.protein)
+      && isClose(m.carbs, mealData.carbs) && isClose(m.fat, mealData.fat);
+    if (!nameClose && !macroClose) return;
+    const score = (nameClose ? 1 : 0) + (macroClose ? 1 : 0);
+    if (score > bestScore) { bestScore = score; best = m; }
+  });
+  return best;
 }
 
 /** Creates a new daily-log entry referencing a saved meal, without duplicating the catalog record. Snapshot is scaled by servingMultiplier so later edits to the saved meal never retroactively change past logs. */
@@ -65,6 +101,9 @@ export function buildDailyLogEntryFromSavedMeal(savedMeal, servingMultiplier = 1
     fibre: round1((savedMeal.fibre || 0) * scale),
     savedMealId: savedMeal.id,
     servingMultiplier: scale,
+    // A scaled serving keeps the same macro shape, so the cached tags stay valid without
+    // recomputing — a doubled serving of a "High Protein" meal is still "High Protein".
+    classificationTags: savedMeal.classificationTags || [],
     confidenceScore: "High",
     source: "cookbook"
   };
